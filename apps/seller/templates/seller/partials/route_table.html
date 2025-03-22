@@ -1,0 +1,30 @@
+<div class="table-responsive text-nowrap">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody class="table-border-bottom-0">
+            {% for route in routes %}
+            <tr>
+                <td>{{ route.name }}</td>
+                <td>{{ route.code }}</td>
+                <td>{{ route.created_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                    <button class="btn btn-sm btn-icon btn-outline-primary"
+                            hx-get="{% url 'seller:route-edit-form' route.id %}"
+                            hx-target="#editRouteFormContainer"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editRouteModal">
+                        <i class="bx bx-edit-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

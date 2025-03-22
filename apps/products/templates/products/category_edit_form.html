@@ -1,0 +1,35 @@
+<form hx-put="{% url 'products:category-edit' category.id %}"
+      hx-target="#categories-table-container"
+      hx-swap="innerHTML"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      enctype="application/x-www-form-urlencoded">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row">
+            <div class="col mb-3">
+                <label for="nameInput" class="form-label">Category Name</label>
+                <input type="text" 
+                       id="nameInput" 
+                       name="name" 
+                       class="form-control" 
+                       value="{{ category.name }}" 
+                       required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <label for="codeInput" class="form-label">Category Code</label>
+                <input type="text" 
+                       id="codeInput" 
+                       name="code" 
+                       class="form-control" 
+                       value="{{ category.code }}" 
+                       required>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Update Category</button>
+    </div>
+</form>

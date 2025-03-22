@@ -1,0 +1,131 @@
+<div class="modal-body">
+    <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <h6>Price Plan: {{ price_plan.name }}</h6>
+            <button class="btn btn-primary btn-sm"
+                    hx-get="{% url 'products:price-plan-add-price' price_plan.id %}"
+                    hx-target="#addPriceFormContainer">
+                <i class="bx bx-plus me-1"></i>Add Price
+            </button>
+        </div>
+    </div>
+
+    <!-- Add Price Form Container -->
+    <div id="addPriceFormContainer"></div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered" id="prices-table">
+            <thead>
+                <tr>
+                    <th>Product Code</th>
+                    <th>Product Name</th>
+                    <th>Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for price in product_prices %}
+                <tr id="price-row-{{ price.id }}">
+                    <td>{{ price.product.code }}</td>
+                    <td>{{ price.product.name }}</td>
+                    <td class="price-cell">
+                        <span class="price-display">{{ price.price }}</span>
+                        <input type="number" 
+                               class="form-control price-edit d-none" 
+                               name="value"
+                               value="{{ price.price }}"
+                               step="0.01"
+                               data-original-value="{{ price.price }}"
+                               hx-put="{% url 'products:price-plan-update-price' price_plan.id price.id %}"
+                               hx-target=".price-cell"
+                               hx-swap="innerHTML">
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-icon btn-outline-primary me-1 edit-price-btn"
+                                onclick="togglePriceEdit(this)">
+                            <i class="bx bx-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-icon btn-outline-danger"
+                                hx-delete="{% url 'products:price-plan-delete-price' price_plan.id price.id %}"
+                                hx-confirm="Are you sure you want to delete this price?"
+                                hx-target="#price-row-{{ price.id }}"
+                                hx-swap="outerHTML">
+                            <i class="bx bx-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .price-edit {
+        width: 150px;
+    }
+    .edit-actions {
+        white-space: nowrap;
+    }
+    .price-cell {
+        min-width: 150px;
+    }
+</style>
+
+<script>
+function togglePriceEdit(button) {
+    const row = button.closest('tr');
+    const priceCell = row.querySelector('.price-cell');
+    const display = priceCell.querySelector('.price-display');
+    const input = priceCell.querySelector('.price-edit');
+    const icon = button.querySelector('i');
+    
+    if (display.classList.contains('d-none')) {
+        // If already in edit mode, save the changes
+        input.dispatchEvent(new Event('change'));
+        icon.classList.replace('bx-save', 'bx-edit');
+    } else {
+        // Enter edit mode
+        display.classList.add('d-none');
+        input.classList.remove('d-none');
+        input.focus();
+        input.select();
+        icon.classList.replace('bx-edit', 'bx-save');
+    }
+}
+
+// Handle Enter key press
+document.addEventListener('keyup', function(event) {
+    if (event.key === 'Enter' && event.target.classList.contains('price-edit')) {
+        const row = event.target.closest('tr');
+        const editButton = row.querySelector('.edit-price-btn');
+        const icon = editButton.querySelector('i');
+        icon.classList.replace('bx-save', 'bx-edit');
+        event.target.dispatchEvent(new Event('change'));
+    }
+});
+
+// Handle Escape key to cancel editing
+document.addEventListener('keyup', function(event) {
+    if (event.key === 'Escape' && event.target.classList.contains('price-edit')) {
+        const row = event.target.closest('tr');
+        const priceCell = row.querySelector('.price-cell');
+        const display = priceCell.querySelector('.price-display');
+        const input = event.target;
+        const editButton = row.querySelector('.edit-price-btn');
+        const icon = editButton.querySelector('i');
+        
+        input.value = input.dataset.originalValue;
+        display.classList.remove('d-none');
+        input.classList.add('d-none');
+        icon.classList.replace('bx-save', 'bx-edit');
+    }
+});
+
+// Prevent form submission on Enter key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter' && event.target.classList.contains('price-edit')) {
+        event.preventDefault();
+    }
+});
+</script>

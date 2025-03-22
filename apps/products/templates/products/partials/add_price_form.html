@@ -1,0 +1,35 @@
+<div class="card mb-3">
+    <div class="card-body">
+        <form hx-post="{% url 'products:price-plan-add-price' price_plan.id %}"
+              hx-target="#prices-table tbody"
+              hx-swap="beforeend">
+            {% csrf_token %}
+            <div class="row">
+                <div class="col-md-5">
+                    <select name="product" class="form-select" required>
+                        <option value="">Select Product</option>
+                        {% for product in products %}
+                        <option value="{{ product.id }}">{{ product.code }} - {{ product.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="number" 
+                           name="price" 
+                           class="form-control" 
+                           placeholder="Enter price"
+                           step="0.01" 
+                           required>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary">Add</button>
+                    <button type="button" 
+                            class="btn btn-outline-secondary"
+                            onclick="this.closest('.card').remove()">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

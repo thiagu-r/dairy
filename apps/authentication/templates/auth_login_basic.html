@@ -1,0 +1,65 @@
+{% extends "layout/layout_blank.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="authentication-wrapper authentication-basic container-p-y">
+    <div class="authentication-inner">
+      <!-- Login -->
+      <div class="card">
+        <div class="card-body">
+          <h4 class="mb-2">Welcome to {{ app_name|default:"Our App" }}! 👋</h4>
+          <p class="mb-4">Please sign-in to your account</p>
+
+          <form id="loginForm" class="mb-3" method="POST" action="{% url 'auth-login-basic' %}">
+            {% csrf_token %}
+            {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
+
+            <div class="mb-3">
+              <label for="id_username" class="form-label">Username</label>
+              <input type="text" 
+                     class="form-control" 
+                     id="id_username" 
+                     name="username"
+                     placeholder="Enter your username"
+                     autofocus>
+            </div>
+            <div class="mb-3 form-password-toggle">
+              <div class="d-flex justify-content-between">
+                <label class="form-label" for="id_password">Password</label>
+                <a href="{% url 'auth-forgot-password-basic' %}">
+                  <small>Forgot Password?</small>
+                </a>
+              </div>
+              <div class="input-group input-group-merge">
+                <input type="password" 
+                       class="form-control" 
+                       id="id_password"
+                       name="password"
+                       placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;">
+              </div>
+            </div>
+            {% if form.errors %}
+            <div class="alert alert-danger">
+              Invalid username or password
+            </div>
+            {% endif %}
+            <div class="mb-3">
+              <button class="btn btn-primary d-grid w-100" type="submit">Sign in</button>
+            </div>
+          </form>
+
+          <p class="text-center">
+            <span>New on our platform?</span>
+            <a href="{% url 'auth-register-basic' %}">
+              <span>Create an account</span>
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

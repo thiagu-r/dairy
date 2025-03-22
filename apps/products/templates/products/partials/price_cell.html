@@ -1,0 +1,11 @@
+
+<span class="price-display">{{ price.price }}</span>
+<input type="number" 
+       class="form-control price-edit d-none" 
+       name="value"
+       value="{{ price.price }}"
+       step="0.01"
+       data-original-value="{{ price.price }}"
+       hx-put="{% url 'products:price-plan-update-price' price.price_plan.id price.id %}"
+       hx-target="closest .price-cell"
+       hx-swap="innerHTML">

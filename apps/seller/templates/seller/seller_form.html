@@ -1,0 +1,47 @@
+<form hx-post="{% url 'seller:seller-create' %}"
+      hx-target="#sellers-table-container"
+      hx-swap="innerHTML"
+      hx-trigger="submit">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="firstNameInput" class="form-label">First Name</label>
+                <input type="text" id="firstNameInput" name="first_name" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="lastNameInput" class="form-label">Last Name</label>
+                <input type="text" id="lastNameInput" name="last_name" class="form-control" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="mobileInput" class="form-label">Mobile Number</label>
+                <input type="text" id="mobileInput" name="mobileno" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="routeSelect" class="form-label">Route</label>
+                <select id="routeSelect" name="route" class="form-select" required>
+                    <option value="">Select Route</option>
+                    {% for route in routes %}
+                    <option value="{{ route.id }}">{{ route.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="storeNameInput" class="form-label">Store Name</label>
+                <input type="text" id="storeNameInput" name="store_name" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="storeAddressInput" class="form-label">Store Address</label>
+                <textarea id="storeAddressInput" name="store_address" class="form-control" required></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Create Seller</button>
+    </div>
+</form>

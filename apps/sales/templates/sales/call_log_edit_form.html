@@ -1,0 +1,51 @@
+<form hx-put="{% url 'sales:call-log-edit' call_log.id %}"
+      hx-target="#call-logs-table-container"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="sellerSelect" class="form-label">Seller</label>
+                <select id="sellerSelect" name="seller" class="form-select" required>
+                    {% for seller in sellers %}
+                    <option value="{{ seller.id }}" {% if seller.id == call_log.seller.id %}selected{% endif %}>
+                        {{ seller.full_name }} ({{ seller.store_name }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="callDateInput" class="form-label">Call Date</label>
+                <input type="date" id="callDateInput" name="call_date" class="form-control" 
+                       value="{{ call_log.call_date|date:'Y-m-d' }}" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="statusSelect" class="form-label">Status</label>
+                <select id="statusSelect" name="status" class="form-select" required>
+                    {% for status_value, status_label in call_log.CALL_STATUS %}
+                    <option value="{{ status_value }}" {% if status_value == call_log.status %}selected{% endif %}>
+                        {{ status_label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="nextCallDateInput" class="form-label">Next Call Date</label>
+                <input type="date" id="nextCallDateInput" name="next_call_date" class="form-control" 
+                       value="{{ call_log.next_call_date|date:'Y-m-d'|default:'' }}">
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 mb-3">
+                <label for="notesInput" class="form-label">Notes</label>
+                <textarea id="notesInput" name="notes" class="form-control" rows="3">{{ call_log.notes|default:'' }}</textarea>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+    </div>
+</form>

@@ -1,0 +1,757 @@
+{% extends layout_path %}
+{% load static %}
+{% comment %} this is the working version now{% endcomment %}
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Sales Orders List</h5>
+                    <button type="button" 
+                            class="btn btn-primary" 
+                            data-bs-toggle="modal"
+                            data-bs-target="#createOrderModal">
+                        <i class="bx bx-plus me-1"></i>
+                        Create New Order
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <select class="form-select" name="route" id="routeFilter">
+                                <option value="">All Routes</option>
+                                {% for route in routes %}
+                                <option value="{{ route.id }}">{{ route.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" name="status" id="statusFilter">
+                                <option value="">All Status</option>
+                                {% for status in status_choices %}
+                                <option value="{{ status.0 }}">{{ status.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date" class="form-control" name="delivery_date" id="deliveryDateFilter">
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary" id="filterBtn">
+                                Filter
+                            </button>
+                            <button class="btn btn-secondary" id="resetBtn">
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Table Container -->
+                    <div id="tableContainer">
+                        {% include 'sales/partials/sales_order_table.html' %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="createOrderModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Sales Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="salesOrderForm">
+                    {% csrf_token %}
+                    
+                    <!-- Route Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Route</label>
+                        <select class="form-select" id="routeSelect" name="route" required>
+                            <option value="">Select Route</option>
+                            {% for route in routes %}
+                                <option value="{{ route.id }}">{{ route.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Seller Selection -->
+                    <div class="mb-3">
+                        <label class="form-label">Seller</label>
+                        <input list="sellerList" 
+                               class="form-select" 
+                               id="sellerSelect" 
+                               name="seller" 
+                               placeholder="Search and select seller..."
+                               required>
+                        <datalist id="sellerList">
+                            <option value="">Select a seller</option>
+                        </datalist>
+                    </div>
+
+                    <!-- Delivery Date -->
+                    <div class="mb-3">
+                        <label class="form-label">Delivery Date</label>
+                        <input type="date" class="form-control" id="deliveryDate" name="delivery_date" required>
+                    </div>
+
+                    <!-- Order Items Section -->
+                    <div id="orderItemsSection" style="display: none;">
+                        <h6>Add Products</h6>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="productSelect" 
+                                       list="productList" 
+                                       placeholder="Search for a product">
+                                <datalist id="productList"></datalist>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control" id="unitPrice" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <input type="number" class="form-control" id="quantity" placeholder="Qty">
+                            </div>
+                            <div class="col-md-2">
+                                <input type="text" class="form-control" id="totalPrice" readonly>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="button" class="btn btn-primary" id="addItemBtn">Add</button>
+                            </div>
+                        </div>
+
+                        <!-- Order Items Table -->
+                        <table id="orderItemsTable" class="table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Unit Price</th>
+                                    <th>Quantity</th>
+                                    <th>Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Save Order</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Declare global variables and functions
+let orderItems = [];
+let availableProducts = [];
+let existingOrderId = null;
+
+function removeOrderItem(index) {
+    if (confirm('Are you sure you want to remove this item?')) {
+        orderItems.splice(index, 1);
+        updateOrderItemsTable();
+        updateAvailableProducts();
+    }
+}
+
+function updateOrderItemsTable() {
+    const tbody = document.querySelector('#orderItemsTable tbody');
+    tbody.innerHTML = '';
+    
+    orderItems.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.product_name}</td>
+            <td>${parseFloat(item.unit_price).toFixed(2)}</td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <input type="number" 
+                           class="form-control form-control-sm quantity-input"
+                           value="${item.quantity}"
+                           data-original="${item.quantity}"
+                           data-index="${index}"
+                           min="0.001"
+                           step="0.001"
+                           style="width: 80px;">
+                    <button class="btn btn-sm btn-success save-quantity" 
+                            data-index="${index}" 
+                            style="display: none;">
+                        <i class="fas fa-check"></i>
+                    </button>
+                </div>
+            </td>
+            <td>${parseFloat(item.total).toFixed(2)}</td>
+            <td>
+                <button type="button" class="btn btn-danger btn-sm" 
+                        onclick="removeOrderItem(${index})">
+                    <i class="fas fa-trash"></i> Remove
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // Add event listeners for quantity inputs
+    document.querySelectorAll('.quantity-input').forEach(input => {
+        input.addEventListener('input', function() {
+            const index = this.dataset.index;
+            const originalValue = this.dataset.original;
+            const saveBtn = this.parentElement.querySelector('.save-quantity');
+            
+            if (this.value !== originalValue) {
+                saveBtn.style.display = 'inline-block';
+            } else {
+                saveBtn.style.display = 'none';
+            }
+        });
+    });
+
+    // Add event listeners for save buttons
+    document.querySelectorAll('.save-quantity').forEach(button => {
+        button.addEventListener('click', function() {
+            const index = this.dataset.index;
+            const input = this.parentElement.querySelector('.quantity-input');
+            const newQuantity = parseFloat(input.value);
+            
+            if (newQuantity <= 0) {
+                alert('Quantity must be greater than 0');
+                input.value = input.dataset.original;
+                this.style.display = 'none';
+                return;
+            }
+
+            orderItems[index].quantity = newQuantity;
+            orderItems[index].total = newQuantity * orderItems[index].unit_price;
+            input.dataset.original = newQuantity;
+            this.style.display = 'none';
+            updateOrderItemsTable();
+        });
+    });
+}
+
+function updateAvailableProducts() {
+    const productList = document.getElementById('productList');
+    productList.innerHTML = '';
+    
+    const usedProductIds = orderItems.map(item => parseInt(item.product_id));
+    const availableOptions = availableProducts.filter(p => !usedProductIds.includes(p.id));
+    
+    availableOptions.forEach(product => {
+        const option = document.createElement('option');
+        option.value = `${product.code} - ${product.name}`;
+        option.setAttribute('data-product-id', product.id);
+        productList.appendChild(option);
+    });
+}
+
+// Function to load available products
+function loadAvailableProducts() {
+    fetch('/sales/get-available-products/')
+        .then(response => response.json())
+        .then(products => {
+            availableProducts = products;
+            updateAvailableProducts();
+        })
+        .catch(error => console.error('Error loading products:', error));
+}
+
+// Function to update product list based on search
+function filterProducts(searchTerm) {
+    const productList = document.getElementById('productList');
+    productList.innerHTML = '';
+    
+    const usedProductIds = orderItems.map(item => parseInt(item.product_id));
+    const filteredProducts = availableProducts.filter(product => 
+        (!usedProductIds.includes(product.id)) && 
+        (product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+         product.code.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    filteredProducts.forEach(product => {
+        const option = document.createElement('option');
+        option.value = `${product.code} - ${product.name}`;
+        option.setAttribute('data-product-id', product.id);
+        productList.appendChild(option);
+    });
+}
+
+// Single event handler for product selection
+document.getElementById('productSelect').addEventListener('input', function(e) {
+    const searchTerm = this.value;
+    filterProducts(searchTerm);
+
+    // Check if this is an exact match with an option
+    const matchingProduct = availableProducts.find(product => 
+        `${product.code} - ${product.name}` === searchTerm
+    );
+
+    if (matchingProduct) {
+        // We found an exact match, fetch the price
+        const productId = matchingProduct.id;
+        this.dataset.productId = productId;
+
+        // Fetch price for the selected product
+        fetch(`/sales/get-product-price/?product_id=${productId}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('unitPrice').value = data.price;
+                calculateTotal();
+            })
+            .catch(error => {
+                console.error('Error fetching price:', error);
+            });
+    }
+});
+
+function calculateTotal() {
+    const unitPrice = document.getElementById('unitPrice').value;
+    const quantity = document.getElementById('quantity').value;
+    const total = (parseFloat(unitPrice) * parseFloat(quantity)) || 0;
+    document.getElementById('totalPrice').value = total.toFixed(2);
+}
+
+// Reset all form data
+function resetForm() {
+    // Reset form fields
+    const form = document.getElementById('salesOrderForm');
+    form.reset();
+    
+    // Reset selects
+    const sellerSelect = document.getElementById('sellerSelect');
+    sellerSelect.innerHTML = '<option value="">Select Seller</option>';
+    sellerSelect.disabled = true;
+    
+    // Reset order items
+    orderItems = [];
+    existingOrderId = null;
+    
+    // Reset the table
+    updateOrderItemsTable();
+    
+    // Reset submit button text
+    document.querySelector('button[type="submit"]').textContent = 'Save Order';
+    
+    // Hide order items section if it exists
+    const orderItemsSection = document.getElementById('orderItemsSection');
+    if (orderItemsSection) {
+        orderItemsSection.style.display = 'none';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const routeSelect = document.getElementById('routeSelect');
+    const sellerSelect = document.getElementById('sellerSelect');
+    const deliveryDate = document.getElementById('deliveryDate');
+    const productSelect = document.getElementById('productSelect');
+    const unitPrice = document.getElementById('unitPrice');
+    const quantity = document.getElementById('quantity');
+    const totalPrice = document.getElementById('totalPrice');
+    const addItemBtn = document.getElementById('addItemBtn');
+    const orderItemsSection = document.getElementById('orderItemsSection');
+    
+    // Reset form when modal is closed
+    const modal = document.getElementById('createOrderModal');
+    modal.addEventListener('hidden.bs.modal', function () {
+        resetForm();
+    });
+
+    // Handle route selection
+    routeSelect.addEventListener('change', function() {
+        const routeId = this.value;
+        const sellerSelect = document.getElementById('sellerSelect');
+        const sellerList = document.getElementById('sellerList');
+        
+        sellerSelect.value = '';
+        sellerSelect.disabled = !routeId;
+        
+        // Reset order items when route changes
+        orderItems = [];
+        existingOrderId = null;
+        updateOrderItemsTable();
+        
+        if (routeId) {
+            fetch(`/get-sellers-by-route/?route=${routeId}`)
+                .then(response => response.text())
+                .then(html => {
+                    sellerList.innerHTML = html;
+                    sellerSelect.disabled = false;
+                });
+        } else {
+            sellerList.innerHTML = '<option value="">Select a seller</option>';
+        }
+    });
+
+    // Reset form when modal is opened
+    document.getElementById('createOrderModal').addEventListener('show.bs.modal', function () {
+        const form = document.getElementById('salesOrderForm');
+        form.reset();
+        orderItems = [];
+        existingOrderId = null;
+        updateOrderItemsTable();
+        
+        const sellerSelect = document.getElementById('sellerSelect');
+        const sellerList = document.getElementById('sellerList');
+        const orderItemsSection = document.getElementById('orderItemsSection');
+        
+        sellerSelect.value = '';
+        sellerSelect.disabled = true;
+        sellerList.innerHTML = '<option value="">Select a seller</option>';
+        orderItemsSection.style.display = 'none';
+        
+        document.querySelector('button[type="submit"]').textContent = 'Save Order';
+    });
+
+    // Handle seller selection
+    document.getElementById('sellerSelect').addEventListener('input', function(e) {
+        const datalist = document.getElementById('sellerList');
+        const options = datalist.getElementsByTagName('option');
+        
+        for (let option of options) {
+            if (option.value === this.value) {
+                const displayText = option.textContent;
+                this.value = displayText;
+                this.dataset.sellerId = option.value;
+                checkExistingOrder();
+                break;
+            }
+        }
+    });
+
+    function checkExistingOrder() {
+        const sellerSelect = document.getElementById('sellerSelect');
+        const sellerId = sellerSelect.dataset.sellerId;
+        const deliveryDate = document.getElementById('deliveryDate').value;
+        const orderItemsSection = document.getElementById('orderItemsSection');
+        
+        if (sellerId && deliveryDate) {
+            fetch(`/check-existing-order/?seller_id=${sellerId}&delivery_date=${deliveryDate}`)
+                .then(response => response.json())
+                .then(data => {
+                    orderItemsSection.style.display = 'block';
+                    existingOrderId = data.order_id;
+                    
+                    if (data.is_edit) {
+                        orderItems = data.items.map(item => ({
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            quantity: parseFloat(item.quantity),
+                            unit_price: parseFloat(item.unit_price),
+                            total: parseFloat(item.unit_price) * parseFloat(item.quantity)
+                        }));
+                        document.querySelector('button[type="submit"]').textContent = 'Update Order';
+                    } else {
+                        orderItems = [];
+                        document.querySelector('button[type="submit"]').textContent = 'Save Order';
+                    }
+                    
+                    updateOrderItemsTable();
+                    loadAvailableProducts();
+                })
+                .catch(error => {
+                    console.error('Error checking existing order:', error);
+                    alert('Error checking existing order');
+                });
+        } else {
+            orderItemsSection.style.display = 'none';
+        }
+    }
+
+    // Add delivery date change event
+    document.getElementById('deliveryDate').addEventListener('change', checkExistingOrder);
+
+    // Load product price when product is selected
+    document.getElementById('productSelect').addEventListener('input', function(e) {
+        const searchTerm = this.value;
+        filterProducts(searchTerm);
+
+        // Find matching option and get its product ID
+        const productList = document.getElementById('productList');
+        const options = productList.getElementsByTagName('option');
+        
+        for (let option of options) {
+            if (option.value === searchTerm) {
+                const productId = option.getAttribute('data-product-id');
+                console.log('Selected product ID:', productId); // Debug log
+                
+                // Store the ID and fetch price
+                this.dataset.productId = productId;
+                
+                fetch(`/sales/get-product-price/?product_id=${productId}`)
+                    .then(response => {
+                        console.log('Price response:', response); // Debug log
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Price data:', data); // Debug log
+                        document.getElementById('unitPrice').value = data.price;
+                        calculateTotal();
+                    })
+                    .catch(error => {
+                        console.error('Error fetching product price:', error);
+                    });
+                break;
+            }
+        }
+    });
+
+    // Calculate total when quantity changes
+    function calculateTotal() {
+        const unitPrice = document.getElementById('unitPrice').value;
+        const quantity = document.getElementById('quantity').value;
+        const total = (parseFloat(unitPrice) * parseFloat(quantity)) || 0;
+        document.getElementById('totalPrice').value = total.toFixed(2);
+    }
+
+    // Add item to order
+    addItemBtn.addEventListener('click', function() {
+        const productSelect = document.getElementById('productSelect');
+        const productId = productSelect.dataset.productId;
+        const productName = productSelect.value;
+        const price = parseFloat(unitPrice.value);
+        const qty = parseFloat(quantity.value);
+
+        if (!productId || !qty || !price) {
+            alert('Please fill all required fields');
+            return;
+        }
+
+        // Check if product already exists in order
+        const existingItemIndex = orderItems.findIndex(item => item.product_id === productId);
+        if (existingItemIndex !== -1) {
+            if (confirm('This product is already in the order. Do you want to update its quantity?')) {
+                const newQty = orderItems[existingItemIndex].quantity + qty;
+                updateItemQuantity(existingItemIndex, newQty);
+            }
+        } else {
+            orderItems.push({
+                product_id: productId,
+                product_name: productName,
+                unit_price: price,
+                quantity: qty,
+                total: price * qty
+            });
+        }
+
+        updateOrderItemsTable();
+        updateAvailableProducts();
+        resetProductForm();
+    });
+
+    function loadAvailableProducts() {
+        fetch('/get-available-products/')
+            .then(response => response.json())
+            .then(data => {
+                availableProducts = data;
+                updateAvailableProducts();
+            });
+    }
+
+    function resetProductForm() {
+        productSelect.value = '';
+        unitPrice.value = '';
+        quantity.value = '';
+        totalPrice.value = '';
+    }
+
+    // Form submission
+    document.getElementById('salesOrderForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const sellerSelect = document.getElementById('sellerSelect');
+        
+        // Replace the seller value with the actual ID from data attribute
+        formData.delete('seller');  // Remove the display text
+        formData.append('seller', sellerSelect.dataset.sellerId);  // Add the actual ID
+        
+        // Convert orderItems to a string
+        const itemsJson = JSON.stringify(orderItems);
+        formData.append('items', itemsJson);
+
+        // Determine the URL and method based on whether we're editing or creating
+        const url = existingOrderId 
+            ? `/orders/${existingOrderId}/update/`
+            : '/orders/create/';
+        
+        const method = existingOrderId ? 'PUT' : 'POST';
+
+        // For PUT requests, we need to send JSON data
+        const fetchOptions = {
+            method: method,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        };
+
+        if (method === 'PUT') {
+            // For PUT, send JSON data
+            fetchOptions.headers['Content-Type'] = 'application/json';
+            fetchOptions.body = JSON.stringify({
+                seller_id: sellerSelect.dataset.sellerId,  // Use the stored ID here
+                delivery_date: formData.get('delivery_date'),
+                status: formData.get('status'),
+                items: orderItems
+            });
+        } else {
+            // For POST, send FormData
+            fetchOptions.body = formData;
+        }
+
+        fetch(url, fetchOptions)
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    return response.text().then(error => {
+                        throw new Error(error);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred: ' + error.message);
+            });
+    });
+});
+
+// Add function to update item quantity
+function updateItemQuantity(index, newQuantity) {
+    const qty = parseFloat(newQuantity);
+    if (qty <= 0) {
+        alert('Quantity must be greater than 0');
+        updateOrderItemsTable(); // Reset to previous value
+        return;
+    }
+    
+    orderItems[index].quantity = qty;
+    orderItems[index].total = qty * orderItems[index].unit_price;
+    updateOrderItemsTable();
+}
+
+// Product search functionality
+function loadAvailableProducts() {
+    fetch('/sales/get-available-products/')
+        .then(response => response.json())
+        .then(products => {
+            window.availableProducts = products;
+            updateProductDatalist('');
+        })
+        .catch(error => console.error('Error loading products:', error));
+}
+
+function updateProductDatalist(searchTerm) {
+    const productList = document.getElementById('productList');
+    productList.innerHTML = '';
+    
+    if (!window.availableProducts) return;
+    
+    const filteredProducts = window.availableProducts.filter(product => 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.code.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    filteredProducts.forEach(product => {
+        const option = document.createElement('option');
+        option.value = `${product.code} - ${product.name}`;
+        option.setAttribute('data-product-id', product.id);
+        productList.appendChild(option);
+    });
+}
+
+// Add product search input handler
+document.getElementById('productSelect').addEventListener('input', function(e) {
+    const searchTerm = this.value;
+    filterProducts(searchTerm);
+
+    const productList = document.getElementById('productList');
+    const options = productList.getElementsByTagName('option');
+    
+    for (let option of options) {
+        if (option.value === searchTerm) {
+            const productId = option.getAttribute('data-product-id');
+            this.dataset.productId = productId;  // Store the ID in the dataset
+            
+            // Trigger the change event to load the price
+            this.dispatchEvent(new Event('change'));
+            break;
+        }
+    }
+});
+
+// Add this event listener for when a product is selected from the datalist
+document.getElementById('productSelect').addEventListener('change', function() {
+    const productId = this.dataset.productId;
+    if (productId) {
+        fetch(`/get-product-price/?product_id=${productId}`)  // Changed from /sales/get-product-price/
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('unitPrice').value = data.price;
+                calculateTotal();
+            })
+            .catch(error => console.error('Error fetching price:', error));
+    }
+});
+
+// Load products when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadAvailableProducts();
+});
+</script>
+{% endblock %}
+
+{% block pageJs %}
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+<script>
+    // Handle modal events
+    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+        if (evt.target.id === 'modalContent') {
+            const modal = new bootstrap.Modal(document.getElementById('formModal'));
+            modal.show();
+        }
+        
+        if (evt.detail.xhr.getResponseHeader('HX-Trigger') === 'closeModal') {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('formModal'));
+            if (modal) {
+                modal.hide();
+            }
+        }
+    });
+
+    // Handle filters
+    document.getElementById('filterBtn').addEventListener('click', function() {
+        const route = document.getElementById('routeFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const deliveryDate = document.getElementById('deliveryDateFilter').value;
+        
+        const url = new URL(window.location.href);
+        if (route) url.searchParams.set('route', route);
+        if (status) url.searchParams.set('status', status);
+        if (deliveryDate) url.searchParams.set('delivery_date', deliveryDate);
+        
+        window.location.href = url.toString();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', function() {
+        window.location.href = window.location.pathname;
+    });
+</script>
+{% endblock %}

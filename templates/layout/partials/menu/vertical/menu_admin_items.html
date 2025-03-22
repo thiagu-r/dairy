@@ -1,0 +1,28 @@
+<!-- Layouts -->
+<li class="menu-item {% if '/layouts/' in request.path  %}active open{% endif %}">
+  <a href="javascript:void(0);" class="menu-link menu-toggle">
+    <i class="menu-icon tf-icons bx bx-layout"></i>
+    <div class="text-truncate" data-i18n="Layouts">Layouts</div>
+  </a>
+  <ul class="menu-sub">
+    <li class="menu-item {% if '/without_menu/' in request.path %}active{% endif %}">
+      <a href="{% url 'layouts-without-menu' %}" class="menu-link">
+        <div class="text-truncate" data-i18n="Without menu">Without menu</div>
+      </a>
+    </li>
+    <!-- ... other layout menu items ... -->
+  </ul>
+</li>
+
+<!-- Forms -->
+<li class="menu-item {% if '/forms/' in request.path %}active open{% endif %}">
+  <a href="javascript:void(0)" class="menu-link menu-toggle">
+    <i class="menu-icon tf-icons bx bx-detail"></i>
+    <div class="text-truncate" data-i18n="Form Elements">Form Elements</div>
+  </a>
+  <ul class="menu-sub">
+    <!-- ... form menu items ... -->
+  </ul>
+</li>
+
+<!-- ... other admin menu items ... -->

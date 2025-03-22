@@ -1,0 +1,100 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block title %}Sellers List{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Sellers List</h5>
+        <button type="button" 
+                class="btn btn-primary" 
+                data-bs-toggle="modal" 
+                data-bs-target="#createSellerModal"
+                hx-get="{% url 'seller:seller-create' %}"
+                hx-target="#sellerFormContainer">
+            <i class="bx bx-plus me-1"></i>
+            Add New Seller
+        </button>
+    </div>
+    <div class="card-body">
+        <div id="sellers-table-container">
+            {% include 'seller/partials/seller_table.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Seller Modal -->
+<div class="modal fade" id="createSellerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Seller</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="sellerFormContainer">
+                <!-- Will be populated via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Seller Modal -->
+<div class="modal fade" id="editSellerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Seller</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="editSellerFormContainer">
+                <!-- Will be populated via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+<script>
+    document.body.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+
+    document.body.addEventListener('htmx:afterSwap', (event) => {
+        // Re-initialize Bootstrap components after HTMX updates
+        if (typeof bootstrap !== 'undefined') {
+            // Re-initialize modals
+            var modals = document.querySelectorAll('[data-bs-toggle="modal"]');
+            modals.forEach(function(modal) {
+                new bootstrap.Modal(modal);
+            });
+            
+            // Re-initialize dropdowns
+            var dropdowns = document.querySelectorAll('[data-bs-toggle="dropdown"]');
+            dropdowns.forEach(function(dropdown) {
+                new bootstrap.Dropdown(dropdown);
+            });
+        }
+    });
+
+    htmx.on('closeModal', (event) => {
+        const createModal = bootstrap.Modal.getInstance(document.getElementById('createSellerModal'));
+        const editModal = bootstrap.Modal.getInstance(document.getElementById('editSellerModal'));
+        if (createModal) {
+            createModal.hide();
+        }
+        if (editModal) {
+            editModal.hide();
+        }
+        // Re-enable clicking on the page
+        document.body.classList.remove('modal-open');
+        const modalBackdrop = document.querySelector('.modal-backdrop');
+        if (modalBackdrop) {
+            modalBackdrop.remove();
+        }
+    });
+</script>
+{% endblock %}

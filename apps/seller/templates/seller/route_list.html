@@ -1,0 +1,74 @@
+{% extends layout_path %}
+
+{% block content %}
+<!-- Add button container above the table -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Routes</h5>
+        <button type="button" 
+                class="btn btn-primary" 
+                data-bs-toggle="modal" 
+                data-bs-target="#createRouteModal">
+            <i class="bx bx-plus me-1"></i>
+            Create New Route
+        </button>
+    </div>
+    <div class="card-body">
+        <div id="routes-table-container">
+            {% include 'seller/partials/route_table.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Route Modal -->
+<div class="modal fade" id="createRouteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Route</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="routeFormContainer">
+                {% include 'seller/route_form.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Route Modal -->
+<div class="modal fade" id="editRouteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Route</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="editRouteFormContainer">
+                <!-- Will be populated via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+<script>
+    // Add CSRF token to all HTMX requests
+    document.body.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+
+    htmx.on('closeModal', (event) => {
+        const createModal = bootstrap.Modal.getInstance(document.getElementById('createRouteModal'));
+        const editModal = bootstrap.Modal.getInstance(document.getElementById('editRouteModal'));
+        if (createModal) {
+            createModal.hide();
+        }
+        if (editModal) {
+            editModal.hide();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,4 @@
+<option value="">Select a seller</option>
+{% for seller in sellers %}
+<option value="{{ seller.id }}">{{ seller.store_name }} - {{ seller.full_name }}</option>
+{% endfor %}

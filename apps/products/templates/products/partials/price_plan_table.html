@@ -1,0 +1,43 @@
+<div class="table-responsive text-nowrap">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Valid From</th>
+                <th>Valid To</th>
+                <th>Type</th>
+                <th>Seller</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody class="table-border-bottom-0">
+            {% for price_plan in price_plans %}
+            <tr>
+                <td>{{ price_plan.name }}</td>
+                <td>{{ price_plan.valid_from }}</td>
+                <td>{{ price_plan.valid_to }}</td>
+                <td>{% if price_plan.is_general %}General{% else %}Seller Specific{% endif %}</td>
+                <td>{{ price_plan.seller|default:"-" }}</td>
+                <td>{{ price_plan.created_at|date:"Y-m-d H:i" }}</td>
+                <td>
+                    <button class="btn btn-sm btn-icon btn-outline-primary me-2"
+                            hx-get="{% url 'products:price-plan-edit-form' price_plan.id %}"
+                            hx-target="#editPricePlanFormContainer"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editPricePlanModal">
+                        <i class="bx bx-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-icon btn-outline-info"
+                            hx-get="{% url 'products:price-plan-prices' price_plan.id %}"
+                            hx-target="#productPricesContainer"
+                            data-bs-toggle="modal"
+                            data-bs-target="#productPricesModal">
+                        <i class="bx bx-list-ul"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

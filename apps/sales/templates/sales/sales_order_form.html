@@ -1,0 +1,259 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">Create Sales Order</h4>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <script>
+                    // JavaScript functions here
+                    function addOrderItem() {
+                        // ... your existing addOrderItem function
+                    }
+                    
+                    window.orderItems = [];
+                    window.isEditMode = false;
+                    
+                    // ... other functions
+                    </script>
+
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create New Sales Order</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form hx-post="{% url 'sales:order-create' %}"
+                              hx-target="#tableContainer"
+                              hx-swap="innerHTML">
+                            {% csrf_token %}
+                            
+                            <!-- Route Selection -->
+                            <div class="mb-3">
+                                <label class="form-label">Route</label>
+                                <select class="form-select" id="routeSelect" name="route" required>
+                                    <option value="">Select Route</option>
+                                    {% for route in routes %}
+                                        <option value="{{ route.id }}">{{ route.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Seller Selection -->
+                            <div class="mb-3">
+                                <label class="form-label">Seller</label>
+                                <select class="form-select" id="sellerSelect" name="seller" required disabled>
+                                    <option value="">Select Seller</option>
+                                </select>
+                            </div>
+
+                            <!-- Delivery Date -->
+                            <div class="mb-3">
+                                <label class="form-label">Delivery Date</label>
+                                <input type="date" class="form-control" name="delivery_date" required>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="mb-3">
+                                <label class="form-label">Status</label>
+                                <select class="form-select" name="status">
+                                    {% for status in status_choices %}
+                                        <option value="{{ status.0 }}">{{ status.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <!-- Order Items -->
+                            <div class="mb-3">
+                                <label class="form-label">Order Items</label>
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-5">
+                                        <select class="form-select" id="productSelect">
+                                            <option value="">Select Product</option>
+                                            {% for product in products %}
+                                                <option value="{{ product.id }}" 
+                                                        data-price="{{ product.price }}">
+                                                    {{ product.code }} - {{ product.name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" class="form-control" id="quantityInput" 
+                                               placeholder="Qty" min="1">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="number" class="form-control" id="unitPriceInput" 
+                                               placeholder="Unit Price" step="0.01">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-primary" onclick="addOrderItem()">
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Items Table -->
+                                <div class="table-responsive">
+                                    <table class="table" id="orderItemsTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Product</th>
+                                                <th>Quantity</th>
+                                                <th>Unit Price</th>
+                                                <th>Total</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                                                <td><span id="totalAmount">0.00</span></td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                                <input type="hidden" name="items" id="orderItemsJson">
+                            </div>
+
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary">Save Order</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <script>
+                        // Initialize order items array
+                        window.orderItems = [];
+
+                        // Handle route change to load sellers
+                        document.getElementById('routeSelect').addEventListener('change', function() {
+                            const routeId = this.value;
+                            const sellerSelect = document.getElementById('sellerSelect');
+                            
+                            if (routeId) {
+                                sellerSelect.disabled = true;
+                                fetch(`/get-sellers-by-route/?route=${routeId}`)  // Removed sales/ prefix
+                                    .then(response => response.text())
+                                    .then(html => {
+                                        sellerSelect.innerHTML = html;
+                                        sellerSelect.disabled = false;
+                                    });
+                            } else {
+                                sellerSelect.innerHTML = '<option value="">Select Seller</option>';
+                                sellerSelect.disabled = true;
+                            }
+                        });
+
+                        // Handle product selection to set default price
+                        document.getElementById('productSelect').addEventListener('change', function() {
+                            const selectedOption = this.options[this.selectedIndex];
+                            const price = selectedOption.dataset.price || '0.00';
+                            document.getElementById('unitPriceInput').value = price;
+                        });
+
+                        // Add order item
+                        function addOrderItem() {
+                            const productSelect = document.getElementById('productSelect');
+                            const quantityInput = document.getElementById('quantityInput');
+                            const unitPriceInput = document.getElementById('unitPriceInput');
+
+                            if (!productSelect.value || !quantityInput.value || !unitPriceInput.value) {
+                                alert('Please fill all item fields');
+                                return;
+                            }
+
+                            const item = {
+                                product_id: productSelect.value,
+                                product_name: productSelect.options[productSelect.selectedIndex].text,
+                                quantity: parseFloat(quantityInput.value),
+                                unit_price: parseFloat(unitPriceInput.value),
+                                total: parseFloat(quantityInput.value) * parseFloat(unitPriceInput.value)
+                            };
+
+                            window.orderItems.push(item);
+                            updateOrderItemsTable();
+                            
+                            // Reset inputs
+                            productSelect.value = '';
+                            quantityInput.value = '';
+                            unitPriceInput.value = '';
+                        }
+
+                        // Update order items table
+                        function updateOrderItemsTable() {
+                            const tbody = document.querySelector('#orderItemsTable tbody');
+                            const totalSpan = document.getElementById('totalAmount');
+                            let total = 0;
+
+                            tbody.innerHTML = '';
+                            window.orderItems.forEach((item, index) => {
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td>${item.product_name}</td>
+                                    <td>${item.quantity}</td>
+                                    <td>${item.unit_price.toFixed(2)}</td>
+                                    <td>${item.total.toFixed(2)}</td>
+                                    <td>
+                                        <button type="button" class="btn btn-danger btn-sm" 
+                                                onclick="removeOrderItem(${index})">
+                                            Remove
+                                        </button>
+                                    </td>
+                                `;
+                                tbody.appendChild(row);
+                                total += item.total;
+                            });
+
+                            totalSpan.textContent = total.toFixed(2);
+                            document.getElementById('orderItemsJson').value = JSON.stringify(window.orderItems);
+                        }
+
+                        // Remove order item
+                        function removeOrderItem(index) {
+                            window.orderItems.splice(index, 1);
+                            updateOrderItemsTable();
+                        }
+
+                        // Form submission
+                        document.getElementById('salesOrderForm').addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            
+                            const formData = new FormData(this);
+                            formData.append('items', JSON.stringify(orderItems));
+
+                            fetch('/create-order/', {  // Removed sales/ prefix
+                                method: 'POST',
+                                body: formData
+                            })
+                            .then(response => {
+                                if (response.ok) {
+                                    location.reload();
+                                }
+                            });
+                        });
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block vendorJs %}
+<!-- Add any vendor JS files needed -->
+{% endblock %}
+
+{% block pageJs %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Your initialization code
+});
+</script>
+{% endblock %}

@@ -1,0 +1,76 @@
+<form id="pricePlanForm"
+      hx-post="{% url 'products:price-plan-create' %}"
+      hx-target="#price-plans-table-container"
+      hx-swap="innerHTML"
+      hx-encoding="multipart/form-data"
+      enctype="multipart/form-data">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row">
+            <div class="col mb-3">
+                <label for="nameInput" class="form-label">Price Plan Name</label>
+                <input type="text" id="nameInput" name="name" class="form-control" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <label for="validFromInput" class="form-label">Valid From</label>
+                <input type="date" id="validFromInput" name="valid_from" class="form-control" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <label for="validToInput" class="form-label">Valid To</label>
+                <input type="date" id="validToInput" name="valid_to" class="form-control" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <div class="form-check">
+                    <input type="checkbox" id="isGeneralInput" name="is_general" class="form-check-input" checked>
+                    <label for="isGeneralInput" class="form-check-label">Is General Price Plan</label>
+                </div>
+            </div>
+        </div>
+        <div class="row seller-field" style="display: none;">
+            <div class="col mb-3">
+                <label for="sellerInput" class="form-label">Seller</label>
+                <select id="sellerInput" name="seller" class="form-select">
+                    <option value="">Select Seller</option>
+                    {% for seller in sellers %}
+                    <option value="{{ seller.id }}">{{ seller.store_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <label for="excelFileInput" class="form-label">Price List Excel File</label>
+                <input type="file" id="excelFileInput" name="excel_file" class="form-control" required
+                       accept=".xlsx,.xls">
+                <small class="text-muted">Upload Excel file with product_code and price columns</small>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Create Price Plan</button>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('pricePlanForm');
+    
+    // Toggle seller field visibility
+    document.getElementById('isGeneralInput').addEventListener('change', function() {
+        const sellerField = document.querySelector('.seller-field');
+        if (this.checked) {
+            sellerField.style.display = 'none';
+            document.getElementById('sellerInput').value = '';
+        } else {
+            sellerField.style.display = 'block';
+        }
+    });
+});
+</script>

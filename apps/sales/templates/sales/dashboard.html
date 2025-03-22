@@ -1,0 +1,139 @@
+{% extends "layout/layout_vertical.html" %}
+{% load static %}
+
+{% block title %}Sales Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Today's Calls</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ today_calls }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-primary rounded p-2">
+                            <i class="bx bx-phone bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Pending Calls</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ pending_calls }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-warning rounded p-2">
+                            <i class="bx bx-time bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Today's Orders</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ today_orders }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-success rounded p-2">
+                            <i class="bx bx-cart bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Calls -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Calls</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Seller</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for call in recent_calls %}
+                            <tr>
+                                <td>{{ call.seller.store_name }}</td>
+                                <td>{{ call.call_date }}</td>
+                                <td>
+                                    <span class="badge bg-label-{{ call.status|lower }}">
+                                        {{ call.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Orders</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Seller</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td>{{ order.order_number }}</td>
+                                <td>{{ order.seller.store_name }}</td>
+                                <td>
+                                    <span class="badge bg-label-{{ order.status|lower }}">
+                                        {{ order.get_status_display }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

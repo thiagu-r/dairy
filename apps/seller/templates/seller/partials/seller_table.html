@@ -1,0 +1,32 @@
+<div class="table-responsive text-nowrap">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Full Name</th>
+                <th>Store Name</th>
+                <th>Mobile No</th>
+                <th>Route</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody class="table-border-bottom-0">
+            {% for seller in sellers %}
+            <tr>
+                <td>{{ seller.full_name }}</td>
+                <td>{{ seller.store_name }}</td>
+                <td>{{ seller.mobileno }}</td>
+                <td>{{ seller.route.name }}</td>
+                <td>
+                    <button class="btn btn-sm btn-icon btn-outline-primary"
+                            hx-get="{% url 'seller:seller-edit-form' seller.id %}"
+                            hx-target="#editSellerFormContainer"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editSellerModal">
+                        <i class="bx bx-edit-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

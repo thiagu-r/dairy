@@ -1,0 +1,119 @@
+{% load product_filters %}
+
+<form hx-post="{% url 'products:price-plan-edit' price_plan.id %}"
+      hx-target="#price-plans-table-container"
+      hx-swap="innerHTML"
+      hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+      hx-encoding="multipart/form-data"
+      enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="_method" value="PUT">
+    <div class="modal-body">
+        <div class="row">
+            <div class="col mb-3">
+                <label for="nameInput" class="form-label">Price Plan Name</label>
+                <input type="text" id="nameInput" name="name" class="form-control" 
+                       value="{{ price_plan.name }}" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <label for="validFromInput" class="form-label">Valid From</label>
+                <input type="date" id="validFromInput" name="valid_from" class="form-control" 
+                       value="{{ price_plan.valid_from|date:'Y-m-d' }}" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <label for="validToInput" class="form-label">Valid To</label>
+                <input type="date" id="validToInput" name="valid_to" class="form-control" 
+                       value="{{ price_plan.valid_to|date:'Y-m-d' }}" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <div class="form-check">
+                    <input type="checkbox" id="isGeneralInput" name="is_general" class="form-check-input"
+                           {% if price_plan.is_general %}checked{% endif %}>
+                    <label for="isGeneralInput" class="form-check-label">Is General Price Plan</label>
+                </div>
+            </div>
+        </div>
+        <div class="row seller-field" {% if price_plan.is_general %}style="display: none;"{% endif %}>
+            <div class="col mb-3">
+                <label for="sellerInput" class="form-label">Seller</label>
+                <select id="sellerInput" name="seller" class="form-select" {% if not price_plan.is_general %}required{% endif %}>
+                    <option value="">Select Seller</option>
+                    {% for seller in sellers %}
+                    <option value="{{ seller.id }}" {% if seller.id == price_plan.seller.id %}selected{% endif %}>
+                        {{ seller.first_name }} {{ seller.last_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col mb-3">
+                <label for="excelFileInput" class="form-label">Price List Excel File</label>
+                {% if price_plan.excel_file %}
+                    <div class="mb-2">
+                        <small class="text-muted">Current file: {{ price_plan.excel_file.name|split:'/' }}</small>
+                    </div>
+                {% endif %}
+                <input type="file" id="excelFileInput" name="excel_file" class="form-control"
+                       accept=".xlsx,.xls">
+                <small class="text-muted">Leave empty to keep the current file</small>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Update Price Plan</button>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const isGeneralInput = document.getElementById('isGeneralInput');
+    const sellerField = document.querySelector('.seller-field');
+    const sellerInput = document.getElementById('sellerInput');
+    
+    function updateSellerFieldVisibility() {
+        if (isGeneralInput.checked) {
+            sellerField.style.display = 'none';
+            sellerInput.removeAttribute('required');
+            sellerInput.value = '';
+        } else {
+            sellerField.style.display = 'block';
+            sellerInput.setAttribute('required', 'required');
+        }
+    }
+    
+    isGeneralInput.addEventListener('change', updateSellerFieldVisibility);
+    updateSellerFieldVisibility();
+});
+
+// Add event listener for modal closing
+document.addEventListener('htmx:afterOnLoad', function(evt) {
+    if (evt.detail.xhr.getResponseHeader('HX-Trigger')) {
+        const triggers = JSON.parse(evt.detail.xhr.getResponseHeader('HX-Trigger'));
+        if (triggers.closeModal) {
+            const editModal = document.getElementById('editPricePlanModal');
+            if (editModal) {
+                const modalInstance = bootstrap.Modal.getInstance(editModal);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            }
+            
+            // Clean up modal backdrop if present
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+        }
+    }
+});
+</script>

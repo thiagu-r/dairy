@@ -1,0 +1,130 @@
+{% extends layout_path %}
+
+{% block content %}
+<div id="alert-container" class="mb-3"></div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Price Plans</h5>
+        <div>
+            <a href="{% url 'products:price-plan-template' %}" class="btn btn-outline-primary me-2">
+                <i class="bx bx-download me-1"></i>
+                Download Template
+            </a>
+            <button type="button" 
+                    class="btn btn-primary" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#createPricePlanModal"
+                    id="createPricePlanBtn">
+                <i class="bx bx-plus me-1"></i>
+                Create New Price Plan
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div id="price-plans-table-container">
+            {% include 'products/partials/price_plan_table.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- Create Price Plan Modal -->
+<div class="modal fade" id="createPricePlanModal" tabindex="-1" aria-labelledby="createPricePlanModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createPricePlanModalLabel">Create New Price Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="pricePlanFormContainer">
+                {% include 'products/price_plan_form.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Price Plan Modal -->
+<div class="modal fade" id="editPricePlanModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Price Plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="editPricePlanFormContainer">
+                <!-- Will be populated via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Product Prices Modal -->
+<div class="modal fade" id="productPricesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Product Prices</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div id="productPricesContainer">
+                <!-- Will be populated via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // HTMX configuration
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        evt.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+
+    // Handle modal closing from HX-Trigger
+    htmx.on('htmx:afterOnLoad', function(evt) {
+        if (evt.detail.xhr.getResponseHeader('HX-Trigger')) {
+            const triggers = JSON.parse(evt.detail.xhr.getResponseHeader('HX-Trigger'));
+            if (triggers.closeModal) {
+                const editModal = document.getElementById('editPricePlanModal');
+                if (editModal) {
+                    const modalInstance = bootstrap.Modal.getInstance(editModal);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                }
+                
+                // Clean up modal backdrop
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+            }
+            
+            // Handle success message if present
+            if (triggers.showMessage) {
+                const alertContainer = document.getElementById('alert-container');
+                const alert = document.createElement('div');
+                alert.className = 'alert alert-success alert-dismissible fade show';
+                alert.innerHTML = `
+                    ${triggers.showMessage}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                alertContainer.appendChild(alert);
+                
+                // Auto-remove the alert after 3 seconds
+                setTimeout(() => {
+                    alert.classList.remove('show');
+                    setTimeout(() => alert.remove(), 150);
+                }, 3000);
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

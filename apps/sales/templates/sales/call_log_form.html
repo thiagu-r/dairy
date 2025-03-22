@@ -1,0 +1,56 @@
+<form hx-post="{% url 'sales:call-log-create' %}"
+      hx-target="#call-logs-table-container"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="routeSelect" class="form-label">Route</label>
+                <select id="routeSelect" name="route_id" class="form-select" required
+                        hx-get="{% url 'sales:get-sellers-by-route' %}"
+                        hx-target="#sellerSelect"
+                        hx-trigger="change"
+                        hx-params="route_id">
+                    <option value="">Select a route</option>
+                    {% for route in routes %}
+                    <option value="{{ route.id }}">{{ route.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="sellerSelect" class="form-label">Seller</label>
+                <select id="sellerSelect" name="seller" class="form-select" required disabled>
+                    <option value="">Select a route first</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="callDateInput" class="form-label">Call Date</label>
+                <input type="date" id="callDateInput" name="call_date" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="statusSelect" class="form-label">Status</label>
+                <select id="statusSelect" name="status" class="form-select" required>
+                    {% for status_value, status_label in call_statuses %}
+                    <option value="{{ status_value }}">{{ status_label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="nextCallDateInput" class="form-label">Next Call Date</label>
+                <input type="date" id="nextCallDateInput" name="next_call_date" class="form-control">
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="notesInput" class="form-label">Notes</label>
+                <textarea id="notesInput" name="notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Create Call Log</button>
+    </div>
+</form>
