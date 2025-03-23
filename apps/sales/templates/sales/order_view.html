@@ -1,0 +1,98 @@
+{% extends layout_path %}
+{% load static %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Order Details</h5>
+            <a href="{% url 'sales:order-list' %}" class="btn btn-secondary">
+                <i class="bx bx-arrow-back"></i> Back to List
+            </a>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h6>Order Information</h6>
+                    <table class="table table-borderless">
+                        <tr>
+                            <th style="width: 200px;">Order Number:</th>
+                            <td>{{ order.order_number }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>{{ order.get_status_display }}</td>
+                        </tr>
+                        <tr>
+                            <th>Delivery Date:</th>
+                            <td>{{ order.delivery_date }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Seller Information</h6>
+                    <table class="table table-borderless">
+                        <tr>
+                            <th style="width: 200px;">Route:</th>
+                            <td>{{ order.seller.route.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Store Name:</th>
+                            <td>{{ order.seller.store_name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Contact Person:</th>
+                            <td>{{ order.seller.first_name }} {{ order.seller.last_name }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <h6>Order Items</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Code</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Quantity</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.items.all %}
+                                <tr>
+                                    <td>{{ item.product.name }}</td>
+                                    <td>{{ item.product.code }}</td>
+                                    <td class="text-end">{{ item.unit_price }}</td>
+                                    <td class="text-end">{{ item.quantity }}</td>
+                                    <td class="text-end">{{ item.total_amount }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="4" class="text-end">Total Amount:</th>
+                                    <th class="text-end">{{ order.total_amount }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {% if order.notes %}
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>Notes</h6>
+                    <p>{{ order.notes }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

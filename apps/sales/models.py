@@ -106,7 +106,7 @@ class SalesOrder(models.Model):
 
     @property
     def total_amount(self):
-        return sum(item.total_amount for item in self.items.all())
+        return sum(item.quantity * item.unit_price for item in self.items.all())
 
 class OrderItem(models.Model):
     order = models.ForeignKey(

@@ -204,35 +204,68 @@ class SalesOrderListView(LoginRequiredMixin, SalesTeamRequiredMixin, TemplateVie
         return context
 
 def check_existing_order(request):
+    order_id = request.GET.get('order_id')
     seller_id = request.GET.get('seller_id')
     delivery_date = request.GET.get('delivery_date')
     
     try:
-        existing_order = SalesOrder.objects.filter(
-            seller_id=seller_id,
-            delivery_date=delivery_date
-        ).select_related('seller').prefetch_related(
-            'items__product'
-        ).first()
-        
-        if existing_order:
+        if order_id:
+            # Load specific order for editing
+            order = get_object_or_404(
+                SalesOrder.objects.select_related(
+                    'seller',
+                    'seller__route'
+                ).prefetch_related(
+                    'items__product'
+                ),
+                id=order_id
+            )
+            
             items_data = [{
-                'product_id': str(item.product_id),  # Convert to string to match JS
+                'product_id': str(item.product_id),
                 'product_name': f"{item.product.code} - {item.product.name}",
                 'quantity': str(item.quantity),
                 'unit_price': str(item.unit_price),
                 'total': str(item.quantity * item.unit_price)
-            } for item in existing_order.items.all()]
+            } for item in order.items.all()]
             
             return JsonResponse({
-                'order_id': existing_order.id,
-                'status': existing_order.status,  # Include status in response
+                'order_id': order.id,
+                'route_id': order.seller.route_id,
+                'seller_id': order.seller.id,
+                'seller_name': str(order.seller),
+                'delivery_date': order.delivery_date.strftime('%Y-%m-%d'),
+                'status': order.status,
                 'items': items_data,
-                'is_edit': True  # Add flag to indicate edit mode
+                'is_edit': True
             })
-        
-        return JsonResponse({'order_id': '', 'items': [], 'is_edit': False})
-        
+        else:
+            # Check for existing order by seller and date
+            existing_order = SalesOrder.objects.filter(
+                seller_id=seller_id,
+                delivery_date=delivery_date
+            ).select_related('seller').prefetch_related(
+                'items__product'
+            ).first()
+            
+            if existing_order:
+                items_data = [{
+                    'product_id': str(item.product_id),
+                    'product_name': f"{item.product.code} - {item.product.name}",
+                    'quantity': str(item.quantity),
+                    'unit_price': str(item.unit_price),
+                    'total': str(item.quantity * item.unit_price)
+                } for item in existing_order.items.all()]
+                
+                return JsonResponse({
+                    'order_id': existing_order.id,
+                    'status': existing_order.status,
+                    'items': items_data,
+                    'is_edit': True
+                })
+            
+            return JsonResponse({'order_id': '', 'items': [], 'is_edit': False})
+            
     except Exception as e:
         logger.error(f"Error checking existing order: {str(e)}")
         return JsonResponse({'error': str(e)}, status=400)
@@ -322,7 +355,13 @@ class SalesOrderViewView(LoginRequiredMixin, SalesTeamRequiredMixin, View):
                 id=order_id
             )
             
-            return render(request, 'sales/sales_order_view.html', {'order': order})
+            context = TemplateLayout.init(self, {
+                'order': order,
+                'title': f'Order Details - {order.order_number}'
+            })
+            
+            return render(request, 'sales/order_view.html', context)
+            
         except Exception as e:
             logger.error(f"Error in SalesOrderViewView.get: {str(e)}")
             return HttpResponseBadRequest(str(e))
