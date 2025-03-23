@@ -332,7 +332,7 @@ document.getElementById('productSelect').addEventListener('input', function(e) {
         this.dataset.productId = productId;
         
         // Fetch price for the selected product
-        fetch('/sales/get-product-price/?product_id=' + productId)
+        fetch('/get-product-price/?product_id=' + productId)
             .then(response => response.json())
             .then(data => {
                 document.getElementById('unitPrice').value = data.price;
@@ -466,6 +466,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const sellerId = sellerSelect.dataset.sellerId;
         const deliveryDate = document.getElementById('deliveryDate').value;
         const orderItemsSection = document.getElementById('orderItemsSection');
+        const routeSelect = document.getElementById('routeSelect');
         
         if (sellerId && deliveryDate) {
             fetch(`/check-existing-order/?seller_id=${sellerId}&delivery_date=${deliveryDate}`)
@@ -475,6 +476,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     existingOrderId = data.order_id;
                     
                     if (data.is_edit) {
+                        routeSelect.disabled = true;
                         orderItems = data.items.map(item => ({
                             product_id: item.product_id,
                             product_name: item.product_name,
@@ -484,6 +486,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         }));
                         document.querySelector('button[type="submit"]').textContent = 'Update Order';
                     } else {
+                        routeSelect.disabled = false;
                         orderItems = [];
                         document.querySelector('button[type="submit"]').textContent = 'Save Order';
                     }
@@ -520,7 +523,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Store the ID and fetch price
                 this.dataset.productId = productId;
                 
-                fetch(`/sales/get-product-price/?product_id=${productId}`)
+                fetch(`/get-product-price/?product_id=${productId}`)
                     .then(response => {
                         console.log('Price response:', response); // Debug log
                         return response.json();
@@ -765,11 +768,16 @@ document.addEventListener('click', function(e) {
 
 // Add function to load order data for editing
 function loadOrderForEdit(orderId) {
-    fetch(`/check-existing-order/?order_id=${orderId}`)  // Removed 'sales/' prefix
+    fetch(`/check-existing-order/?order_id=${orderId}`)
         .then(response => response.json())
         .then(data => {
             // Set form fields
-            document.getElementById('routeSelect').value = data.route_id;
+            const routeSelect = document.getElementById('routeSelect');
+            routeSelect.value = data.route_id;
+            routeSelect.disabled = true;  // Immediately disable route selection
+            
+            // Change modal title
+            document.querySelector('#createOrderModal .modal-title').textContent = 'Edit Sales Order';
             
             // Set seller
             const sellerSelect = document.getElementById('sellerSelect');
@@ -814,15 +822,17 @@ function checkExistingOrder() {
     const sellerId = sellerSelect.dataset.sellerId;
     const deliveryDate = document.getElementById('deliveryDate').value;
     const orderItemsSection = document.getElementById('orderItemsSection');
+    const routeSelect = document.getElementById('routeSelect');
     
     if (sellerId && deliveryDate) {
         fetch(`/check-existing-order/?seller_id=${sellerId}&delivery_date=${deliveryDate}`)
             .then(response => response.json())
             .then(data => {
                 orderItemsSection.style.display = 'block';
+                existingOrderId = data.order_id;
                 
                 if (data.is_edit) {
-                    existingOrderId = data.order_id;
+                    routeSelect.disabled = true;
                     orderItems = data.items.map(item => ({
                         product_id: item.product_id,
                         product_name: item.product_name,
@@ -832,8 +842,8 @@ function checkExistingOrder() {
                     }));
                     document.querySelector('button[type="submit"]').textContent = 'Update Order';
                 } else {
+                    routeSelect.disabled = false;
                     orderItems = [];
-                    existingOrderId = null;
                     document.querySelector('button[type="submit"]').textContent = 'Save Order';
                 }
                 
@@ -845,6 +855,45 @@ function checkExistingOrder() {
                 alert('Error checking existing order');
             });
     } else {
+        orderItemsSection.style.display = 'none';
+    }
+}
+
+// Update the modal reset handler to reset the title
+document.getElementById('createOrderModal').addEventListener('hidden.bs.modal', function () {
+    // Reset the modal title back to create
+    document.querySelector('#createOrderModal .modal-title').textContent = 'Create New Sales Order';
+    // Reset the form
+    resetForm();
+});
+
+// Update resetForm function to properly handle route select
+function resetForm() {
+    const form = document.getElementById('salesOrderForm');
+    form.reset();
+    
+    // Reset and enable route select
+    const routeSelect = document.getElementById('routeSelect');
+    routeSelect.disabled = false;
+    
+    // Reset seller select
+    const sellerSelect = document.getElementById('sellerSelect');
+    sellerSelect.innerHTML = '<option value="">Select Seller</option>';
+    sellerSelect.disabled = true;
+    
+    // Reset order items
+    orderItems = [];
+    existingOrderId = null;
+    
+    // Update the table
+    updateOrderItemsTable();
+    
+    // Reset submit button text
+    document.querySelector('button[type="submit"]').textContent = 'Save Order';
+    
+    // Hide order items section
+    const orderItemsSection = document.getElementById('orderItemsSection');
+    if (orderItemsSection) {
         orderItemsSection.style.display = 'none';
     }
 }

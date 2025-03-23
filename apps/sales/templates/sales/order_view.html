@@ -67,16 +67,16 @@
                                 <tr>
                                     <td>{{ item.product.name }}</td>
                                     <td>{{ item.product.code }}</td>
-                                    <td class="text-end">{{ item.unit_price }}</td>
-                                    <td class="text-end">{{ item.quantity }}</td>
-                                    <td class="text-end">{{ item.total_amount }}</td>
+                                    <td class="text-end">{{ item.unit_price|floatformat:2 }}</td>
+                                    <td class="text-end">{{ item.quantity|floatformat:2 }}</td>
+                                    <td class="text-end">{{ item.total_amount|floatformat:2 }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot>
                                 <tr>
                                     <th colspan="4" class="text-end">Total Amount:</th>
-                                    <th class="text-end">{{ order.total_amount }}</th>
+                                    <th class="text-end">{{ order.total_amount|floatformat:2 }}</th>
                                 </tr>
                             </tfoot>
                         </table>
