@@ -12,6 +12,7 @@ from apps.products.models import ProductPrice
 import json
 from decimal import Decimal
 import logging
+from django.core.paginator import Paginator
 
 logger = logging.getLogger(__name__)
 
@@ -196,11 +197,21 @@ class SalesOrderListView(LoginRequiredMixin, SalesTeamRequiredMixin, TemplateVie
         if delivery_date:
             orders = orders.filter(delivery_date=delivery_date)
 
+        # Pagination
+        page_number = self.request.GET.get('page', 1)
+        paginator = Paginator(orders, 5)  # Show 10 orders per page
+        page_obj = paginator.get_page(page_number)
+
         context.update({
-            'orders': orders,
+            'orders': page_obj,
             'routes': Route.objects.all().order_by('name'),
             'status_choices': SalesOrder.ORDER_STATUS,
+            # Add filter values to context for maintaining state
+            'selected_route': route_id,
+            'selected_status': status,
+            'selected_date': delivery_date,
         })
+        
         return context
 
 def check_existing_order(request):

@@ -18,13 +18,15 @@
                     </button>
                 </div>
                 <div class="card-body">
-                    <!-- Filters -->
+                    <!-- Filters section -->
                     <div class="row mb-3">
                         <div class="col-md-3">
                             <select class="form-select" name="route" id="routeFilter">
                                 <option value="">All Routes</option>
                                 {% for route in routes %}
-                                <option value="{{ route.id }}">{{ route.name }}</option>
+                                <option value="{{ route.id }}" {% if selected_route == route.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ route.name }}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -32,18 +34,24 @@
                             <select class="form-select" name="status" id="statusFilter">
                                 <option value="">All Status</option>
                                 {% for status in status_choices %}
-                                <option value="{{ status.0 }}">{{ status.1 }}</option>
+                                <option value="{{ status.0 }}" {% if selected_status == status.0 %}selected{% endif %}>
+                                    {{ status.1 }}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <input type="date" class="form-control" name="delivery_date" id="deliveryDateFilter">
+                            <input type="date" 
+                                   class="form-control" 
+                                   name="delivery_date" 
+                                   id="deliveryDateFilter"
+                                   value="{{ selected_date|default:'' }}">
                         </div>
                         <div class="col-md-3">
-                            <button class="btn btn-primary" id="filterBtn">
+                            <button type="button" class="btn btn-primary" id="filterBtn">
                                 Filter
                             </button>
-                            <button class="btn btn-secondary" id="resetBtn">
+                            <button type="button" class="btn btn-secondary" id="resetBtn">
                                 Reset
                             </button>
                         </div>
@@ -53,6 +61,41 @@
                     <div id="tableContainer">
                         {% include 'sales/partials/sales_order_table.html' %}
                     </div>
+
+                    <!-- Add pagination -->
+                    {% if orders.paginator.num_pages > 1 %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <nav>
+                                <ul class="pagination justify-content-center">
+                                    {% if orders.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if selected_route %}&route={{ selected_route }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_date %}&delivery_date={{ selected_date }}{% endif %}">&laquo; First</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ orders.previous_page_number }}{% if selected_route %}&route={{ selected_route }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_date %}&delivery_date={{ selected_date }}{% endif %}">Previous</a>
+                                    </li>
+                                    {% endif %}
+
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Page {{ orders.number }} of {{ orders.paginator.num_pages }}
+                                        </span>
+                                    </li>
+
+                                    {% if orders.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ orders.next_page_number }}{% if selected_route %}&route={{ selected_route }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_date %}&delivery_date={{ selected_date }}{% endif %}">Next</a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ orders.paginator.num_pages }}{% if selected_route %}&route={{ selected_route }}{% endif %}{% if selected_status %}&status={{ selected_status }}{% endif %}{% if selected_date %}&delivery_date={{ selected_date }}{% endif %}">Last &raquo;</a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -709,7 +752,7 @@ document.getElementById('productSelect').addEventListener('input', function(e) {
     const productList = document.getElementById('productList');
     const options = productList.getElementsByTagName('option');
     
-    for (let option of options) {
+    for (let option of options) {Route
         if (option.value === searchTerm) {
             const productId = option.getAttribute('data-product-id');
             this.dataset.productId = productId;  // Store the ID in the dataset
@@ -897,43 +940,49 @@ function resetForm() {
         orderItemsSection.style.display = 'none';
     }
 }
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Script loaded'); // Debug log
+    
+    const filterBtn = document.getElementById('filterBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    
+    if (filterBtn) {
+        filterBtn.addEventListener('click', function() {
+            console.log('Filter button clicked'); // Debug log
+            
+            const route = document.getElementById('routeFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const deliveryDate = document.getElementById('deliveryDateFilter').value;
+            
+            console.log('Filter values:', { route, status, deliveryDate }); // Debug log
+            
+            // Build the query string manually
+            let queryParams = [];
+            
+            if (route) queryParams.push(`route=${route}`);
+            if (status) queryParams.push(`status=${status}`);
+            if (deliveryDate) queryParams.push(`delivery_date=${deliveryDate}`);
+            
+            // Create the final URL
+            const baseUrl = window.location.pathname;
+            const queryString = queryParams.length > 0 ? '?' + queryParams.join('&') : '';
+            const finalUrl = baseUrl + queryString;
+            
+            console.log('Redirecting to:', finalUrl); // Debug log
+            window.location.href = finalUrl;
+        });
+    } else {
+        console.error('Filter button not found'); // Debug log
+    }
+    
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            window.location.href = window.location.pathname;
+        });
+    }
+});
 </script>
 {% endblock %}
 
-{% block pageJs %}
-<script src="https://unpkg.com/htmx.org@1.9.6"></script>
-<script>
-    // Handle modal events
-    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
-        if (evt.target.id === 'modalContent') {
-            const modal = new bootstrap.Modal(document.getElementById('formModal'));
-            modal.show();
-        }
-        
-        if (evt.detail.xhr.getResponseHeader('HX-Trigger') === 'closeModal') {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('formModal'));
-            if (modal) {
-                modal.hide();
-            }
-        }
-    });
-
-    // Handle filters
-    document.getElementById('filterBtn').addEventListener('click', function() {
-        const route = document.getElementById('routeFilter').value;
-        const status = document.getElementById('statusFilter').value;
-        const deliveryDate = document.getElementById('deliveryDateFilter').value;
-        
-        const url = new URL(window.location.href);
-        if (route) url.searchParams.set('route', route);
-        if (status) url.searchParams.set('status', status);
-        if (deliveryDate) url.searchParams.set('delivery_date', deliveryDate);
-        
-        window.location.href = url.toString();
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', function() {
-        window.location.href = window.location.pathname;
-    });
-</script>
-{% endblock %}
