@@ -12,6 +12,126 @@ from .forms import CustomPasswordChangeForm, CustomPasswordResetForm
 from django.http import JsonResponse
 from django.contrib.auth import authenticate
 from django.shortcuts import render
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
+from django.views.generic import TemplateView, View
+from django.shortcuts import render, redirect
+from django.urls import reverse_lazy
+from django.contrib import messages
+from web_project import TemplateLayout
+from .models import CustomUser, Role  # Add Role to imports
+import json
+
+class AdminRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.is_superuser or self.request.user.role == 'ADMIN'
+
+class UserListView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
+    template_name = "authentication/user_list.html"
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get_context_data(self, **kwargs):
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        context['users'] = CustomUser.objects.all().order_by('-date_joined')
+        return context
+
+class UserCreateFormView(LoginRequiredMixin, AdminRequiredMixin, View):
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get(self, request):
+        return render(request, 'authentication/partials/user_modal.html', {
+            'user': None,
+            'roles': Role.choices  # Pass all roles to template
+        })
+
+class UserCreateView(LoginRequiredMixin, AdminRequiredMixin, View):
+    login_url = reverse_lazy('auth-login-basic')
+    
+    def post(self, request):
+        try:
+            user = CustomUser.objects.create_user(
+                username=request.POST.get('username'),
+                email=request.POST.get('email'),
+                password=request.POST.get('password'),
+                first_name=request.POST.get('first_name'),
+                last_name=request.POST.get('last_name'),
+                mobile_number=request.POST.get('mobile_number'),
+                role=request.POST.get('role'),
+                is_active=request.POST.get('is_active') == 'on'
+            )
+            
+            response = render(
+                request,
+                'authentication/partials/user_table.html',
+                {'users': CustomUser.objects.all().order_by('-date_joined')}
+            )
+            
+            response['HX-Trigger'] = json.dumps({
+                'closeModal': True,
+                'showMessage': 'User created successfully',
+                'refreshPage': True  # Add this to trigger page refresh
+            })
+            
+            return response
+        except Exception as e:
+            return render(
+                request,
+                'authentication/partials/user_modal.html',
+                {'error': str(e), 'user': None},
+                status=400
+            )
+
+class UserEditView(LoginRequiredMixin, AdminRequiredMixin, View):
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get(self, request, user_id):
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            return render(request, 'authentication/partials/user_modal.html', {
+                'user': user,
+                'roles': Role.choices  # Pass all roles to template
+            })
+        except CustomUser.DoesNotExist:
+            raise Http404("User does not exist")
+
+    def post(self, request, user_id):
+        try:
+            user = CustomUser.objects.get(id=user_id)
+            user.username = request.POST.get('username')
+            user.email = request.POST.get('email')
+            user.first_name = request.POST.get('first_name')
+            user.last_name = request.POST.get('last_name')
+            user.mobile_number = request.POST.get('mobile_number')
+            user.role = request.POST.get('role')
+            user.is_active = request.POST.get('is_active') == 'on'
+            
+            if request.POST.get('password'):
+                user.set_password(request.POST.get('password'))
+            
+            user.save()
+            
+            response = render(
+                request,
+                'authentication/partials/user_table.html',
+                {'users': CustomUser.objects.all().order_by('-date_joined')}
+            )
+            
+            response['HX-Trigger'] = json.dumps({
+                'closeModal': True,
+                'showMessage': 'User updated successfully',
+                'refreshPage': True  # Add this to trigger page refresh
+            })
+            
+            return response
+        except CustomUser.DoesNotExist:
+            raise Http404("User does not exist")
+        except Exception as e:
+            return render(
+                request,
+                'authentication/partials/user_modal.html',
+                {'error': str(e), 'user': user},
+                status=400
+            )
+
 class AuthLoginBasicView(LoginView):
     template_name = 'auth_login_basic.html'
     success_url = reverse_lazy('index')
@@ -19,20 +139,16 @@ class AuthLoginBasicView(LoginView):
 
     def get(self, request, *args, **kwargs):
         next_url = request.GET.get('next')
-        print('request.headers: ', request.headers)
-        print('next_url: ', next_url)
+        
         if request.headers.get('HX-Request'):
             return render(request, 'auth_login_modal.html', {'next': next_url})
         
         # For regular requests, render the full login page
         context = self.get_context_data()
-        context['next'] = next_url
-        print('Final context:', context)
-        print('Layout path:', context.get('layout_path'))
+        context['next'] = next_url 
 
 
-        response = render(request, self.template_name, context)
-        print("Rendering template:", self.template_name)
+        response = render(request, self.template_name, context)       
     
         return response
 

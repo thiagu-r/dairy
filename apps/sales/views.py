@@ -523,7 +523,7 @@ class GetProductPriceView(LoginRequiredMixin, SalesTeamRequiredMixin, View):
                 price_plan__valid_from__lte=today,
                 price_plan__valid_to__gte=today
             ).order_by('-price_plan__created_at').first()
-            
+            print('price: ', price)
             return JsonResponse({
                 'price': float(price.price) if price else 10.00
             })

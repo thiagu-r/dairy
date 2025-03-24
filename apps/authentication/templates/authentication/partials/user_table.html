@@ -1,0 +1,43 @@
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Mobile</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.get_full_name }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.mobile_number }}</td>
+                <td>{{ user.role }}</td>
+                <td>
+                    {% if user.is_active %}
+                    <span class="badge bg-success">Active</span>
+                    {% else %}
+                    <span class="badge bg-danger">Inactive</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <button type="button"
+                            class="btn btn-sm btn-icon btn-outline-primary"
+                            hx-get="{% url 'user-edit-form' user.id %}"
+                            hx-target="#editUserFormContainer"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editUserModal">
+                        <i class="bx bx-edit"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

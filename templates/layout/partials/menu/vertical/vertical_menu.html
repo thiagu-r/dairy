@@ -80,6 +80,14 @@
       </a>
     </li>
 
+    <!-- Products -->
+    <li class="menu-item {% if '/products/' in request.path and '/categories/' not in request.path %}active{% endif %}">
+      <a href="{% url 'products:product-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-package"></i>
+        <div class="text-truncate">Products</div>
+      </a>
+    </li>
+
     <!-- Price Plans -->
     <li class="menu-item {% if '/products/price-plans/' in request.path %}active{% endif %}">
       <a href="{% url 'products:price-plan-list' %}" class="menu-link">
@@ -93,9 +101,14 @@
       <span class="menu-header-text">Administration</span>
     </li>
 
+    <!-- System Management -->
+    <li class="menu-header small text-uppercase">
+      <span class="menu-header-text">System Management</span>
+    </li>
+
     <!-- Users -->
     <li class="menu-item {% if '/users/' in request.path %}active{% endif %}">
-      <a href="{% url 'admin:authentication_customuser_changelist' %}" class="menu-link">
+      <a href="{% url 'user-list' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-user"></i>
         <div class="text-truncate">Users</div>
       </a>

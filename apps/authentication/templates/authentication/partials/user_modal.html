@@ -1,0 +1,67 @@
+<div class="modal-header">
+    <h5 class="modal-title">{% if user %}Edit{% else %}Create New{% endif %} User</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form hx-post="{% if user %}{% url 'user-edit' user.id %}{% else %}{% url 'user-create' %}{% endif %}"
+      hx-target="#users-table-container">
+    {% csrf_token %}
+    <div class="modal-body">
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        
+        <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" name="username" class="form-control" value="{{ user.username|default:'' }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="email" name="email" class="form-control" value="{{ user.email|default:'' }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">First Name</label>
+            <input type="text" name="first_name" class="form-control" value="{{ user.first_name|default:'' }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Last Name</label>
+            <input type="text" name="last_name" class="form-control" value="{{ user.last_name|default:'' }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Mobile Number</label>
+            <input type="text" name="mobile_number" class="form-control" value="{{ user.mobile_number|default:'' }}" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Role</label>
+            <select name="role" class="form-select" required>
+                <option value="">Select Role</option>
+                {% for role_value, role_label in roles %}
+                <option value="{{ role_value }}" {% if user.role == role_value %}selected{% endif %}>{{ role_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" name="password" class="form-control" {% if not user %}required{% endif %}>
+            {% if user %}
+            <small class="text-muted">Leave blank to keep current password</small>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            <div class="form-check">
+                <input type="checkbox" name="is_active" class="form-check-input" {% if not user or user.is_active %}checked{% endif %}>
+                <label class="form-check-label">Active</label>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">{% if user %}Update{% else %}Create{% endif %}</button>
+    </div>
+</form>

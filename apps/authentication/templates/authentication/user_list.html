@@ -1,0 +1,128 @@
+{% extends layout_path %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Users</h5>
+            <button class="btn btn-primary"
+                    hx-get="{% url 'user-create-form' %}"
+                    hx-target="#createUserFormContainer">
+                <i class="bx bx-plus me-1"></i> Add New User
+            </button>
+        </div>
+        
+        <div class="card-body">
+            <div id="users-table-container">
+                {% include 'authentication/partials/user_table.html' %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Modal -->
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div id="createUserFormContainer">
+                <!-- Will be populated via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div id="editUserFormContainer">
+                <!-- Will be populated via HTMX -->
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block page_js %}
+{{ block.super }}
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+<script>
+    // Add CSRF token to all HTMX requests
+    document.body.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+
+    // Handle modal display after HTMX content load
+    document.body.addEventListener('htmx:afterSwap', (event) => {
+        if (event.detail.target.id === 'createUserFormContainer') {
+            const modal = new bootstrap.Modal(document.getElementById('createUserModal'));
+            modal.show();
+        }
+        if (event.detail.target.id === 'editUserFormContainer') {
+            const modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+            modal.show();
+        }
+    });
+
+    // Handle modal cleanup when hidden
+    ['createUserModal', 'editUserModal'].forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('hidden.bs.modal', function () {
+                // Remove modal backdrop
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                
+                // Clean up body classes and styles
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                
+                // Optional: Clear the form container
+                const formContainer = modalId === 'createUserModal' 
+                    ? document.getElementById('createUserFormContainer')
+                    : document.getElementById('editUserFormContainer');
+                if (formContainer) {
+                    formContainer.innerHTML = '';
+                }
+            });
+        }
+    });
+
+    // Handle HX-Trigger events
+    htmx.on('htmx:afterOnLoad', function(evt) {
+        if (evt.detail.xhr.getResponseHeader('HX-Trigger')) {
+            const triggers = JSON.parse(evt.detail.xhr.getResponseHeader('HX-Trigger'));
+            if (triggers.closeModal) {
+                // Close and cleanup create modal
+                const createModal = bootstrap.Modal.getInstance(document.getElementById('createUserModal'));
+                if (createModal) {
+                    createModal.hide();
+                }
+                
+                // Close and cleanup edit modal
+                const editModal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
+                if (editModal) {
+                    editModal.hide();
+                }
+                
+                // Remove modal backdrop
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
+                }
+                
+                // Clean up body classes and styles
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+            }
+        }
+    });
+
+    document.body.addEventListener('refreshPage', (event) => {
+        window.location.reload();
+    });
+</script>
+{% endblock %}
