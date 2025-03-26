@@ -1,0 +1,53 @@
+<form id="teamForm">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label class="form-label">Team Name</label>
+        <input type="text" class="form-control" name="name" required>
+    </div>
+    
+    <div class="mb-3">
+        <label class="form-label">Route</label>
+        <select class="form-select" name="route" required>
+            <option value="">Select Route</option>
+            {% for route in routes %}
+                <option value="{{ route.id }}">{{ route.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    {% if not distributor %}
+    <div class="mb-3">
+        <label class="form-label">Distributor</label>
+        <select class="form-select" name="distributor" required>
+            <option value="">Select Distributor</option>
+            {% for dist in distributors %}
+                <option value="{{ dist.id }}">{{ dist.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+</form>
+
+<script>
+document.getElementById('teamForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch('{% url "delivery:team-create" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Error creating team');
+        }
+    });
+});
+</script>

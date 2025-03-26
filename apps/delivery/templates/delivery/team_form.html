@@ -1,0 +1,50 @@
+{% extends "layout/layout_vertical.html" %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Create Delivery Team</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label" for="id_name">Team Name</label>
+                        {{ form.name }}
+                    </div>
+
+                    {% if not user.role == 'DISTRIBUTOR' %}
+                    <div class="mb-3">
+                        <label class="form-label" for="id_distributor">Distributor</label>
+                        {{ form.distributor }}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label" for="id_route">Route</label>
+                        {{ form.route }}
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="id_is_active">
+                                Active
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary me-2">Create Team</button>
+                        <a href="{% url 'delivery:team-list' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

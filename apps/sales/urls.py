@@ -5,7 +5,7 @@ app_name = 'sales'
 
 urlpatterns = [
     path('get-sellers-by-route/', views.GetSellersByRouteView.as_view(), name='get-sellers-by-route'),
-    path('dashboard/', views.SalesDashboardView.as_view(), name='dashboard'),
+    path('sales/dashboard/', views.SalesDashboardView.as_view(), name='dashboard'),
     path('orders/', views.SalesOrderListView.as_view(), name='order-list'),
     path('orders/create/', views.SalesOrderCreateView.as_view(), name='order-create'),
     path('orders/<int:order_id>/view/', views.SalesOrderViewView.as_view(), name='order-view'),

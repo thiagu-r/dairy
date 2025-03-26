@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "apps.seller",
     "apps.products",
     "apps.sales",
+    "apps.delivery",
 ]
 
 AUTH_USER_MODEL = 'authentication.CustomUser'

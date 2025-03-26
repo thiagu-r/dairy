@@ -136,4 +136,34 @@
         </div>
     </div>
 </div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{% url 'sales:call-log-list' %}" class="btn btn-primary w-100">
+                            <i class="bx bx-phone me-2"></i>Call Logs
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{% url 'sales:order-list' %}" class="btn btn-info w-100">
+                            <i class="bx bx-cart me-2"></i>Sale Orders
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{% url 'auth-logout' %}" class="btn btn-danger w-100">
+                            <i class="bx bx-log-out me-2"></i>Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

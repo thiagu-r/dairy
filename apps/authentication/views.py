@@ -1,6 +1,6 @@
 from django.views.generic import TemplateView, CreateView
 from django.contrib.auth import login
-from django.contrib.auth.views import PasswordChangeView, PasswordResetView, PasswordResetConfirmView, LoginView
+from django.contrib.auth.views import PasswordChangeView, PasswordResetView, PasswordResetConfirmView, LoginView, LogoutView as BaseLogoutView
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 from web_project import TemplateLayout
@@ -134,8 +134,27 @@ class UserEditView(LoginRequiredMixin, AdminRequiredMixin, View):
 
 class AuthLoginBasicView(LoginView):
     template_name = 'auth_login_basic.html'
-    success_url = reverse_lazy('index')
     redirect_authenticated_user = True
+
+    def get_success_url(self):
+        # Get the 'next' parameter if it exists
+        next_url = self.request.GET.get('next') or self.request.POST.get('next')
+        if next_url:
+            return next_url
+
+        # Role-based redirects
+        user = self.request.user
+        if user.role == 'DELIVERY':
+            return reverse_lazy('delivery:dashboard')
+        elif user.role == 'SALES':
+            return reverse_lazy('sales:dashboard')
+        elif user.role in ['ADMIN', 'CEO', 'MANAGER']:
+            return reverse_lazy('admin_dashboard')  # Changed from 'index'
+        elif user.role == 'SUPERVISOR':
+            return reverse_lazy('supervisor:dashboard')
+        
+        # Default fallback
+        return reverse_lazy('index')
 
     def get(self, request, *args, **kwargs):
         next_url = request.GET.get('next')
@@ -143,13 +162,9 @@ class AuthLoginBasicView(LoginView):
         if request.headers.get('HX-Request'):
             return render(request, 'auth_login_modal.html', {'next': next_url})
         
-        # For regular requests, render the full login page
         context = self.get_context_data()
         context['next'] = next_url 
-
-
         response = render(request, self.template_name, context)       
-    
         return response
 
     def form_valid(self, form):
@@ -235,3 +250,24 @@ class CustomPasswordResetView(PasswordResetView):
             'layout_path': TemplateHelper.set_layout('layout_blank.html', context),
         })
         return context
+
+class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
+    template_name = "authentication/dashboard.html"
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get_context_data(self, **kwargs):
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        
+        # Add dashboard statistics and data here
+        context.update({
+            'total_users': CustomUser.objects.count(),
+            'active_users': CustomUser.objects.filter(is_active=True).count(),
+            'admin_users': CustomUser.objects.filter(role='ADMIN').count(),
+            'sales_users': CustomUser.objects.filter(role='SALES').count(),
+            'delivery_users': CustomUser.objects.filter(role='DELIVERY').count(),
+        })
+        
+        return context
+
+class LogoutView(BaseLogoutView):
+    next_page = reverse_lazy('auth-login-basic')  # Redirect to login page after logout

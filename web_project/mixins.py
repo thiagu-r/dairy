@@ -25,6 +25,7 @@ class SalesTeamRequiredMixin(UserPassesTestMixin):
 
 class DeliveryTeamRequiredMixin(UserPassesTestMixin):
     def test_func(self):
+        print('role:', self.request.user.role)
         if not self.request.user.is_authenticated:
             return False
             
@@ -33,7 +34,8 @@ class DeliveryTeamRequiredMixin(UserPassesTestMixin):
             return True
             
         # Check if user has delivery-related role
-        return self.request.user.role in ['DELIVERY', 'SUPERVISOR']
+        return self.request.user.role in ['DELIVERY', 'SUPERVISOR', 'DISTRIBUTOR']
 
     def handle_no_permission(self):
+        print('role  :', self.request.user.role)
         raise PermissionDenied("You do not have permission to access this page.")

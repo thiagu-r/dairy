@@ -5,7 +5,7 @@
   <!-- ! Hide app brand if navbar-full -->
   {% if not navbar_full %}
   <div class="app-brand demo">
-    <a href="{% url 'index' %}" class="app-brand-link">
+    <a href="index/" class="app-brand-link">
       <span class="app-brand-logo demo">
         {% include 'partials/logo.html' with withbg="#696cff" %}
       </span>
@@ -24,56 +24,41 @@
   <ul class="menu-inner py-1">
     {% if user.role == 'ADMIN' or user.role == 'CEO' or user.role == 'MANAGER' %}
     <!-- Admin Dashboard -->
-    <li class="menu-item {% if 'index' == request.resolver_match.url_name or '/dashboard/' in request.path %}active open{% endif %}">
-      <a href="javascript:void(0);" class="menu-link menu-toggle">
+    <li class="menu-item {% if '/admin_dashboard/' in request.path %}active{% endif %}">
+      <a href="{% url 'admin_dashboard' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-home-smile"></i>
         <div class="text-truncate" data-i18n="Dashboards">Admin Dashboard</div>
       </a>
-      <ul class="menu-sub">
-        <li class="menu-item {% if 'index' == request.resolver_match.url_name %}active{% endif %}">
-          <a href="{% url 'index' %}" class="menu-link">
-            <div class="text-truncate" data-i18n="Analytics">Analytics</div>
-          </a>
-        </li>
-      </ul>
     </li>
 
-    <!-- Sales Management -->
+    <!-- Seller Management Section -->
     <li class="menu-header small text-uppercase">
-      <span class="menu-header-text">Sales Management</span>
-    </li>
-
-    <!-- Sales Orders -->
-    <li class="menu-item {% if '/sales/orders/' in request.path %}active{% endif %}">
-      <a href="{% url 'sales:order-list' %}" class="menu-link">
-        <i class="menu-icon tf-icons bx bx-cart"></i>
-        <div class="text-truncate">Sales Orders</div>
-      </a>
-    </li>
-
-    <!-- Sellers -->
-    <li class="menu-item {% if '/seller/sellers/' in request.path %}active{% endif %}">
-      <a href="{% url 'seller:seller-list' %}" class="menu-link">
-        <i class="menu-icon tf-icons bx bx-store"></i>
-        <div class="text-truncate">Sellers</div>
-      </a>
+      <span class="menu-header-text">Seller Management</span>
     </li>
 
     <!-- Routes -->
-    <li class="menu-item {% if '/seller/routes/' in request.path %}active{% endif %}">
+    <li class="menu-item {% if '/routes/' in request.path %}active{% endif %}">
       <a href="{% url 'seller:route-list' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-map-alt"></i>
         <div class="text-truncate">Routes</div>
       </a>
     </li>
 
-    <!-- Products Section -->
+    <!-- Sellers -->
+    <li class="menu-item {% if '/sellers/' in request.path %}active{% endif %}">
+      <a href="{% url 'seller:seller-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-store"></i>
+        <div class="text-truncate">Sellers</div>
+      </a>
+    </li>
+
+    <!-- Product Management Section -->
     <li class="menu-header small text-uppercase">
       <span class="menu-header-text">Product Management</span>
     </li>
 
     <!-- Categories -->
-    <li class="menu-item {% if '/products/categories/' in request.path %}active{% endif %}">
+    <li class="menu-item {% if '/categories/' in request.path %}active{% endif %}">
       <a href="{% url 'products:category-list' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-category"></i>
         <div class="text-truncate">Categories</div>
@@ -81,7 +66,7 @@
     </li>
 
     <!-- Products -->
-    <li class="menu-item {% if '/products/' in request.path and '/categories/' not in request.path %}active{% endif %}">
+    <li class="menu-item {% if '/products/' in request.path %}active{% endif %}">
       <a href="{% url 'products:product-list' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-package"></i>
         <div class="text-truncate">Products</div>
@@ -89,19 +74,35 @@
     </li>
 
     <!-- Price Plans -->
-    <li class="menu-item {% if '/products/price-plans/' in request.path %}active{% endif %}">
+    <li class="menu-item {% if '/price-plans/' in request.path %}active{% endif %}">
       <a href="{% url 'products:price-plan-list' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-money"></i>
         <div class="text-truncate">Price Plans</div>
       </a>
     </li>
 
-    <!-- Administration Section -->
+    <!-- Sales Management Section -->
     <li class="menu-header small text-uppercase">
-      <span class="menu-header-text">Administration</span>
+      <span class="menu-header-text">Sales Management</span>
     </li>
 
-    <!-- System Management -->
+    <!-- Sale Orders -->
+    <li class="menu-item {% if '/sale-orders/' in request.path %}active{% endif %}">
+      <a href="{% url 'sales:order-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-cart"></i>
+        <div class="text-truncate">Sale Orders</div>
+      </a>
+    </li>
+
+    <!-- Call Logs -->
+    <li class="menu-item {% if '/call-logs/' in request.path %}active{% endif %}">
+      <a href="{% url 'sales:call-log-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-phone"></i>
+        <div class="text-truncate">Call Logs</div>
+      </a>
+    </li>
+
+    <!-- System Management Section -->
     <li class="menu-header small text-uppercase">
       <span class="menu-header-text">System Management</span>
     </li>
@@ -124,20 +125,16 @@
       </a>
     </li>
 
-    <li class="menu-header small text-uppercase">
-      <span class="menu-header-text">Sales Management</span>
-    </li>
-
-    <!-- Sales Orders -->
-    <li class="menu-item {% if '/sales/orders/' in request.path %}active{% endif %}">
+    <!-- Sale Orders for Sales Users -->
+    <li class="menu-item {% if '/sale-orders/' in request.path %}active{% endif %}">
       <a href="{% url 'sales:order-list' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-cart"></i>
-        <div class="text-truncate">Sales Orders</div>
+        <div class="text-truncate">Sale Orders</div>
       </a>
     </li>
 
-    <!-- Call Logs -->
-    <li class="menu-item {% if '/sales/call-logs/' in request.path %}active{% endif %}">
+    <!-- Call Logs for Sales Users -->
+    <li class="menu-item {% if '/call-logs/' in request.path %}active{% endif %}">
       <a href="{% url 'sales:call-log-list' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-phone"></i>
         <div class="text-truncate">Call Logs</div>
@@ -145,24 +142,40 @@
     </li>
     {% endif %}
 
+    <!-- Delivery Section -->
+    {% if user.role in 'DISTRIBUTOR,DELIVERY,SUPERVISOR' %}
+    <li class="menu-item {% if '/delivery/dashboard/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:dashboard' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-dashboard"></i>
+        <div class="text-truncate">Delivery Dashboard</div>
+      </a>
+    </li>
+
+    <!-- Add Delivery Teams Menu Item -->
+    <li class="menu-item {% if '/delivery/teams/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:team-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-group"></i>
+        <div class="text-truncate">Delivery Teams</div>
+      </a>
+    </li>
+    {% endif %}
+
+    <!-- Delivery Orders -->
+    {% comment %} <li class="menu-item {% if '/delivery/orders/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:order-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-package"></i>
+        <div class="text-truncate">Delivery Orders</div>
+      </a>
+    </li> {% endcomment %}
+    {% comment %} {% endif %} {% endcomment %}
+
+    <!-- Add this section for Delivery users -->
     {% if user.role == 'DELIVERY' %}
     <!-- Delivery Dashboard -->
     <li class="menu-item {% if '/delivery/dashboard/' in request.path %}active{% endif %}">
       <a href="{% url 'delivery:dashboard' %}" class="menu-link">
         <i class="menu-icon tf-icons bx bx-package"></i>
         <div class="text-truncate">Delivery Dashboard</div>
-      </a>
-    </li>
-
-    <li class="menu-header small text-uppercase">
-      <span class="menu-header-text">Delivery Management</span>
-    </li>
-
-    <!-- Deliveries -->
-    <li class="menu-item {% if '/delivery/orders/' in request.path %}active{% endif %}">
-      <a href="{% url 'delivery:order-list' %}" class="menu-link">
-        <i class="menu-icon tf-icons bx bx-cart"></i>
-        <div class="text-truncate">Delivery Orders</div>
       </a>
     </li>
     {% endif %}
@@ -188,6 +201,28 @@
       </a>
     </li>
     {% endif %}
+
+    <!-- Purchase Orders -->
+    {% if user.role in 'DISTRIBUTOR,DELIVERY,SUPERVISOR' %}
+    <li class="menu-item {% if '/delivery/purchase-orders/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:purchase-order-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-cart"></i>
+        <div class="text-truncate">Purchase Orders</div>
+      </a>
+    </li>
+    {% endif %}
+
+    <!-- Logout Option (for all users) -->
+    <li class="menu-header small text-uppercase">
+      <span class="menu-header-text">Account</span>
+    </li>
+    
+    <li class="menu-item">
+      <a href="{% url 'auth-logout' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-log-out"></i>
+        <div class="text-truncate">Logout</div>
+      </a>
+    </li>
   </ul>
 
 

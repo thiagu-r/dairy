@@ -1,0 +1,114 @@
+{% extends "layout/layout_vertical.html" %}
+{% load static %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Total Users</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ total_users }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-primary rounded p-2">
+                            <i class="bx bx-user bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Active Users</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ active_users }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-success rounded p-2">
+                            <i class="bx bx-check-circle bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Sales Team</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ sales_users }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-info rounded p-2">
+                            <i class="bx bx-chart bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Delivery Team</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ delivery_users }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-warning rounded p-2">
+                            <i class="bx bx-package bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{% url 'user-list' %}" class="btn btn-primary w-100">
+                            <i class="bx bx-user-plus me-2"></i>Manage Users
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{% url 'auth-logout' %}" class="btn btn-danger w-100">
+                            <i class="bx bx-log-out me-2"></i>Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

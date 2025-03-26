@@ -18,12 +18,16 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 from web_project.views import SystemView
+from apps.authentication.views import AdminDashboardView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
     # Dashboard urls
-    path("", include("apps.dashboards.urls")),
+    path('admin_dashboard/', AdminDashboardView.as_view(), name='admin_dashboard'),
+    # path('sales/dashboard/', apps.sales.views.DashboardView.as_view(), name='sales:dashboard'),
+    # path('delivery/dashboard/', delivery_views.DashboardView.as_view(), name='delivery:dashboard'),
+    # path('supervisor/dashboard/', supervisor_views.DashboardView.as_view(), name='supervisor:dashboard'),
 
     # layouts urls
     path("", include("apps.layouts.urls")),
@@ -59,10 +63,13 @@ urlpatterns = [
     path("", include("apps.seller.urls")),
 
     # Products urls
-    path('', include('apps.products.urls')),
+    path('', include('apps.products.urls', namespace='products')),
 
     # Sales urls
     path('', include('apps.sales.urls')),
+
+    # Delivery urls
+    path('', include('apps.delivery.urls')),
 ]
 
 handler404 = SystemView.as_view(template_name="pages_misc_error.html", status=404)

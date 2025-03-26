@@ -1,0 +1,390 @@
+{% extends "layout/layout_vertical.html" %}
+{% load static %}
+
+{% block title %}Purchase Orders{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">Purchase Orders</h4>
+    
+    <div class="card">
+        <div class="card-header">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#purchaseOrderModal">
+                <i class="bx bx-plus me-1"></i>
+                Create Purchase Order
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Order Number</th>
+                            <th>Route</th>
+                            <th>Delivery Team</th>
+                            <th>Delivery Date</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in purchase_orders %}
+                        <tr>
+                            <td>{{ order.order_number }}</td>
+                            <td>{{ order.route.name }}</td>
+                            <td>{{ order.delivery_team.name }}</td>
+                            <td>{{ order.delivery_date }}</td>
+                            <td>
+                                <span class="badge bg-label-{{ order.status }}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ order.created_at }}</td>
+                            <td>
+                                <div class="dropdown">
+                                    <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                        <i class="bx bx-dots-vertical-rounded"></i>
+                                    </button>
+                                    <div class="dropdown-menu">
+                                        <a class="dropdown-item" href="{% url 'delivery:purchase-order-detail' order.id %}">
+                                            <i class="bx bx-show-alt me-1"></i> View
+                                        </a>
+                                        <a class="dropdown-item" href="{% url 'delivery:purchase-order-edit' order.id %}">
+                                            <i class="bx bx-edit-alt me-1"></i> Edit
+                                        </a>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Purchase Order Modal -->
+<div class="modal fade" 
+     id="purchaseOrderModal" 
+     tabindex="-1" 
+     aria-labelledby="purchaseOrderModalLabel" 
+     aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="purchaseOrderModalLabel">Create Purchase Order</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="purchaseOrderForm">
+                    {% csrf_token %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Route</label>
+                            <select class="form-select" id="routeSelect" name="route" required>
+                                <option value="">Select Route</option>
+                                {% for route in routes %}
+                                    <option value="{{ route.id }}">{{ route.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Delivery Date</label>
+                            <input type="date" class="form-control" id="deliveryDate" name="delivery_date" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Delivery Team</label>
+                            <select class="form-select" id="deliveryTeamSelect" name="delivery_team" required>
+                                <option value="">Select Team</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="itemsSection" style="display: none;">
+                        <h6 class="mb-3">Order Items</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Sales Qty</th>
+                                        <th>Extra Qty</th>
+                                        <th>Remaining Qty</th>
+                                        <th>Total Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveOrderBtn">Create Order</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block page_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const routeSelect = document.getElementById('routeSelect');
+    const deliveryTeamSelect = document.getElementById('deliveryTeamSelect');
+    const deliveryDate = document.getElementById('deliveryDate');
+    const itemsSection = document.getElementById('itemsSection');
+    const itemsTableBody = document.getElementById('itemsTableBody');
+    const saveOrderBtn = document.getElementById('saveOrderBtn');
+    const purchaseOrderForm = document.getElementById('purchaseOrderForm');
+    let orderItems = [];
+    let existingPurchaseOrderId = null;
+
+    // Add event listener for route selection
+    routeSelect.addEventListener('change', function() {
+        const routeId = this.value;
+        deliveryTeamSelect.innerHTML = '<option value="">Select Team</option>';
+        
+        if (routeId) {
+            fetch(`/delivery-get-delivery-teams/?route=${routeId}`)
+                .then(response => response.json())
+                .then(data => {
+                    data.teams.forEach(team => {
+                        deliveryTeamSelect.innerHTML += `
+                            <option value="${team.id}">${team.name}</option>
+                        `;
+                    });
+                });
+        }
+    });
+
+    function checkRouteAndDate() {
+        const routeId = routeSelect.value;
+        const date = deliveryDate.value;
+        const teamId = deliveryTeamSelect.value;
+
+        if (routeId && date && teamId) {
+            // First check if purchase order exists
+            fetch(`/delivery-check-existing-purchase-order/?route=${routeId}&delivery_date=${date}&team=${teamId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        // Load existing order
+                        existingPurchaseOrderId = data.order_id;
+                        orderItems = data.items;
+                        updateItemsTable();
+                        itemsSection.style.display = 'block';
+                        saveOrderBtn.textContent = 'Update Order';
+                    } else {
+                        // Load new sales summary
+                        existingPurchaseOrderId = null;
+                        fetch(`/delivery-get-route-sales-summary/?route=${routeId}&delivery_date=${date}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                orderItems = data.items;
+                                updateItemsTable();
+                                itemsSection.style.display = 'block';
+                                saveOrderBtn.textContent = 'Create Order';
+                            });
+                    }
+                });
+        } else {
+            itemsSection.style.display = 'none';
+        }
+    }
+
+    // Add event listeners
+    routeSelect.addEventListener('change', checkRouteAndDate);
+    deliveryDate.addEventListener('change', checkRouteAndDate);
+    deliveryTeamSelect.addEventListener('change', checkRouteAndDate);
+
+    function updateItemsTable() {
+        itemsTableBody.innerHTML = orderItems.map(item => `
+            <tr>
+                <td>${item.product_name}</td>
+                <td>${item.sales_quantity}</td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" 
+                               class="form-control extra-qty" 
+                               data-product-id="${item.product_id}"
+                               value="${item.extra_quantity}"
+                               step="0.001"
+                               min="0">
+                        <button class="btn btn-outline-primary save-extra-qty" type="button">
+                            <i class="bx bx-save"></i>
+                        </button>
+                    </div>
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" 
+                               class="form-control remaining-qty" 
+                               data-product-id="${item.product_id}"
+                               value="${item.remaining_quantity}"
+                               step="0.001"
+                               min="0">
+                        <button class="btn btn-outline-primary save-remaining-qty" type="button">
+                            <i class="bx bx-save"></i>
+                        </button>
+                    </div>
+                </td>
+                <td class="total-qty">
+                    ${(parseFloat(item.sales_quantity) + parseFloat(item.extra_quantity) - parseFloat(item.remaining_quantity)).toFixed(3)}
+                </td>
+            </tr>
+        `).join('');
+
+        // Add event listeners for save buttons
+        document.querySelectorAll('.save-extra-qty').forEach(button => {
+            button.addEventListener('click', function() {
+                const input = this.parentElement.querySelector('.extra-qty');
+                const productId = input.dataset.productId;
+                const newValue = parseFloat(input.value) || 0;
+                
+                const item = orderItems.find(i => i.product_id === productId);
+                if (item) {
+                    item.extra_quantity = newValue.toFixed(3);
+                    updateTotalQuantity(this.closest('tr'));
+                    
+                    if (existingPurchaseOrderId) {
+                        saveItemUpdate(productId, {
+                            extra_quantity: newValue
+                        });
+                    }
+                }
+            });
+        });
+
+        document.querySelectorAll('.save-remaining-qty').forEach(button => {
+            button.addEventListener('click', function() {
+                const input = this.parentElement.querySelector('.remaining-qty');
+                const productId = input.dataset.productId;
+                const newValue = parseFloat(input.value) || 0;
+                
+                const item = orderItems.find(i => i.product_id === productId);
+                if (item) {
+                    item.remaining_quantity = newValue.toFixed(3);
+                    updateTotalQuantity(this.closest('tr'));
+                    
+                    if (existingPurchaseOrderId) {
+                        saveItemUpdate(productId, {
+                            remaining_quantity: newValue
+                        });
+                    }
+                }
+            });
+        });
+    }
+
+    function updateTotalQuantity(row) {
+        const productId = row.querySelector('.extra-qty').dataset.productId;
+        const item = orderItems.find(i => i.product_id === productId);
+        
+        if (item) {
+            const salesQty = parseFloat(item.sales_quantity);
+            const extraQty = parseFloat(item.extra_quantity);
+            const remainingQty = parseFloat(item.remaining_quantity);
+            const totalQty = (salesQty + extraQty - remainingQty).toFixed(3);
+            
+            row.querySelector('.total-qty').textContent = totalQty;
+            item.total_quantity = totalQty;
+        }
+    }
+
+    function saveItemUpdate(productId, updates) {
+        fetch(`/delivery-purchase-orders/${existingPurchaseOrderId}/update-item/${productId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(updates)
+        })
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Server error');
+            }
+            return data;
+        })
+        .then(data => {
+            if (data.success) {
+                // Update the total quantity in the table
+                const row = document.querySelector(`tr[data-product-id="${productId}"]`);
+                if (row) {
+                    row.querySelector('.total-qty').textContent = data.total_quantity;
+                }
+                toastr.success('Item updated successfully');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toastr.error(error.message || 'An error occurred while updating the item');
+        });
+    }
+
+    // Handle form submission
+    saveOrderBtn.addEventListener('click', function() {
+        const formData = new FormData(purchaseOrderForm);
+        formData.append('items', JSON.stringify(orderItems));
+
+        const url = existingPurchaseOrderId 
+            ? `/delivery-purchase-orders/${existingPurchaseOrderId}/edit/`
+            : '/delivery/purchase-orders/create/';
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.error || 'Error saving purchase order');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving the purchase order');
+        });
+    });
+
+    // Reset form when modal is closed
+    function resetForm() {
+        purchaseOrderForm.reset();
+        routeSelect.value = '';
+        deliveryTeamSelect.innerHTML = '<option value="">Select Team</option>';
+        orderItems = [];
+        existingPurchaseOrderId = null;
+        itemsSection.style.display = 'none';
+        saveOrderBtn.textContent = 'Create Order';
+    }
+
+    // Add modal event listener
+    const purchaseOrderModal = document.getElementById('purchaseOrderModal');
+    purchaseOrderModal.addEventListener('hidden.bs.modal', resetForm);
+
+    // Initialize form state
+    resetForm();
+});
+</script>
+{% endblock %}

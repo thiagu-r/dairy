@@ -1,0 +1,206 @@
+{% extends "layout/layout_vertical.html" %}
+{% load static %}
+{% load i18n %}
+
+{# Make sure we're loading all required template tags #}
+{% load static %}
+
+{% block title %}Delivery Dashboard{% endblock title %}
+
+{% block content %}
+<div class="row">
+    <!-- Statistics Cards -->
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Total Orders</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ total_orders }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-primary rounded p-2">
+                            <i class="bx bx-package bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-3 col-sm-6 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div class="card-info">
+                        <p class="card-text">Completed</p>
+                        <div class="d-flex align-items-end mb-2">
+                            <h4 class="card-title mb-0 me-2">{{ completed_orders }}</h4>
+                        </div>
+                    </div>
+                    <div class="card-icon">
+                        <span class="badge bg-label-success rounded p-2">
+                            <i class="bx bx-check-circle bx-sm"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if daily_teams %}
+    <!-- Team Assignments -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Today's Team Assignments</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Team</th>
+                                <th>Route</th>
+                                <th>Driver</th>
+                                <th>Supervisor</th>
+                                <th>Delivery Person</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for team in daily_teams %}
+                            <tr>
+                                <td>{{ team.delivery_team.name }}</td>
+                                <td>{{ team.route.name }}</td>
+                                <td>{{ team.driver.user.get_full_name }}</td>
+                                <td>{{ team.supervisor.user.get_full_name|default:"-" }}</td>
+                                <td>{{ team.delivery_man.user.get_full_name|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Route Summary -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Route Summary</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th>Total Orders</th>
+                                <th>Completed</th>
+                                <th>Total Amount</th>
+                                <th>Collected</th>
+                                <th>Progress</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for route in route_summary %}
+                            <tr>
+                                <td>{{ route.route__name }}</td>
+                                <td>{{ route.total_orders }}</td>
+                                <td>{{ route.completed_orders }}</td>
+                                <td>₹{{ route.total_amount|floatformat:2 }}</td>
+                                <td>₹{{ route.collected_amount|default:0|floatformat:2 }}</td>
+                                <td>
+                                    <div class="progress" style="height: 6px;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: {% widthratio route.completed_orders route.total_orders 100 %}%"
+                                             aria-valuenow="{% widthratio route.completed_orders route.total_orders 100 %}"
+                                             aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Orders</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Seller</th>
+                                <th>Route</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in recent_orders %}
+                            <tr>
+                                <td>{{ order.order_number }}</td>
+                                <td>{{ order.seller.store_name }}</td>
+                                <td>{{ order.route.name }}</td>
+                                <td>₹{{ order.total_price|floatformat:2 }}</td>
+                                <td>
+                                    <span class="badge bg-label-{{ order.status|lower }}">
+                                        {{ order.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ order.delivery_time|time:"H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        {% comment %} <a href="{% url 'delivery:order-list' %}" class="btn btn-primary w-100">
+                            <i class="bx bx-package me-2"></i>Delivery Orders
+                        </a> {% endcomment %}
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{% url 'delivery:purchase-order-list' %}" class="btn btn-primary w-100">
+                            <i class="bx bx-package me-2"></i>Purchase Orders
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <a href="{% url 'auth-logout' %}" class="btn btn-danger w-100">
+                            <i class="bx bx-log-out me-2"></i>Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
