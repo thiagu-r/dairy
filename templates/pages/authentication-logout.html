@@ -1,0 +1,30 @@
+{% extends "layout/layout_blank.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-xxl">
+  <div class="authentication-wrapper authentication-basic container-p-y">
+    <div class="authentication-inner py-4">
+      <div class="card">
+        <div class="card-body">
+          <!-- Logo -->
+          <div class="app-brand justify-content-center mb-4 mt-2">
+            <a href="{% url 'auth-login-basic' %}" class="app-brand-link gap-2">
+              <span class="app-brand-logo demo">
+                <!-- Your logo here -->
+              </span>
+              <span class="app-brand-text demo text-body fw-bold ms-1">{{ app_name|default:"Our App" }}</span>
+            </a>
+          </div>
+          <!-- /Logo -->
+          <h4 class="mb-2">You have been logged out! 👋</h4>
+          <p class="mb-4">Thank you for using our application</p>
+          <a href="{% url 'auth-login-basic' %}" class="btn btn-primary d-grid w-100">
+            Sign In
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

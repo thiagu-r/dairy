@@ -17,8 +17,10 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import include, path
+from django.contrib.auth.views import LogoutView
+from django.views.generic.base import RedirectView
 from web_project.views import SystemView
-from apps.authentication.views import AdminDashboardView
+from apps.authentication.views import AdminDashboardView, LogoutView, AuthLoginBasicView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -70,6 +72,9 @@ urlpatterns = [
 
     # Delivery urls
     path('', include('apps.delivery.urls')),
+
+    path('', RedirectView.as_view(pattern_name='auth-login-basic'), name='index'),
+    path('logout/', LogoutView.as_view(), name='logout'),
 ]
 
 handler404 = SystemView.as_view(template_name="pages_misc_error.html", status=404)

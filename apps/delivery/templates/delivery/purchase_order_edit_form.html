@@ -1,0 +1,106 @@
+<form hx-put="{% url 'delivery:purchase-order-edit' purchase_order.id %}"
+      hx-target="#purchase-orders-table-container"
+      hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Route</label>
+                <select class="form-select" name="route" id="routeSelect" required>
+                    <option value="">Select Route</option>
+                    {% for route in routes %}
+                    <option value="{{ route.id }}" {% if route.id == purchase_order.route_id %}selected{% endif %}>
+                        {{ route.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Delivery Team</label>
+                <select class="form-select" name="delivery_team" id="deliveryTeamSelect" required>
+                    <option value="">Select Team</option>
+                    {% for team in delivery_teams %}
+                    <option value="{{ team.id }}" {% if team.id == purchase_order.delivery_team_id %}selected{% endif %}>
+                        {{ team.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Delivery Date</label>
+                <input type="date" class="form-control" name="delivery_date" id="deliveryDate" 
+                       value="{{ purchase_order.delivery_date|date:'Y-m-d' }}" required>
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col-12">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" name="notes" rows="2">{{ purchase_order.notes }}</textarea>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Sales Qty</th>
+                        <th>Extra Qty</th>
+                        <th>Remaining Qty</th>
+                        <th>Total Qty</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsTableBody">
+                    {% for item in purchase_order.items.all %}
+                    <tr>
+                        <td>{{ item.product.code }} - {{ item.product.name }}</td>
+                        <td>{{ item.sales_order_quantity }}</td>
+                        <td>
+                            <input type="number" 
+                                   class="form-control form-control-sm extra-qty" 
+                                   name="extra_qty_{{ item.product.id }}"
+                                   value="{{ item.extra_quantity }}"
+                                   step="0.001"
+                                   min="0">
+                        </td>
+                        <td>
+                            <input type="number" 
+                                   class="form-control form-control-sm remaining-qty" 
+                                   name="remaining_qty_{{ item.product.id }}"
+                                   value="{{ item.remaining_quantity }}"
+                                   step="0.001"
+                                   min="0">
+                        </td>
+                        <td class="total-qty">
+                            {{ item.sales_order_quantity|add:item.extra_quantity|sub:item.remaining_quantity }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="submit" class="btn btn-primary">Update Order</button>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const updateTotalQty = (row) => {
+        const salesQty = parseFloat(row.querySelector('td:nth-child(2)').textContent) || 0;
+        const extraQty = parseFloat(row.querySelector('.extra-qty').value) || 0;
+        const remainingQty = parseFloat(row.querySelector('.remaining-qty').value) || 0;
+        const totalQty = (salesQty + extraQty - remainingQty).toFixed(3);
+        row.querySelector('.total-qty').textContent = totalQty;
+    };
+
+    document.querySelectorAll('.extra-qty, .remaining-qty').forEach(input => {
+        input.addEventListener('change', function() {
+            updateTotalQty(this.closest('tr'));
+        });
+    });
+});
+</script>

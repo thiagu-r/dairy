@@ -1,0 +1,8 @@
+<form id="logout-form" method="post" action="{% url 'logout' %}" style="display: none;">
+    {% csrf_token %}
+</form>
+
+<a href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();" class="dropdown-item">
+    <i class="bx bx-power-off me-2"></i>
+    <span class="align-middle">Log Out</span>
+</a>

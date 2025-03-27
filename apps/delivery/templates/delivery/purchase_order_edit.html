@@ -1,87 +1,75 @@
-{% extends "layout/layout_vertical.html" %}
-{% load static %}
+{% extends "layouts/layout.html" %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">Edit Purchase Order</h5>
-            </div>
-            <div class="card-body">
-                <form id="purchaseOrderForm">
-                    {% csrf_token %}
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Route</label>
-                            <select class="form-select" id="routeSelect" name="route" required>
-                                <option value="">Select Route</option>
-                                {% for route in routes %}
-                                <option value="{{ route.id }}" {% if route.id == purchase_order.route_id %}selected{% endif %}>
-                                    {{ route.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Delivery Team</label>
-                            <select class="form-select" name="delivery_team" required>
-                                <option value="">Select Team</option>
-                                {% for team in delivery_teams %}
-                                <option value="{{ team.id }}" {% if team.id == purchase_order.delivery_team_id %}selected{% endif %}>
-                                    {{ team.name }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Delivery Date</label>
-                            <input type="date" 
-                                   class="form-control" 
-                                   id="deliveryDate" 
-                                   name="delivery_date"
-                                   value="{{ purchase_order.delivery_date|date:'Y-m-d' }}"
-                                   required>
-                        </div>
-                    </div>
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">Edit Purchase Order</h4>
 
-                    <div id="itemsSection">
-                        <h6 class="mb-3">Order Items</h6>
-                        <div class="table-responsive">
-                            <table class="table table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>Product</th>
-                                        <th>Sales Qty</th>
-                                        <th>Extra Qty</th>
-                                        <th>Remaining Qty</th>
-                                        <th>Total Qty</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="itemsTableBody">
-                                </tbody>
-                            </table>
-                        </div>
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" id="purchaseOrderForm">
+                {% csrf_token %}
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Route</label>
+                        <select class="form-select" name="route" id="routeSelect" required>
+                            <option value="">Select Route</option>
+                            {% for route in routes %}
+                            <option value="{{ route.id }}" {% if route.id == purchase_order.route_id %}selected{% endif %}>
+                                {{ route.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Delivery Team</label>
+                        <select class="form-select" name="delivery_team" id="deliveryTeamSelect" required>
+                            <option value="">Select Team</option>
+                            {% for team in delivery_teams %}
+                            <option value="{{ team.id }}" {% if team.id == purchase_order.delivery_team_id %}selected{% endif %}>
+                                {{ team.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Delivery Date</label>
+                        <input type="date" class="form-control" name="delivery_date" id="deliveryDate" 
+                               value="{{ purchase_order.delivery_date|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
 
-                    <div class="mb-3">
+                <div class="row mb-3">
+                    <div class="col-12">
                         <label class="form-label">Notes</label>
-                        <textarea class="form-control" 
-                                  id="notes" 
-                                  name="notes" 
-                                  rows="3">{{ purchase_order.notes }}</textarea>
+                        <textarea class="form-control" name="notes" rows="2">{{ purchase_order.notes }}</textarea>
                     </div>
+                </div>
 
-                    <div class="text-end">
-                        <a href="{% url 'delivery:purchase-order-list' %}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </div>
-                </form>
-            </div>
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Sales Qty</th>
+                                <th>Extra Qty</th>
+                                <th>Remaining Qty</th>
+                                <th>Total Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsTableBody">
+                            <!-- Items will be populated via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary">Update Order</button>
+                    <a href="{% url 'delivery:purchase-order-list' %}" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
         </div>
     </div>
 </div>
-
 {% endblock %}
 
 {% block javascripts %}
@@ -110,60 +98,62 @@ function updateItemsTable() {
                        step="0.001"
                        min="0">
             </td>
-            <td>${item.total_quantity}</td>
+            <td class="total-qty">
+                ${(parseFloat(item.sales_quantity) + parseFloat(item.extra_quantity) - parseFloat(item.remaining_quantity)).toFixed(3)}
+            </td>
         </tr>
     `).join('');
 
-    // Add event listeners
+    // Add event listeners for quantity inputs
     document.querySelectorAll('.extra-qty, .remaining-qty').forEach(input => {
         input.addEventListener('change', function() {
+            const row = this.closest('tr');
             const productId = this.dataset.productId;
             const item = orderItems.find(i => i.product_id === productId);
             
             if (item) {
-                const extraQty = parseFloat(document.querySelector(`.extra-qty[data-product-id="${productId}"]`).value) || 0;
-                const remainingQty = parseFloat(document.querySelector(`.remaining-qty[data-product-id="${productId}"]`).value) || 0;
-                const salesQty = parseFloat(item.sales_quantity);
+                const extraQty = parseFloat(row.querySelector('.extra-qty').value) || 0;
+                const remainingQty = parseFloat(row.querySelector('.remaining-qty').value) || 0;
                 
                 item.extra_quantity = extraQty.toFixed(3);
                 item.remaining_quantity = remainingQty.toFixed(3);
-                item.total_quantity = (salesQty + extraQty - remainingQty).toFixed(3);
                 
-                updateItemsTable();
+                const totalQty = (parseFloat(item.sales_quantity) + extraQty - remainingQty).toFixed(3);
+                row.querySelector('.total-qty').textContent = totalQty;
             }
         });
     });
 }
 
-// Initialize table
-updateItemsTable();
-
-// Handle form submission
+// Form submission handling
 document.getElementById('purchaseOrderForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const formData = new FormData(this);
     formData.append('items', JSON.stringify(orderItems));
-
-    fetch('{% url "delivery:purchase-order-edit" purchase_order.id %}', {
+    
+    fetch(window.location.href, {
         method: 'POST',
         body: formData,
         headers: {
             'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         }
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = '{% url "delivery:purchase-order-list" %}';
+    .then(response => {
+        if (response.ok) {
+            window.location.href = "{% url 'delivery:purchase-order-list' %}";
         } else {
-            alert(data.error || 'Error updating purchase order');
+            return response.json().then(data => {
+                throw new Error(data.error || 'An error occurred');
+            });
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while updating the purchase order');
+        alert(error.message);
     });
 });
+
+// Initialize table
+updateItemsTable();
 </script>
 {% endblock %}

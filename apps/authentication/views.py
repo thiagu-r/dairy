@@ -1,5 +1,5 @@
 from django.views.generic import TemplateView, CreateView
-from django.contrib.auth import login
+from django.contrib.auth import login, logout
 from django.contrib.auth.views import PasswordChangeView, PasswordResetView, PasswordResetConfirmView, LoginView, LogoutView as BaseLogoutView
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
@@ -154,7 +154,7 @@ class AuthLoginBasicView(LoginView):
             return reverse_lazy('supervisor:dashboard')
         
         # Default fallback
-        return reverse_lazy('index')
+        return reverse_lazy('auth-login-basic')
 
     def get(self, request, *args, **kwargs):
         next_url = request.GET.get('next')
@@ -270,4 +270,22 @@ class AdminDashboardView(LoginRequiredMixin, AdminRequiredMixin, TemplateView):
         return context
 
 class LogoutView(BaseLogoutView):
-    next_page = reverse_lazy('auth-login-basic')  # Redirect to login page after logout
+    next_page = 'auth-login-basic'
+    template_name = 'pages/authentication-logout.html'
+    http_method_names = ['get', 'post']
+
+    def dispatch(self, request, *args, **kwargs):
+        # Perform logout
+        logout(request)
+        return super().dispatch(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        # After logout, redirect to login page
+        if not request.user.is_authenticated:
+            return redirect('auth-login-basic')
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['app_name'] = 'Bharat'  # Replace with your actual app name
+        return context
