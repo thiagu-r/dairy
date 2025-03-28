@@ -1,0 +1,47 @@
+<div id="purchase-orders-table">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Order Number</th>
+                <th>Route</th>
+                <th>Delivery Team</th>
+                <th>Delivery Date</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in purchase_orders %}
+            <tr>
+                <td>{{ order.order_number }}</td>
+                <td>{{ order.route.name }}</td>
+                <td>{{ order.delivery_team.name }}</td>
+                <td>{{ order.delivery_date }}</td>
+                <td>
+                    <span class="badge bg-label-{{ order.status }}">
+                        {{ order.get_status_display }}
+                    </span>
+                </td>
+                <td>{{ order.created_at }}</td>
+                <td>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'delivery:purchase-order-detail' order.id %}" 
+                           class="btn btn-icon btn-sm btn-outline-primary">
+                            <i class="bx bx-show"></i>
+                        </a>
+                        <button type="button"
+                                class="btn btn-icon btn-sm btn-outline-warning"
+                                hx-get="{% url 'delivery:purchase-order-edit' order.id %}"
+                                hx-target="#editModal .modal-content"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editModal">
+                            <i class="bx bx-edit"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

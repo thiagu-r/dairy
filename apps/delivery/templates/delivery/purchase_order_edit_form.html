@@ -1,9 +1,14 @@
-<form hx-put="{% url 'delivery:purchase-order-edit' purchase_order.id %}"
-      hx-target="#purchase-orders-table-container"
-      hx-swap="innerHTML">
-    {% csrf_token %}
-    <div class="modal-body">
-        <div class="row mb-3">
+<div class="modal-header">
+    <h5 class="modal-title">Edit Purchase Order</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <form id="purchaseOrderEditForm" 
+          hx-put="{% url 'delivery:purchase-order-edit' purchase_order.id %}"
+          hx-target="#purchase-orders-table"
+          hx-swap="outerHTML">
+        {% csrf_token %}
+        <div class="row">
             <div class="col-md-4">
                 <label class="form-label">Route</label>
                 <select class="form-select" name="route" id="routeSelect" required>
@@ -28,19 +33,16 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Delivery Date</label>
-                <input type="date" class="form-control" name="delivery_date" id="deliveryDate" 
-                       value="{{ purchase_order.delivery_date|date:'Y-m-d' }}" required>
+                <input type="date" 
+                       class="form-control" 
+                       name="delivery_date" 
+                       id="deliveryDate"
+                       value="{{ purchase_order.delivery_date|date:'Y-m-d' }}"
+                       required>
             </div>
         </div>
 
-        <div class="row mb-3">
-            <div class="col-12">
-                <label class="form-label">Notes</label>
-                <textarea class="form-control" name="notes" rows="2">{{ purchase_order.notes }}</textarea>
-            </div>
-        </div>
-
-        <div class="table-responsive">
+        <div class="table-responsive mt-3">
             <table class="table table-bordered">
                 <thead>
                     <tr>
@@ -51,56 +53,184 @@
                         <th>Total Qty</th>
                     </tr>
                 </thead>
-                <tbody id="itemsTableBody">
+                <tbody>
                     {% for item in purchase_order.items.all %}
                     <tr>
-                        <td>{{ item.product.code }} - {{ item.product.name }}</td>
-                        <td>{{ item.sales_order_quantity }}</td>
+                        <td>{{ item.product.name }}</td>
+                        <td class="sales-qty text-end">{{ item.sales_order_quantity|floatformat:3 }}</td>
                         <td>
-                            <input type="number" 
-                                   class="form-control form-control-sm extra-qty" 
-                                   name="extra_qty_{{ item.product.id }}"
-                                   value="{{ item.extra_quantity }}"
-                                   step="0.001"
-                                   min="0">
+                            <div class="input-group input-group-sm">
+                                <input type="number" 
+                                       class="form-control form-control-sm" 
+                                       name="extra_qty_{{ item.product.id }}"
+                                       value="{{ item.extra_quantity|floatformat:3 }}"
+                                       step="0.001"
+                                       min="0">
+                                <button type="button" 
+                                        class="btn btn-success btn-sm save-extra-qty" 
+                                        style="display: none;">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
                         </td>
                         <td>
-                            <input type="number" 
-                                   class="form-control form-control-sm remaining-qty" 
-                                   name="remaining_qty_{{ item.product.id }}"
-                                   value="{{ item.remaining_quantity }}"
-                                   step="0.001"
-                                   min="0">
+                            <div class="input-group input-group-sm">
+                                <input type="number" 
+                                       class="form-control form-control-sm" 
+                                       name="remaining_qty_{{ item.product.id }}"
+                                       value="{{ item.remaining_quantity|floatformat:3 }}"
+                                       step="0.001"
+                                       min="0">
+                                <button type="button" 
+                                        class="btn btn-success btn-sm save-remaining-qty" 
+                                        style="display: none;">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                            </div>
                         </td>
-                        <td class="total-qty">
-                            {{ item.sales_order_quantity|add:item.extra_quantity|sub:item.remaining_quantity }}
-                        </td>
+                        <td class="total-qty text-end">{{ item.total_quantity|floatformat:3 }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="submit" class="btn btn-primary">Update Order</button>
-    </div>
-</form>
+
+        <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" 
+                      name="notes" 
+                      rows="3">{{ purchase_order.notes }}</textarea>
+        </div>
+
+        <div class="mt-3">
+            <button type="submit" class="btn btn-primary">Update Order</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+    </form>
+</div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const updateTotalQty = (row) => {
-        const salesQty = parseFloat(row.querySelector('td:nth-child(2)').textContent) || 0;
-        const extraQty = parseFloat(row.querySelector('.extra-qty').value) || 0;
-        const remainingQty = parseFloat(row.querySelector('.remaining-qty').value) || 0;
-        const totalQty = (salesQty + extraQty - remainingQty).toFixed(3);
-        row.querySelector('.total-qty').textContent = totalQty;
-    };
+    // Check for existing order
+    function checkExistingOrder(route, date) {
+        if (!route || !date) return;
+        
+        fetch(`{% url 'delivery:check-existing-order-purchase-order' %}?route=${route}&delivery_date=${date}&exclude_id={{ purchase_order.id }}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.exists) {
+                    alert('A purchase order already exists for this route and date');
+                    // Reset form values
+                    document.getElementById('routeSelect').value = '{{ purchase_order.route_id }}';
+                    document.getElementById('deliveryDate').value = '{{ purchase_order.delivery_date|date:"Y-m-d" }}';
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
 
-    document.querySelectorAll('.extra-qty, .remaining-qty').forEach(input => {
-        input.addEventListener('change', function() {
-            updateTotalQty(this.closest('tr'));
+    // Add event listeners for route and date changes
+    document.getElementById('routeSelect').addEventListener('change', function() {
+        checkExistingOrder(this.value, document.getElementById('deliveryDate').value);
+    });
+
+    document.getElementById('deliveryDate').addEventListener('change', function() {
+        checkExistingOrder(document.getElementById('routeSelect').value, this.value);
+    });
+
+    // Handle form submission
+    document.getElementById('purchaseOrderEditForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const form = this;
+        const formData = new FormData(form);
+        const submitUrl = form.getAttribute('hx-put');
+        
+        // Convert FormData to URLSearchParams for PUT request
+        const searchParams = new URLSearchParams();
+        for (const [key, value] of formData.entries()) {
+            searchParams.append(key, value);
+        }
+        
+        // Disable form elements during submission
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        submitButton.disabled = true;
+        submitButton.innerHTML = 'Updating...';
+        
+        fetch(submitUrl, {
+            method: 'PUT',
+            body: searchParams.toString(),
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Close the modal first
+                const modalElement = document.querySelector('#editModal');
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                }
+                
+                if (data.refresh) {
+                    // If server indicates we should refresh, do it
+                    window.location.reload();
+                } else {
+                    // Update the table if html content is provided
+                    const tableContainer = document.querySelector('#purchase-orders-table');
+                    if (tableContainer && data.html) {
+                        tableContainer.outerHTML = data.html;
+                    }
+                }
+                
+                if (data.message) {
+                    // You might want to show this in a toast or alert
+                    console.log(data.message);
+                }
+            } else {
+                throw new Error(data.error || 'Update failed');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to update order: ' + error.message);
+            // Refresh the page if there was an error, as the update might have succeeded
+            window.location.reload();
+        })
+        .finally(() => {
+            // Re-enable form elements
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
         });
     });
-});
+
+    // Handle quantity inputs and save buttons
+    document.querySelectorAll('input[name^="extra_qty_"], input[name^="remaining_qty_"]').forEach(input => {
+        const saveBtn = input.parentElement.querySelector('.btn-success');
+        const originalValue = input.value;
+        
+        input.addEventListener('input', function() {
+            if (this.value !== originalValue) {
+                saveBtn.style.display = 'inline-block';
+            } else {
+                saveBtn.style.display = 'none';
+            }
+        });
+        
+        saveBtn.addEventListener('click', function() {
+            const row = this.closest('tr');
+            const salesQty = parseFloat(row.querySelector('.sales-qty').textContent) || 0;
+            const extraQty = parseFloat(row.querySelector('input[name^="extra_qty_"]').value) || 0;
+            const remainingQty = parseFloat(row.querySelector('input[name^="remaining_qty_"]').value) || 0;
+            const totalQty = (salesQty + extraQty - remainingQty).toFixed(3);
+            
+            row.querySelector('.total-qty').textContent = totalQty;
+            this.style.display = 'none';
+            
+            // Update the original value
+            input.dataset.originalValue = input.value;
+        });
+    });
 </script>

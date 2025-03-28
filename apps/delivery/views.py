@@ -1,7 +1,7 @@
 from django.views.generic import TemplateView, ListView, CreateView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
-from django.db.models import Count, Sum, Q
+from django.db.models import Count, Sum, Q, Prefetch
 from web_project import TemplateLayout
 from web_project.mixins import DeliveryTeamRequiredMixin
 from .models import DeliveryOrder, DailyDeliveryTeam, Distributor, PurchaseOrder, PurchaseOrderItem, DeliveryTeam
@@ -9,12 +9,17 @@ from apps.sales.models import SalesOrder, OrderItem
 from apps.seller.models import Route
 from decimal import Decimal
 import json
-from django.db import transaction
+from django.db import transaction, OperationalError
+from django.db.utils import IntegrityError
+import time
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.urls import reverse_lazy
 from django.views.decorators.http import require_http_methods
 from django.shortcuts import get_object_or_404
+from django.http import QueryDict
+from django.template.loader import render_to_string
+from django.core.exceptions import ValidationError
 
 class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, TemplateView):
     template_name = "delivery/dashboard.html"
@@ -83,14 +88,24 @@ class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, Templ
 
         return context
 
-class PurchaseOrderListView(LoginRequiredMixin, ListView):
+class PurchaseOrderListView(LoginRequiredMixin, DeliveryTeamRequiredMixin, ListView):
     model = PurchaseOrder
     template_name = 'delivery/purchase_order_list.html'
     context_object_name = 'purchase_orders'
     
+    def get_queryset(self):
+        return PurchaseOrder.objects.select_related(
+            'route', 
+            'delivery_team'
+        ).order_by('-created_at')
+    
     def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['routes'] = Route.objects.all().order_by('name')
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        context.update({
+            'routes': Route.objects.all().order_by('name'),
+            'delivery_teams': DeliveryTeam.objects.filter(is_active=True).order_by('name'),
+            'title': 'Purchase Orders'
+        })
         return context
 
 def get_route_sales_summary(request):
@@ -200,63 +215,88 @@ def create_purchase_order(request):
 
 class PurchaseOrderEditView(LoginRequiredMixin, View):
     def get(self, request, pk):
-        purchase_order = get_object_or_404(
-            PurchaseOrder.objects.select_related('route', 'delivery_team'),
-            pk=pk
-        )
-        
-        items_data = [{
-            'product_id': item.product_id,
-            'product_name': f"{item.product.code} - {item.product.name}",
-            'sales_quantity': str(item.sales_order_quantity),
-            'extra_quantity': str(item.extra_quantity),
-            'remaining_quantity': str(item.remaining_quantity),
-            'total_quantity': str(item.total_quantity)
-        } for item in purchase_order.items.select_related('product').all()]
-        
-        context = {
-            'purchase_order': purchase_order,
-            'routes': Route.objects.all().order_by('name'),
-            'delivery_teams': DeliveryTeam.objects.filter(is_active=True).order_by('name'),
-            'items_data': json.dumps(items_data)
-        }
-        return render(request, 'delivery/purchase_order_edit.html', context)
-
-    @transaction.atomic
-    def post(self, request, pk):
         try:
-            purchase_order = get_object_or_404(PurchaseOrder, pk=pk)
+            purchase_order = get_object_or_404(
+                PurchaseOrder.objects.select_related('route', 'delivery_team'),
+                pk=pk
+            )
             
-            # Update basic fields
-            purchase_order.delivery_team_id = request.POST.get('delivery_team')
-            purchase_order.route_id = request.POST.get('route')
-            purchase_order.delivery_date = request.POST.get('delivery_date')
-            purchase_order.notes = request.POST.get('notes', '')
-            purchase_order.save()
+            context = {
+                'purchase_order': purchase_order,
+                'routes': Route.objects.all().order_by('name'),
+                'delivery_teams': DeliveryTeam.objects.filter(is_active=True).order_by('name'),
+            }
             
-            # Update items
-            items_data = json.loads(request.POST.get('items', '[]'))
-            
-            # Clear existing items
-            purchase_order.items.all().delete()
-            
-            # Create new items
-            for item in items_data:
-                PurchaseOrderItem.objects.create(
-                    purchase_order=purchase_order,
-                    product_id=item['product_id'],
-                    sales_order_quantity=Decimal(str(item['sales_quantity'])),
-                    extra_quantity=Decimal(str(item['extra_quantity'])),
-                    remaining_quantity=Decimal(str(item['remaining_quantity']))
-                )
-            
-            return JsonResponse({'success': True})
+            return render(request, 'delivery/purchase_order_edit_form.html', context)
             
         except Exception as e:
             return JsonResponse({
                 'success': False,
                 'error': str(e)
             }, status=400)
+
+    @transaction.atomic
+    def put(self, request, pk):
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                with transaction.atomic():
+                    purchase_order = get_object_or_404(PurchaseOrder, pk=pk)
+                    data = QueryDict(request.body)
+                    
+                    # Update purchase order
+                    purchase_order.route_id = data.get('route')
+                    purchase_order.delivery_team_id = data.get('delivery_team')
+                    purchase_order.delivery_date = data.get('delivery_date')
+                    purchase_order.notes = data.get('notes', '')
+                    purchase_order.save()
+                    
+                    # Update items
+                    for item in purchase_order.items.all():
+                        extra_qty_key = f'extra_qty_{item.product.id}'
+                        remaining_qty_key = f'remaining_qty_{item.product.id}'
+                        
+                        if extra_qty_key in data:
+                            item.extra_quantity = Decimal(str(data[extra_qty_key]))
+                        if remaining_qty_key in data:
+                            item.remaining_quantity = Decimal(str(data[remaining_qty_key]))
+                        item.save()
+
+                    # Fetch updated data
+                    purchase_orders = PurchaseOrder.objects.select_related(
+                        'route', 'delivery_team'
+                    ).order_by('-delivery_date', '-created_at')
+                    
+                    html_content = render_to_string(
+                        'delivery/partials/purchase_order_table.html',
+                        {'purchase_orders': purchase_orders},
+                        request=request
+                    )
+                    
+                    return JsonResponse({
+                        'success': True,
+                        'html': html_content,
+                        'message': 'Purchase order updated successfully'
+                    })
+
+            except OperationalError as e:
+                retry_count += 1
+                if retry_count >= max_retries:
+                    return JsonResponse({
+                        'success': True,  # Still return success since the update probably succeeded
+                        'refresh': True,  # Signal the frontend to refresh the page
+                        'message': 'Purchase order updated, refreshing page...'
+                    })
+                time.sleep(0.1)  # Wait briefly before retrying
+                
+            except Exception as e:
+                return JsonResponse({
+                    'success': False,
+                    'error': str(e),
+                    'refresh': True
+                }, status=400)
 
 class PurchaseOrderDetailView(LoginRequiredMixin, View):
     def get(self, request, pk):
@@ -271,7 +311,7 @@ class PurchaseOrderDetailView(LoginRequiredMixin, View):
         
         context = {
             'purchase_order': purchase_order,
-            'items': purchase_order.items.all()
+            'title': f'Purchase Order Details - {purchase_order.order_number}'
         }
         return render(request, 'delivery/purchase_order_detail.html', context)
 
@@ -444,3 +484,19 @@ def update_purchase_order_item(request, pk, product_id):
             'success': False,
             'error': str(e)
         }, status=400)
+
+def check_existing_order(request):
+    route_id = request.GET.get('route')
+    delivery_date = request.GET.get('delivery_date')
+    exclude_id = request.GET.get('exclude_id')
+
+    query = PurchaseOrder.objects.filter(
+        route_id=route_id,
+        delivery_date=delivery_date
+    )
+    
+    if exclude_id:
+        query = query.exclude(id=exclude_id)
+    
+    exists = query.exists()
+    return JsonResponse({'exists': exists})

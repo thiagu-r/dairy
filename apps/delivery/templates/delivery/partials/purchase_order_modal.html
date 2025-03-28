@@ -1,0 +1,76 @@
+<div class="modal fade" id="purchaseOrderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Purchase Order</h5>
+                <button type="button" 
+                        class="btn-close" 
+                        data-bs-dismiss="modal" 
+                        aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="purchaseOrderForm" method="POST" action="{% url 'delivery:purchase-order-create' %}">
+                    {% csrf_token %}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Route</label>
+                            <select class="form-select" name="route" required>
+                                <option value="">Select Route</option>
+                                {% for route in routes %}
+                                <option value="{{ route.id }}">{{ route.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Delivery Team</label>
+                            <select class="form-select" name="delivery_team" required>
+                                <option value="">Select Delivery Team</option>
+                                {% for team in delivery_teams %}
+                                <option value="{{ team.id }}">{{ team.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Delivery Date</label>
+                            <input type="date" 
+                                   class="form-control" 
+                                   name="delivery_date" 
+                                   required>
+                        </div>
+                    </div>
+                    <div id="itemsSection" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Sales Qty</th>
+                                        <th>Extra Qty</th>
+                                        <th>Remaining Qty</th>
+                                        <th>Total Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="itemsTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Notes</label>
+                        <textarea class="form-control" 
+                                  name="notes" 
+                                  rows="3"></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" 
+                                class="btn btn-outline-secondary" 
+                                data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Create Order</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
