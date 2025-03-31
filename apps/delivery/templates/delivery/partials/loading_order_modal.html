@@ -1,0 +1,59 @@
+<div class="modal-header">
+    <h5 class="modal-title">Create Loading Order</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <form id="loadingOrderForm" method="POST" action="{% url 'delivery:loading-order-create' %}">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Route</label>
+                <select class="form-select" name="route" id="routeSelect" required>
+                    <option value="">Select Route</option>
+                    {% for route in routes %}
+                    <option value="{{ route.id }}">{{ route.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Loading Date</label>
+                <input type="date" class="form-control" name="loading_date" id="loadingDate" required>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Loading Time</label>
+            <input type="time" class="form-control" name="loading_time" required>
+        </div>
+        
+        <!-- Purchase Order Items Section -->
+        <div id="purchaseOrderItems" style="display: none;">
+            <h6 class="mb-3">Purchase Order Items</h6>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Total Quantity</th>
+                            <th>Remaining Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" name="notes" rows="3"></textarea>
+        </div>
+        
+        <!-- Error Message Display -->
+        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary" id="submitButton" disabled>Create Loading Order</button>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,67 @@
+<div class="modal-header">
+    <h5 class="modal-title">Edit Loading Order</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <form id="loadingOrderEditForm" method="POST" action="{% url 'delivery:loading-order-edit' loading_order.id %}">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Route</label>
+                <input type="text" class="form-control" value="{{ loading_order.purchase_order.route.name }}" disabled>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Loading Date</label>
+                <input type="date" class="form-control" name="loading_date" value="{{ loading_order.loading_date|date:'Y-m-d' }}" required>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Loading Time</label>
+            <input type="time" class="form-control" name="loading_time" value="{{ loading_order.loading_time|time:'H:i' }}" required>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" name="notes" rows="3">{{ loading_order.notes }}</textarea>
+        </div>
+        
+        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="submit" class="btn btn-primary">Update Loading Order</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('loadingOrderEditForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            const errorMessage = document.getElementById('errorMessage');
+            errorMessage.textContent = data.error || 'Error updating loading order';
+            errorMessage.style.display = 'block';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const errorMessage = document.getElementById('errorMessage');
+        errorMessage.textContent = 'An error occurred while updating the loading order';
+        errorMessage.style.display = 'block';
+    });
+});
+</script>

@@ -5,6 +5,7 @@ from apps.authentication.models import CustomUser
 from apps.seller.models import Route, Seller
 from apps.products.models import Product
 from apps.sales.models import SalesOrder, OrderItem
+from apps.products.models import PricePlan, Product
 
 class Distributor(models.Model):
     name = models.CharField(max_length=100)
@@ -311,42 +312,31 @@ class PurchaseOrderItem(models.Model):
         super().save(*args, **kwargs)
 
 class LoadingOrder(models.Model):
-    ORDER_STATUS = (
+    STATUS_CHOICES = [
         ('draft', 'Draft'),
-        ('loading', 'Loading in Progress'),
-        ('completed', 'Loading Completed'),
+        ('confirmed', 'Confirmed'),
+        ('loaded', 'Loaded'),
+        ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
-    )
+    ]
 
-    order_number = models.CharField(max_length=20, unique=True, editable=False)
+    order_number = models.CharField(max_length=20, unique=True)
     purchase_order = models.ForeignKey(
-        PurchaseOrder,
+        'PurchaseOrder', 
         on_delete=models.PROTECT,
         related_name='loading_orders'
     )
     route = models.ForeignKey(
-        Route,
+        'seller.Route',
         on_delete=models.PROTECT,
         related_name='loading_orders'
     )
     loading_date = models.DateField(db_index=True)
     loading_time = models.TimeField()
-    status = models.CharField(max_length=20, choices=ORDER_STATUS, default='draft')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     notes = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    created_by = models.ForeignKey(
-        CustomUser,
-        on_delete=models.PROTECT,
-        related_name='loading_orders_created'
-    )
-    updated_by = models.ForeignKey(
-        CustomUser,
-        on_delete=models.PROTECT,
-        related_name='loading_orders_updated'
-    )
-
-    # Add crate tracking
+    
+    # Track crates
     crates_loaded = models.PositiveIntegerField(
         default=0,
         help_text='Number of crates loaded'
@@ -367,6 +357,19 @@ class LoadingOrder(models.Model):
         null=True,
         blank=True
     )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name='loading_orders_created'
+    )
+    updated_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.PROTECT,
+        related_name='loading_orders_updated'
+    )
 
     class Meta:
         ordering = ['-loading_date', '-loading_time']
@@ -380,52 +383,36 @@ class LoadingOrder(models.Model):
         ]
 
     def __str__(self):
-        return f"LO {self.order_number} - {self.purchase_order.delivery_team.name}"
+        return f"{self.order_number} - {self.route.name}"
 
     def save(self, *args, **kwargs):
         if not self.order_number:
             # Generate order number: LO-YYYYMMDD-XXXX
-            today = timezone.now().date()
-            prefix = f"LO-{today.strftime('%Y%m%d')}-"
-            last_order = LoadingOrder.objects.filter(
-                order_number__startswith=prefix
-            ).order_by('-order_number').first()
-            
+            last_order = LoadingOrder.objects.order_by('-order_number').first()
             if last_order:
                 last_number = int(last_order.order_number.split('-')[-1])
                 new_number = str(last_number + 1).zfill(4)
             else:
                 new_number = '0001'
             
-            self.order_number = f"{prefix}{new_number}"
+            from datetime import date
+            today = date.today()
+            self.order_number = f'LO-{today.strftime("%Y%m%d")}-{new_number}'
+        
         super().save(*args, **kwargs)
 
 class LoadingOrderItem(models.Model):
-    loading_order = models.ForeignKey(
-        LoadingOrder,
-        on_delete=models.CASCADE,
-        related_name='items'
-    )
-    product = models.ForeignKey(
-        Product,
-        on_delete=models.PROTECT,
-        related_name='loading_order_items'
-    )
-    requested_quantity = models.DecimalField(
-        max_digits=10,
-        decimal_places=3,
-        help_text='Quantity requested in purchase order'
-    )
-    loaded_quantity = models.DecimalField(
-        max_digits=10,
-        decimal_places=3,
-        help_text='Actual quantity loaded from factory'
-    )
+    loading_order = models.ForeignKey(LoadingOrder, related_name='items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    purchase_order_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    return_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    total_quantity = models.DecimalField(max_digits=10, decimal_places=3,default=0)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['product__category', 'product__name']
+        unique_together = ['loading_order', 'product']
 
     def __str__(self):
         return f"{self.product.name} - {self.loaded_quantity} units"

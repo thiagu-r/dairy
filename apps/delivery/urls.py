@@ -26,4 +26,9 @@ urlpatterns = [
     path('delivery-check-existing-order-purchase-order/', 
          views.check_existing_order, 
          name='check-existing-order-purchase-order'),
+    path('loading-orders/', views.LoadingOrderListView.as_view(), name='loading-order-list'),
+    path('loading-orders/create/', views.create_loading_order, name='loading-order-create'),
+    path('loading-orders/check-purchase-order/', views.check_purchase_order, name='check-purchase-order'),
+    path('loading-orders/<int:pk>/', views.LoadingOrderDetailView.as_view(), name='loading-order-detail'),
+    path('loading-orders/<int:pk>/edit/', views.LoadingOrderEditView.as_view(), name='loading-order-edit'),
 ]

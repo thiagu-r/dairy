@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db.models import Count, Sum, Q, Prefetch
 from web_project import TemplateLayout
 from web_project.mixins import DeliveryTeamRequiredMixin
-from .models import DeliveryOrder, DailyDeliveryTeam, Distributor, PurchaseOrder, PurchaseOrderItem, DeliveryTeam
+from .models import DeliveryOrder, DailyDeliveryTeam, Distributor, PurchaseOrder, PurchaseOrderItem, DeliveryTeam, LoadingOrder
 from apps.sales.models import SalesOrder, OrderItem
 from apps.seller.models import Route
 from decimal import Decimal
@@ -20,6 +20,8 @@ from django.shortcuts import get_object_or_404
 from django.http import QueryDict
 from django.template.loader import render_to_string
 from django.core.exceptions import ValidationError
+from django.contrib.auth.decorators import login_required
+
 
 class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, TemplateView):
     template_name = "delivery/dashboard.html"
@@ -500,3 +502,182 @@ def check_existing_order(request):
     
     exists = query.exists()
     return JsonResponse({'exists': exists})
+
+class LoadingOrderListView(LoginRequiredMixin, ListView):
+    model = LoadingOrder
+    template_name = 'delivery/loading_order_list.html'
+    context_object_name = 'loading_orders'
+    
+    def get_queryset(self):
+        return LoadingOrder.objects.select_related(
+            'purchase_order',
+            'purchase_order__route',
+            'purchase_order__delivery_team'
+        ).order_by('-created_at')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update({
+            'routes': Route.objects.all().order_by('name'),
+            'purchase_orders': PurchaseOrder.objects.filter(
+                status='confirmed'
+            ).select_related('route').order_by('-created_at'),
+            'title': 'Loading Orders'
+        })
+        return context
+
+@login_required
+def check_purchase_order(request):
+    route_id = request.GET.get('route')
+    delivery_date = request.GET.get('delivery_date')
+
+    try:
+        purchase_order = PurchaseOrder.objects.filter(
+            route_id=route_id,
+            delivery_date=delivery_date,
+            # status='confirmed'  # Only confirmed purchase orders
+        ).prefetch_related('items__product').first()
+
+        if purchase_order:
+            items_data = [{
+                'product_name': f"{item.product.code} - {item.product.name}",
+                'total_quantity': str(item.total_quantity),
+                'remaining_quantity': str(item.remaining_quantity)
+            } for item in purchase_order.items.all()]
+
+            return JsonResponse({
+                'exists': True,
+                'purchase_order_id': purchase_order.id,
+                'items': items_data
+            })
+
+        return JsonResponse({'exists': False})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+def create_loading_order(request):
+    if request.method == 'POST':
+        try:
+            purchase_order_id = request.POST.get('purchase_order_id')
+            purchase_order = PurchaseOrder.objects.get(id=purchase_order_id)
+
+            # Check if loading order already exists
+            existing_order = LoadingOrder.objects.filter(
+                purchase_order=purchase_order,
+                loading_date=request.POST.get('loading_date')
+            ).exists()
+
+            if existing_order:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Loading order already exists for this purchase order and date'
+                }, status=400)
+
+            loading_order = LoadingOrder.objects.create(
+                purchase_order=purchase_order,
+                route_id=request.POST.get('route'),
+                loading_date=request.POST.get('loading_date'),
+                loading_time=request.POST.get('loading_time'),
+                notes=request.POST.get('notes'),
+                status='draft',
+                created_by=request.user,
+                updated_by=request.user
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Loading order created successfully'
+            })
+            
+        except PurchaseOrder.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': 'Purchase order not found'
+            }, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=400)
+    
+    return JsonResponse({
+        'success': False,
+        'error': 'Invalid request method'
+    }, status=400)
+
+class LoadingOrderDetailView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        try:
+            loading_order = get_object_or_404(
+                LoadingOrder.objects.select_related(
+                    'purchase_order',
+                    'purchase_order__route',
+                    'purchase_order__delivery_team'
+                ).prefetch_related('purchase_order__items__product'),
+                pk=pk
+            )
+            
+            context = {
+                'loading_order': loading_order,
+                'title': f'Loading Order Details - {loading_order.order_number}'
+            }
+            return render(request, 'delivery/loading_order_detail.html', context)
+            
+        except Exception as e:
+            messages.error(request, str(e))
+            return redirect('delivery:loading-order-list')
+
+class LoadingOrderEditView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        try:
+            loading_order = get_object_or_404(
+                LoadingOrder.objects.select_related(
+                    'purchase_order',
+                    'purchase_order__route',
+                    'purchase_order__delivery_team'
+                ),
+                pk=pk
+            )
+            
+            if loading_order.status != 'draft':
+                messages.error(request, 'Only draft loading orders can be edited')
+                return redirect('delivery:loading-order-list')
+            
+            context = {
+                'loading_order': loading_order,
+                'routes': Route.objects.all().order_by('name')
+            }
+            return render(request, 'delivery/loading_order_edit_form.html', context)
+            
+        except Exception as e:
+            messages.error(request, str(e))
+            return redirect('delivery:loading-order-list')
+
+    def post(self, request, pk):
+        try:
+            loading_order = get_object_or_404(LoadingOrder, pk=pk)
+            
+            if loading_order.status != 'draft':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Only draft loading orders can be edited'
+                }, status=400)
+            
+            loading_order.loading_date = request.POST.get('loading_date')
+            loading_order.loading_time = request.POST.get('loading_time')
+            loading_order.notes = request.POST.get('notes')
+            loading_order.updated_by = request.user
+            loading_order.save()
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Loading order updated successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=400)

@@ -1,0 +1,7 @@
+<!-- Add this where your other menu items are -->
+<li class="menu-item {% if request.resolver_match.url_name == 'loading-order-list' %}active{% endif %}">
+    <a href="{% url 'delivery:loading-order-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-package"></i>
+        <div>Loading Orders</div>
+    </a>
+</li>

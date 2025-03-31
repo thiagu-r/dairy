@@ -158,6 +158,14 @@
         <div class="text-truncate">Delivery Teams</div>
       </a>
     </li>
+
+    <!-- Add Loading Orders Menu Item -->
+    <li class="menu-item {% if '/loading-orders/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:loading-order-list' %}" class="menu-link">
+        <i class="menu-icon tf-icons bx bx-package"></i>
+        <div class="text-truncate">Loading Orders</div>
+      </a>
+    </li>
     {% endif %}
 
     <!-- Delivery Orders -->

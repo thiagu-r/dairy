@@ -1,0 +1,199 @@
+{% extends "layout/layout_vertical.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Loading Orders</h5>
+            <button type="button" 
+                    class="btn btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#loadingOrderModal">
+                <i class="bx bx-plus me-1"></i>
+                Create Loading Order
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive" id="loading-orders-table">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Order Number</th>
+                            <th>Route</th>
+                            <th>Delivery Team</th>
+                            <th>Delivery Date</th>
+                            <th>Status</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in loading_orders %}
+                        <tr>
+                            <td>{{ order.order_number }}</td>
+                            <td>{{ order.purchase_order.route.name }}</td>
+                            <td>{{ order.purchase_order.delivery_team.name }}</td>
+                            <td>{{ order.purchase_order.delivery_date }}</td>
+                            <td>
+                                <span class="badge bg-label-{{ order.status }}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ order.created_at }}</td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a href="{% url 'delivery:loading-order-detail' order.id %}" 
+                                       class="btn btn-icon btn-sm btn-outline-primary">
+                                        <i class="bx bx-show"></i>
+                                    </a>
+                                    <button type="button"
+                                            class="btn btn-icon btn-sm btn-outline-warning"
+                                            hx-get="{% url 'delivery:loading-order-edit' order.id %}"
+                                            hx-target="#editModal .modal-content"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editModal">
+                                        <i class="bx bx-edit"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for creating -->
+<div class="modal fade" id="loadingOrderModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            {% include "delivery/partials/loading_order_modal.html" %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal for editing -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <!-- Content will be loaded here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+<script>
+    // Add CSRF token to all HTMX requests
+    document.body.addEventListener('htmx:configRequest', (event) => {
+        event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+    });
+
+    // Initialize all modals
+    document.addEventListener('DOMContentLoaded', function() {
+        const routeSelect = document.getElementById('routeSelect');
+        const loadingDate = document.getElementById('loadingDate');
+        const purchaseOrderItems = document.getElementById('purchaseOrderItems');
+        const itemsTableBody = document.getElementById('itemsTableBody');
+        const errorMessage = document.getElementById('errorMessage');
+        const submitButton = document.getElementById('submitButton');
+        let currentPurchaseOrderId = null;
+
+        function checkPurchaseOrder() {
+            const routeId = routeSelect.value;
+            const date = loadingDate.value;
+
+            if (!routeId || !date) return;
+
+            // Reset display
+            purchaseOrderItems.style.display = 'none';
+            errorMessage.style.display = 'none';
+            submitButton.disabled = true;
+            itemsTableBody.innerHTML = '';
+
+            fetch(`{% url 'delivery:check-purchase-order' %}?route=${routeId}&delivery_date=${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        currentPurchaseOrderId = data.purchase_order_id;
+                        // Display items
+                        purchaseOrderItems.style.display = 'block';
+                        itemsTableBody.innerHTML = data.items.map(item => `
+                            <tr>
+                                <td>${item.product_name}</td>
+                                <td>${item.total_quantity}</td>
+                                <td>${item.remaining_quantity}</td>
+                            </tr>
+                        `).join('');
+                        submitButton.disabled = false;
+                    } else {
+                        errorMessage.textContent = 'No purchase order found for this route and date.';
+                        errorMessage.style.display = 'block';
+                        submitButton.disabled = true;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    errorMessage.textContent = 'Error checking purchase order.';
+                    errorMessage.style.display = 'block';
+                    submitButton.disabled = true;
+                });
+        }
+
+        // Add event listeners
+        routeSelect.addEventListener('change', checkPurchaseOrder);
+        loadingDate.addEventListener('change', checkPurchaseOrder);
+
+        // Handle form submission
+        document.getElementById('loadingOrderForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            formData.append('purchase_order_id', currentPurchaseOrderId);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    errorMessage.textContent = data.error || 'Error creating loading order';
+                    errorMessage.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                errorMessage.textContent = 'An error occurred while creating the loading order';
+                errorMessage.style.display = 'block';
+            });
+        });
+
+        // Handle edit modal
+        htmx.on('htmx:afterSwap', function(evt) {
+            if (evt.detail.target.matches('#editModal .modal-content')) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                if (!modal) {
+                    new bootstrap.Modal(document.getElementById('editModal')).show();
+                } else {
+                    modal.show();
+                }
+            }
+        });
+
+        // Handle modal cleanup
+        document.getElementById('editModal').addEventListener('hidden.bs.modal', function () {
+            this.querySelector('.modal-content').innerHTML = '';
+        });
+    });
+</script>
+{% endblock %}
