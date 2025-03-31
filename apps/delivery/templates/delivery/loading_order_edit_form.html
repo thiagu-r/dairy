@@ -15,11 +15,16 @@
                 <input type="date" class="form-control" name="loading_date" value="{{ loading_order.loading_date|date:'Y-m-d' }}" required>
             </div>
         </div>
-        <div class="col-md-6 mb-3">
-            <label class="form-label">Loading Time</label>
-            <input type="time" class="form-control" name="loading_time" value="{{ loading_order.loading_time|time:'H:i' }}" required>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Loading Time</label>
+                <input type="time" class="form-control" name="loading_time" value="{{ loading_order.loading_time|time:'H:i' }}" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Crates Loaded</label>
+                <input type="number" class="form-control" name="crates_loaded" value="{{ loading_order.crates_loaded }}" required>
+            </div>
         </div>
-        
         <div class="mb-3">
             <label class="form-label">Notes</label>
             <textarea class="form-control" name="notes" rows="3">{{ loading_order.notes }}</textarea>

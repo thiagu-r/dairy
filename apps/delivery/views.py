@@ -580,6 +580,7 @@ def create_loading_order(request):
                 route_id=request.POST.get('route'),
                 loading_date=request.POST.get('loading_date'),
                 loading_time=request.POST.get('loading_time'),
+                crates_loaded=request.POST.get('crates_loaded'),
                 notes=request.POST.get('notes'),
                 status='draft',
                 created_by=request.user,

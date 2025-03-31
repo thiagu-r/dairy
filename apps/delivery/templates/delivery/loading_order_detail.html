@@ -24,6 +24,11 @@
                     <p><strong>Status:</strong> <span class="badge bg-label-{{ loading_order.status }}">{{ loading_order.get_status_display }}</span></p>
                 </div>
             </div>
+            <div class="row">
+                <div class="col-12">
+                    <p><strong>Crates Loaded:</strong> {{ loading_order.crates_loaded }}</p>
+                </div>
+            </div>
 
             {% if loading_order.notes %}
             <div class="row mb-3">

@@ -1,0 +1,29 @@
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Loading Date</th>
+            <th>Route</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for order in loading_orders %}
+        <tr>
+            <td>{{ order.loading_date }}</td>
+            <td>{{ order.purchase_order.route.name }}</td>
+            <td>{{ order.get_status_display }}</td>
+            <td>
+                {% if order.status == 'draft' %}
+                <button class="btn btn-sm btn-primary edit-btn"
+                        hx-get="{% url 'delivery:loading-order-edit' order.id %}"
+                        hx-target="#editModalContent"
+                        hx-trigger="click">
+                    Edit
+                </button>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
