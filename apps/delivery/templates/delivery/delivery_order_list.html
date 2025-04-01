@@ -15,7 +15,7 @@
         </div>
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Delivery Orders</h5>
-            <button type="button" 
+            <button type="button"
                     class="btn btn-primary"
                     data-bs-toggle="modal"
                     data-bs-target="#createDeliveryOrderModal">
@@ -70,8 +70,8 @@
                         {% for order in delivery_orders %}
                         <tr>
                             <td>{{ order.order_number }}</td>
-                            <td>{{ order.sales_order.seller.name }}</td>
-                            <td>{{ order.sales_order.route.name }}</td>
+                            <td>{{ order.seller.store_name }}</td>
+                            <td>{{ order.route.name }}</td>
                             <td>{{ order.delivery_date }}</td>
                             <td>{{ order.total_amount }}</td>
                             <td>{{ order.paid_amount }}</td>
@@ -82,7 +82,7 @@
                             </td>
                             <td>
                                 <div class="d-flex gap-2">
-                                    <a href="{% url 'delivery:delivery-order-detail' order.id %}" 
+                                    <a href="{% url 'delivery:delivery-order-detail' order.id %}"
                                        class="btn btn-icon btn-sm btn-outline-primary">
                                         <i class="bx bx-show"></i>
                                     </a>

@@ -745,19 +745,41 @@ class DeliveryOrderListView(LoginRequiredMixin, TemplateView):
         orders = DeliveryOrder.objects.select_related(
             'route', 'seller', 'sales_order', 'loading_order'
         )
+        print('delivery orders: ', orders)
+        print('status filter: ', status_filter)
+        print('date filter: ', date_filter)
+        print('route filter: ', route_filter)
 
         # Apply filters
-        if status_filter != 'all':
-            orders = orders.filter(status=status_filter)
+        # if status_filter != 'all':
+        #     orders = orders.filter(status=status_filter)
 
-        if date_filter:
-            orders = orders.filter(delivery_date=date_filter)
+        # if date_filter:
+        #     orders = orders.filter(delivery_date=date_filter)
 
-        if route_filter:
-            orders = orders.filter(route_id=route_filter)
+        # if route_filter:
+        #     orders = orders.filter(route_id=route_filter)
+
+        # Process orders to add display properties
+        delivery_orders = orders.order_by('-delivery_date', '-delivery_time')
+        print('delivery orders after filters: ', delivery_orders)
+        for order in delivery_orders:
+            # Add status color
+            if order.status == 'pending':
+                order.status_color = 'warning'
+            elif order.status == 'in_progress':
+                order.status_color = 'info'
+            elif order.status == 'completed':
+                order.status_color = 'success'
+            else:
+                order.status_color = 'danger'
+
+            # Format display values
+            order.total_amount = order.total_price
+            order.paid_amount = order.amount_collected
 
         context.update({
-            'orders': orders.order_by('-delivery_date', '-delivery_time'),
+            'delivery_orders': delivery_orders,
             'routes': Route.objects.all().order_by('name'),
             'sellers': Seller.objects.all().order_by('store_name'),
             'sales_orders': SalesOrder.objects.filter(status='confirmed').order_by('-created_at'),
@@ -781,33 +803,214 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
             'sales_orders': sales_orders,
         })
 
-    def post(self, request):
+    def put(self, request, pk):
+        """Update an existing delivery order"""
         try:
+            print(f"Updating delivery order {pk}")
+
+            # Get the delivery order
+            delivery_order = get_object_or_404(DeliveryOrder, pk=pk)
+
+            # Parse the request body
             data = json.loads(request.body)
 
-            # Create delivery order
+            # Update the delivery order fields
+            delivery_order.payment_method = data.get('payment_method', delivery_order.payment_method)
+            delivery_order.notes = data.get('notes', delivery_order.notes)
+            delivery_order.amount_collected = Decimal(data.get('amount_collected', delivery_order.amount_collected))
+            delivery_order.updated_by = request.user
+
+            # Save the delivery order
+            delivery_order.save()
+
+            # Update or create items
+            if 'items' in data:
+                # Get existing items
+                existing_items = {str(item.product_id): item for item in delivery_order.items.all()}
+
+                for item_data in data['items']:
+                    try:
+                        # Make sure product_id is correctly handled
+                        product_id = str(item_data['product_id'])
+
+                        if product_id in existing_items:
+                            # Update existing item
+                            item = existing_items[product_id]
+                            item.ordered_quantity = Decimal(item_data.get('ordered_quantity', item.ordered_quantity))
+                            item.delivered_quantity = Decimal(item_data.get('delivered_quantity', item.delivered_quantity))
+                            item.unit_price = Decimal(item_data.get('unit_price', item.unit_price))
+                            item.total_price = item.delivered_quantity * item.unit_price
+                            item.save()
+                        else:
+                            # Create new item
+                            DeliveryOrderItem.objects.create(
+                                delivery_order=delivery_order,
+                                product_id=int(product_id),
+                                ordered_quantity=Decimal(item_data.get('ordered_quantity', 0)),
+                                delivered_quantity=Decimal(item_data.get('delivered_quantity', 0)),
+                                unit_price=Decimal(item_data.get('unit_price', 0)),
+                                total_price=Decimal(item_data.get('delivered_quantity', 0)) * Decimal(item_data.get('unit_price', 0))
+                            )
+                    except (ValueError, TypeError) as e:
+                        print(f"Error processing product ID {item_data.get('product_id')}: {e}")
+
+            # Recalculate totals
+            delivery_order.recalculate_totals()
+
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Delivery order updated successfully'
+            })
+
+        except Exception as e:
+            print(f"Error updating delivery order: {str(e)}")
+            return JsonResponse({
+                'status': 'error',
+                'error': str(e)
+            }, status=400)
+
+    def post(self, request):
+        try:
+            print("Received delivery order creation request")
+
+            # Get form data
+            route_id = request.POST.get('route_id')
+            seller_id = request.POST.get('seller_id')
+            delivery_date = request.POST.get('delivery_date')
+            delivery_time = request.POST.get('delivery_time')
+            payment_method = request.POST.get('payment_method')
+            notes = request.POST.get('notes')
+            amount_collected = request.POST.get('amount_collected', '0')
+
+            # Get items data
+            items_data_str = request.POST.get('items_data')
+            print(f"Items data received: {items_data_str}")
+
+            if not items_data_str:
+                return JsonResponse({
+                    'status': 'error',
+                    'error': 'No items data provided'
+                }, status=400)
+
+            try:
+                items_data = json.loads(items_data_str)
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error: {e}")
+                return JsonResponse({
+                    'status': 'error',
+                    'error': f'Invalid items data format: {str(e)}'
+                }, status=400)
+
+            # Validate required fields
+            if not all([route_id, seller_id, delivery_date, delivery_time]):
+                return JsonResponse({
+                    'status': 'error',
+                    'error': 'Missing required fields'
+                }, status=400)
+
+            # Find sales order if not provided
+            sales_order_id = request.POST.get('sales_order_id')
+            if not sales_order_id:
+                sales_order = SalesOrder.objects.filter(
+                    seller_id=seller_id,
+                    delivery_date=delivery_date,
+                    status='draft'
+                ).first()
+
+                if sales_order:
+                    sales_order_id = sales_order.id
+
+            # Find a loading order for this route and date
+            loading_order = LoadingOrder.objects.filter(
+                route_id=route_id,
+                loading_date=delivery_date,
+                # status='completed'
+            ).first()
+
+            if not loading_order:
+                return JsonResponse({
+                    'status': 'error',
+                    'error': 'No completed loading order found for this route and date'
+                }, status=400)
+
+            # First, calculate the total price and prepare items
+            total_price = Decimal('0.00')
+            items_to_create = []
+
+            for item in items_data:
+                ordered_qty = Decimal(item['ordered_quantity'])
+                delivered_qty = Decimal(item['delivered_quantity'])
+                unit_price = Decimal(item['unit_price'])
+                item_total = delivered_qty * unit_price
+                total_price += item_total
+
+                # Make sure product_id is correctly handled
+                try:
+                    product_id = int(item['product_id'])
+                    items_to_create.append({
+                        'product_id': product_id,
+                        'ordered_quantity': ordered_qty,
+                        'delivered_quantity': delivered_qty,
+                        'unit_price': unit_price,
+                        'total_price': item_total
+                    })
+                except (ValueError, TypeError) as e:
+                    print(f"Error processing product ID {item['product_id']}: {e}")
+
+            # Get last order's total balance for this seller
+            last_order = DeliveryOrder.objects.filter(
+                seller_id=seller_id,
+                delivery_date__lt=delivery_date
+            ).order_by('-delivery_date', '-delivery_time').first()
+
+            # Handle the case where there's no previous order
+            if last_order:
+                opening_balance = last_order.total_balance
+                print(f"Found previous order with balance: {opening_balance}")
+            else:
+                opening_balance = Decimal('0.00')
+                print("No previous order found, setting opening balance to 0")
+            amount_collected_decimal = Decimal(amount_collected)
+            balance_amount = total_price - amount_collected_decimal
+            total_balance = opening_balance + balance_amount
+
+            # Create delivery order with pre-calculated values
             delivery_order = DeliveryOrder.objects.create(
-                route_id=data['route_id'],
-                seller_id=data['seller_id'],
-                sales_order_id=data['sales_order_id'],
-                delivery_date=data['delivery_date'],
-                delivery_time=data['delivery_time'],
-                payment_method=data['payment_method'],
-                notes=data.get('notes'),
+                route_id=route_id,
+                seller_id=seller_id,
+                sales_order_id=sales_order_id,
+                loading_order=loading_order,
+                delivery_date=delivery_date,
+                delivery_time=delivery_time,
+                payment_method=payment_method,
+                notes=notes,
+                total_price=total_price,
+                opening_balance=opening_balance,
+                amount_collected=amount_collected_decimal,
+                balance_amount=balance_amount,
+                total_balance=total_balance,
                 status='pending',
                 created_by=request.user,
                 updated_by=request.user
             )
 
-            # Create delivery order items
-            for item in data['items']:
-                DeliveryOrderItem.objects.create(
-                    delivery_order=delivery_order,
-                    product_id=item['product_id'],
-                    ordered_quantity=Decimal(item['ordered_quantity']),
-                    delivered_quantity=Decimal(item['delivered_quantity']),
-                    unit_price=Decimal(item['unit_price'])
-                )
+            print(f"Created delivery order: {delivery_order.id}")
+
+            # Now create the items
+            print(f"Creating {len(items_to_create)} delivery order items")
+            for item_data in items_to_create:
+                try:
+                    print(f"Creating delivery order item with data: {item_data}")
+                    DeliveryOrderItem.objects.create(
+                        delivery_order=delivery_order,
+                        **item_data
+                    )
+                    print(f"Successfully created delivery order item for product {item_data['product_id']}")
+                except Exception as e:
+                    print(f"Error creating delivery order item: {str(e)}")
+
+            # Recalculate totals after all items have been added
+            delivery_order.recalculate_totals()
 
             return JsonResponse({
                 'status': 'success',
@@ -815,10 +1018,35 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
             })
 
         except Exception as e:
+            print(f"Error creating delivery order: {str(e)}")
             return JsonResponse({
                 'status': 'error',
                 'error': str(e)
             }, status=400)
+
+class DeliveryOrderDetailView(LoginRequiredMixin, View):
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get(self, request, pk):
+        try:
+            delivery_order = get_object_or_404(
+                DeliveryOrder.objects.select_related(
+                    'route', 'seller', 'sales_order', 'loading_order'
+                ).prefetch_related('items__product'),
+                pk=pk
+            )
+
+            context = TemplateLayout.init(self, {
+                'delivery_order': delivery_order,
+                'items': delivery_order.items.all(),
+                'title': f'Delivery Order Details - {delivery_order.order_number}'
+            })
+
+            return render(request, 'delivery/delivery_order_detail.html', context)
+
+        except Exception as e:
+            messages.error(request, str(e))
+            return redirect('delivery:delivery-order-list')
 
 class BrokenOrderListView(LoginRequiredMixin, TemplateView):
     template_name = "delivery/broken_order_list.html"
@@ -980,6 +1208,71 @@ def get_route_sellers(request, route_id):
     return JsonResponse({'sellers': list(sellers)})
 
 @require_http_methods(["GET"])
+def check_existing_delivery_order(request):
+    """Check if a delivery order already exists for the given route, seller, and date"""
+    route_id = request.GET.get('route_id')
+    seller_id = request.GET.get('seller_id')
+    delivery_date = request.GET.get('delivery_date')
+
+    if not all([route_id, seller_id, delivery_date]):
+        return JsonResponse({
+            'exists': False,
+            'error': 'Missing required parameters'
+        })
+
+    try:
+        # Check if a delivery order already exists
+        existing_order = DeliveryOrder.objects.filter(
+            route_id=route_id,
+            seller_id=seller_id,
+            delivery_date=delivery_date
+        ).select_related('loading_order').first()
+
+        if existing_order:
+            # Get the order items
+            items = existing_order.items.select_related('product').all()
+
+            # Format the response
+            return JsonResponse({
+                'exists': True,
+                'order': {
+                    'id': existing_order.id,
+                    'order_number': existing_order.order_number,
+                    'route_id': existing_order.route_id,
+                    'seller_id': existing_order.seller_id,
+                    'loading_order_id': existing_order.loading_order_id,
+                    'sales_order_id': existing_order.sales_order_id,
+                    'delivery_date': existing_order.delivery_date.isoformat(),
+                    'delivery_time': existing_order.delivery_time.isoformat(),
+                    'payment_method': existing_order.payment_method,
+                    'notes': existing_order.notes,
+                    'total_price': float(existing_order.total_price),
+                    'opening_balance': float(existing_order.opening_balance),
+                    'amount_collected': float(existing_order.amount_collected),
+                    'balance_amount': float(existing_order.balance_amount),
+                    'total_balance': float(existing_order.total_balance),
+                    'status': existing_order.status
+                },
+                'items': [
+                    {
+                        'product_id': str(item.product_id),
+                        'product_name': f"{item.product.code} - {item.product.name}",
+                        'ordered_quantity': float(item.ordered_quantity),
+                        'delivered_quantity': float(item.delivered_quantity),
+                        'unit_price': float(item.unit_price),
+                        'total': float(item.total_price)
+                    } for item in items
+                ]
+            })
+        else:
+            return JsonResponse({'exists': False})
+    except Exception as e:
+        return JsonResponse({
+            'exists': False,
+            'error': str(e)
+        }, status=400)
+
+@require_http_methods(["GET"])
 def get_seller_sales_items(request):
     print('seller: ', request.GET.get('seller'))
     seller = request.GET.get('seller')
@@ -1061,17 +1354,35 @@ def get_available_products(request, route_id):
 @require_http_methods(["GET"])
 def get_all_products(request):
     """API endpoint to fetch all active products"""
-    from apps.products.models import Product
+    from apps.products.models import Product, PricePlan
+    from django.db.models import F, Value, DecimalField
 
-    products = Product.objects.filter(is_active=True).values(
-        'id', 'name', 'code', 'category__name'
-    ).order_by('category__name', 'name')
+    # Get the default price plan
+    default_price_plan = PricePlan.objects.filter(is_default=True).first()
+
+    if default_price_plan:
+        # Get products with prices from the default price plan
+        products = Product.objects.filter(is_active=True).annotate(
+            price=F('price_items__price')
+        ).filter(
+            price_items__price_plan=default_price_plan
+        ).values(
+            'id', 'name', 'code', 'category__name', 'price'
+        ).order_by('category__name', 'name')
+    else:
+        # If no default price plan, use a default price of 0
+        products = Product.objects.filter(is_active=True).annotate(
+            price=Value(0, output_field=DecimalField(max_digits=10, decimal_places=2))
+        ).values(
+            'id', 'name', 'code', 'category__name', 'price'
+        ).order_by('category__name', 'name')
 
     return JsonResponse({
         'products': [{
             'id': str(product['id']),
             'name': product['name'],
             'code': product['code'],
-            'category': product['category__name']
+            'category': product['category__name'],
+            'price': str(product['price']) if product['price'] is not None else '0.00'
         } for product in products]
     })

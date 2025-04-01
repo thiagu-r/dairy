@@ -1,0 +1,137 @@
+{% extends "layout/layout_vertical.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Delivery Order Details</h5>
+            <div class="d-flex gap-2">
+                <a href="{% url 'delivery:delivery-order-list' %}" class="btn btn-outline-secondary">
+                    <i class="bx bx-arrow-back me-1"></i>
+                    Back to List
+                </a>
+                {% if delivery_order.status == 'pending' %}
+                <a href="{% url 'delivery:delivery-order-edit' delivery_order.id %}" class="btn btn-outline-warning">
+                    <i class="bx bx-edit me-1"></i>
+                    Edit
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h6 class="fw-semibold">Order Information</h6>
+                    <div class="table-responsive">
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <td class="fw-medium">Order Number</td>
+                                    <td>{{ delivery_order.order_number }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Status</td>
+                                    <td>
+                                        <span class="badge bg-label-{% if delivery_order.status == 'pending' %}warning{% elif delivery_order.status == 'in_progress' %}info{% elif delivery_order.status == 'completed' %}success{% else %}danger{% endif %}">
+                                            {{ delivery_order.get_status_display }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Delivery Date</td>
+                                    <td>{{ delivery_order.delivery_date }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Delivery Time</td>
+                                    <td>{{ delivery_order.delivery_time }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Payment Method</td>
+                                    <td>{{ delivery_order.get_payment_method_display }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="fw-semibold">Seller Information</h6>
+                    <div class="table-responsive">
+                        <table class="table table-borderless">
+                            <tbody>
+                                <tr>
+                                    <td class="fw-medium">Seller</td>
+                                    <td>{{ delivery_order.seller.store_name }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Route</td>
+                                    <td>{{ delivery_order.route.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Opening Balance</td>
+                                    <td>{{ delivery_order.opening_balance }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Amount Collected</td>
+                                    <td>{{ delivery_order.amount_collected }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Balance Amount</td>
+                                    <td>{{ delivery_order.balance_amount }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-medium">Total Balance</td>
+                                    <td>{{ delivery_order.total_balance }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <h6 class="fw-semibold">Order Items</h6>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Ordered Quantity</th>
+                            <th>Delivered Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ item.product.code }} - {{ item.product.name }}</td>
+                            <td>{{ item.ordered_quantity }}</td>
+                            <td>{{ item.delivered_quantity }}</td>
+                            <td>{{ item.unit_price }}</td>
+                            <td>{{ item.total_price }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No items found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="4" class="text-end">Total</th>
+                            <th>{{ delivery_order.total_price }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            {% if delivery_order.notes %}
+            <div class="mt-4">
+                <h6 class="fw-semibold">Notes</h6>
+                <p>{{ delivery_order.notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

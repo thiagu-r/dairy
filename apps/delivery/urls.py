@@ -33,9 +33,12 @@ urlpatterns = [
     path('loading-orders/<int:pk>/edit/', views.LoadingOrderEditView.as_view(), name='loading-order-edit'),
     path('delivery/orders/', views.DeliveryOrderListView.as_view(), name='delivery-order-list'),
     path('delivery/orders/create/', views.DeliveryOrderCreateView.as_view(), name='delivery-order-create'),
+    path('delivery/orders/<int:pk>/', views.DeliveryOrderDetailView.as_view(), name='delivery-order-detail'),
+    path('delivery/orders/<int:pk>/edit/', views.DeliveryOrderCreateView.as_view(), name='delivery-order-edit'),
     path('api/routes/<int:route_id>/sellers/', views.get_route_sellers, name='get-route-sellers'),
     #     path('api/sellers/<int:seller_id>/sales-items/', views.get_seller_sales_items, name='get-seller-sales-items'),
     path('api/sales-items/', views.get_seller_sales_items, name='get-seller-sales-items'),
     path('api/routes/<int:route_id>/available-products/', views.get_available_products, name='get-available-products'),
     path('api/products/', views.get_all_products, name='get-all-products'),
+    path('api/check-existing-delivery-order/', views.check_existing_delivery_order, name='check-existing-delivery-order'),
 ]

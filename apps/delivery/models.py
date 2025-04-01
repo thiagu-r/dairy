@@ -166,12 +166,12 @@ class DailyDeliveryTeam(models.Model):
 
     def clean(self):
         from django.core.exceptions import ValidationError
-        
+
         # Ensure team members belong to the same delivery team
         members = [self.driver, self.supervisor]
         if self.delivery_man:
             members.append(self.delivery_man)
-            
+
         for member in members:
             if member and member.delivery_team != self.delivery_team:
                 raise ValidationError(
@@ -247,15 +247,15 @@ class PurchaseOrder(models.Model):
             last_order = PurchaseOrder.objects.filter(
                 order_number__startswith=prefix
             ).order_by('-order_number').first()
-            
+
             if last_order:
                 last_number = int(last_order.order_number.split('-')[-1])
                 new_number = str(last_number + 1).zfill(4)
             else:
                 new_number = '0001'
-            
+
             self.order_number = f"{prefix}{new_number}"
-        
+
         super().save(*args, **kwargs)
 
 class PurchaseOrderItem(models.Model):
@@ -322,7 +322,7 @@ class LoadingOrder(models.Model):
 
     order_number = models.CharField(max_length=20, unique=True)
     purchase_order = models.ForeignKey(
-        'PurchaseOrder', 
+        'PurchaseOrder',
         on_delete=models.PROTECT,
         related_name='loading_orders'
     )
@@ -335,13 +335,13 @@ class LoadingOrder(models.Model):
     loading_time = models.TimeField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     notes = models.TextField(blank=True, null=True)
-    
+
     # Track crates
     crates_loaded = models.PositiveIntegerField(
         default=0,
         help_text='Number of crates loaded'
     )
-    
+
     # Add offline sync fields
     sync_status = models.CharField(
         max_length=20,
@@ -357,7 +357,7 @@ class LoadingOrder(models.Model):
         null=True,
         blank=True
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -394,11 +394,11 @@ class LoadingOrder(models.Model):
                 new_number = str(last_number + 1).zfill(4)
             else:
                 new_number = '0001'
-            
+
             from datetime import date
             today = date.today()
             self.order_number = f'LO-{today.strftime("%Y%m%d")}-{new_number}'
-        
+
         super().save(*args, **kwargs)
 
 class LoadingOrderItem(models.Model):
@@ -407,7 +407,7 @@ class LoadingOrderItem(models.Model):
     purchase_order_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     return_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     total_quantity = models.DecimalField(max_digits=10, decimal_places=3,default=0)
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -453,7 +453,7 @@ class DeliveryOrder(models.Model):
     )
     delivery_date = models.DateField(db_index=True)
     delivery_time = models.TimeField()
-    
+
     # New fields for pricing and payments
     total_price = models.DecimalField(
         max_digits=10,
@@ -491,7 +491,7 @@ class DeliveryOrder(models.Model):
         default=Decimal('0.00'),
         help_text='Total outstanding balance including previous balance'
     )
-    
+
     status = models.CharField(max_length=20, choices=ORDER_STATUS, default='pending')
     notes = models.TextField(blank=True, null=True)
     sync_status = models.CharField(
@@ -508,7 +508,7 @@ class DeliveryOrder(models.Model):
         null=True,
         blank=True
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -543,7 +543,7 @@ class DeliveryOrder(models.Model):
     #             seller=self.seller,
     #             delivery_date__lt=self.delivery_date
     #         ).order_by('-delivery_date', '-delivery_time').first()
-            
+
     #         self.opening_balance = last_order.total_balance if last_order else Decimal('0.00')
 
     #     # Calculate total price from items
@@ -557,7 +557,7 @@ class DeliveryOrder(models.Model):
 
     #     # Calculate total balance including opening balance
     #     self.total_balance = self.opening_balance + self.balance_amount
-            
+
     #     super().save(*args, **kwargs)
     def save(self, *args, **kwargs):
         if not self.order_number:
@@ -567,37 +567,56 @@ class DeliveryOrder(models.Model):
             last_order = DeliveryOrder.objects.filter(
                 order_number__startswith=prefix
             ).order_by('-order_number').first()
-            
+
             if last_order:
                 last_number = int(last_order.order_number.split('-')[-1])
                 new_number = str(last_number + 1).zfill(4)
             else:
                 new_number = '0001'
-            
+
             self.order_number = f"{prefix}{new_number}"
 
-        if not self.pk and not self.opening_balance:  # Only for new orders
-            # Get last order's total balance for this seller
-            last_order = DeliveryOrder.objects.filter(
-                seller=self.seller,
-                delivery_date__lt=self.delivery_date
-            ).order_by('-delivery_date', '-delivery_time').first()
-            
-            self.opening_balance = last_order.total_balance if last_order else Decimal('0.00')
+        # Skip the problematic calculations for now - we'll handle these in the view
+        # if not self.pk and not self.opening_balance:  # Only for new orders
+        #     # Get last order's total balance for this seller
+        #     last_order = DeliveryOrder.objects.filter(
+        #         seller=self.seller,
+        #         delivery_date__lt=self.delivery_date
+        #     ).order_by('-delivery_date', '-delivery_time').first()
+        #
+        #     self.opening_balance = last_order.total_balance if last_order else Decimal('0.00')
 
-        # Calculate total price from items
-        self.total_price = sum(
-            item.delivered_quantity * item.unit_price
-            for item in self.items.all()
-        )
+        # # Calculate total price from items
+        # self.total_price = sum(
+        #     item.delivered_quantity * item.unit_price
+        #     for item in self.items.all()
+        # )
 
-        # Calculate balance amount for this delivery
-        self.balance_amount = self.total_price - self.amount_collected
+        # # Calculate balance amount for this delivery
+        # self.balance_amount = self.total_price - self.amount_collected
 
-        # Calculate total balance including opening balance
-        self.total_balance = self.opening_balance + self.balance_amount
-            
+        # # Calculate total balance including opening balance
+        # self.total_balance = self.opening_balance + self.balance_amount
+
         super().save(*args, **kwargs)
+
+    def recalculate_totals(self):
+        """Recalculate totals after items have been added"""
+        if self.pk:  # Only if the order has been saved
+            # Calculate total price from items
+            self.total_price = sum(
+                item.delivered_quantity * item.unit_price
+                for item in self.items.all()
+            )
+
+            # Calculate balance amount for this delivery
+            self.balance_amount = self.total_price - self.amount_collected
+
+            # Calculate total balance including opening balance
+            self.total_balance = self.opening_balance + self.balance_amount
+
+            # Save without triggering the full save method
+            super().save(update_fields=['total_price', 'balance_amount', 'total_balance'])
 
 class DeliveryOrderItem(models.Model):
     delivery_order = models.ForeignKey(
@@ -630,7 +649,7 @@ class DeliveryOrderItem(models.Model):
         decimal_places=2,
         help_text='Total price for delivered quantity'
     )
-    
+
     # Fields for mobile app sync
     sync_status = models.CharField(
         max_length=20,
@@ -653,7 +672,7 @@ class DeliveryOrderItem(models.Model):
         blank=True,
         help_text='Last attempted sync timestamp'
     )
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -671,7 +690,7 @@ class DeliveryOrderItem(models.Model):
         # Set unit price from cache if not set
         if not self.unit_price:
             self.unit_price = self.get_cached_price()
-        
+
         # Calculate total price
         self.total_price = self.delivered_quantity * self.unit_price
         super().save(*args, **kwargs)
@@ -679,7 +698,7 @@ class DeliveryOrderItem(models.Model):
     def get_cached_price(self):
         """Get price from cached data for offline use"""
         delivery_date = self.delivery_order.delivery_date
-        
+
         # Try seller-specific cached price
         seller_price = SellerPriceCache.objects.filter(
             seller=self.delivery_order.seller,
@@ -688,10 +707,10 @@ class DeliveryOrderItem(models.Model):
             valid_to__gte=delivery_date,
             is_active=True
         ).first()
-        
+
         if seller_price:
             return seller_price.price
-            
+
         # Fallback to general cached price
         general_price = GeneralPriceCache.objects.filter(
             product=self.product,
@@ -699,10 +718,10 @@ class DeliveryOrderItem(models.Model):
             valid_to__gte=delivery_date,
             is_active=True
         ).first()
-        
+
         if general_price:
             return general_price.price
-            
+
         return Decimal('0.00')
 
 class BrokenOrder(models.Model):
@@ -755,13 +774,13 @@ class BrokenOrder(models.Model):
             last_order = BrokenOrder.objects.filter(
                 order_number__startswith=prefix
             ).order_by('-order_number').first()
-            
+
             if last_order:
                 last_number = int(last_order.order_number.split('-')[-1])
                 new_number = str(last_number + 1).zfill(4)
             else:
                 new_number = '0001'
-            
+
             self.order_number = f"{prefix}{new_number}"
         super().save(*args, **kwargs)
 
@@ -825,7 +844,7 @@ class ReturnedOrder(models.Model):
         default=0,
         help_text='Number of crates returned'
     )
-    
+
     # Add offline sync fields
     sync_status = models.CharField(
         max_length=20,
@@ -864,13 +883,13 @@ class ReturnedOrder(models.Model):
             last_order = ReturnedOrder.objects.filter(
                 order_number__startswith=prefix
             ).order_by('-order_number').first()
-            
+
             if last_order:
                 last_number = int(last_order.order_number.split('-')[-1])
                 new_number = str(last_number + 1).zfill(4)
             else:
                 new_number = '0001'
-            
+
             self.order_number = f"{prefix}{new_number}"
         super().save(*args, **kwargs)
 
@@ -1022,7 +1041,7 @@ class DeliveryExpense(models.Model):
         ('fuel', 'Fuel'),
         ('other', 'Other Expenses')
     )
-    
+
     delivery_team = models.ForeignKey(
         DeliveryTeam,
         on_delete=models.PROTECT,
@@ -1046,7 +1065,7 @@ class DeliveryExpense(models.Model):
         on_delete=models.PROTECT
     )
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     # Offline sync fields
     sync_status = models.CharField(
         max_length=20,
@@ -1087,7 +1106,7 @@ class CashDenomination(models.Model):
         decimal_places=2,
         help_text='Total amount (denomination * count)'
     )
-    
+
     # Offline sync fields
     sync_status = models.CharField(
         max_length=20,
