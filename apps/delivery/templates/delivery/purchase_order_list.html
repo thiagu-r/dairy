@@ -8,7 +8,7 @@
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Purchase Orders</h5>
-            <button type="button" 
+            <button type="button"
                     class="btn btn-primary"
                     data-bs-toggle="modal"
                     data-bs-target="#purchaseOrderModal">
@@ -45,7 +45,7 @@
                             <td>{{ order.created_at }}</td>
                             <td>
                                 <div class="d-flex gap-2">
-                                    <a href="{% url 'delivery:purchase-order-detail' order.id %}" 
+                                    <a href="{% url 'delivery:purchase-order-detail' order.id %}"
                                        class="btn btn-icon btn-sm btn-outline-primary">
                                         <i class="bx bx-show"></i>
                                     </a>
@@ -105,6 +105,300 @@
     // Handle modal cleanup
     document.getElementById('editModal').addEventListener('hidden.bs.modal', function () {
         this.querySelector('.modal-content').innerHTML = '';
+    });
+
+    // Purchase Order Modal Functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const purchaseOrderForm = document.getElementById('purchaseOrderForm');
+        const routeSelect = purchaseOrderForm.querySelector('select[name="route"]');
+        const deliveryTeamSelect = purchaseOrderForm.querySelector('select[name="delivery_team"]');
+        const deliveryDateInput = purchaseOrderForm.querySelector('input[name="delivery_date"]');
+        const itemsSection = document.getElementById('itemsSection');
+        const itemsTableBody = document.getElementById('itemsTableBody');
+        const addProductBtn = document.getElementById('addProductBtn');
+        const addProductModal = new bootstrap.Modal(document.getElementById('addProductModal'));
+        const productSelect = document.getElementById('productSelect');
+        const confirmAddProductBtn = document.getElementById('confirmAddProduct');
+
+        let orderItems = [];
+        let allProducts = [];
+
+        // Function to check if all required fields are filled
+        function checkRequiredFields() {
+            return routeSelect.value && deliveryTeamSelect.value && deliveryDateInput.value;
+        }
+
+        // Function to fetch sales summary for the selected route and date
+        function fetchSalesSummary() {
+            if (!checkRequiredFields()) return;
+
+            const route = routeSelect.value;
+            const date = deliveryDateInput.value;
+
+            // First check if a purchase order already exists
+            fetch(`{% url 'delivery:check-existing-purchase-order' %}?route=${route}&delivery_date=${date}&team=${deliveryTeamSelect.value}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.exists) {
+                        alert('A purchase order already exists for this route, team, and date');
+                        orderItems = data.items || [];
+                        updateItemsTable();
+                        itemsSection.style.display = 'block';
+                    } else {
+                        // Fetch sales summary if no existing order
+                        fetch(`{% url 'delivery:get-route-sales-summary' %}?route=${route}&delivery_date=${date}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                orderItems = data.items || [];
+                                updateItemsTable();
+                                itemsSection.style.display = 'block';
+                            })
+                            .catch(error => {
+                                console.error('Error fetching sales summary:', error);
+                                alert('Error fetching sales data. Please try again.');
+                            });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking existing order:', error);
+                });
+        }
+
+        // Update the items table with current order items
+        function updateItemsTable() {
+            itemsTableBody.innerHTML = '';
+
+            orderItems.forEach((item, index) => {
+                const row = document.createElement('tr');
+
+                // Calculate total quantity
+                const salesQty = parseFloat(item.sales_quantity) || 0;
+                const extraQty = parseFloat(item.extra_quantity) || 0;
+                const remainingQty = parseFloat(item.remaining_quantity) || 0;
+                const totalQty = salesQty + extraQty - remainingQty;
+
+                row.innerHTML = `
+                    <td>${item.product_name}</td>
+                    <td>${item.sales_quantity}</td>
+                    <td>
+                        <input type="number"
+                               class="form-control form-control-sm extra-qty"
+                               value="${item.extra_quantity}"
+                               step="0.001"
+                               min="0"
+                               data-index="${index}">
+                    </td>
+                    <td>
+                        <input type="number"
+                               class="form-control form-control-sm remaining-qty"
+                               value="${item.remaining_quantity}"
+                               step="0.001"
+                               min="0"
+                               data-index="${index}">
+                    </td>
+                    <td class="total-qty">${totalQty.toFixed(3)}</td>
+                `;
+
+                itemsTableBody.appendChild(row);
+            });
+
+            // Add event listeners to the quantity inputs
+            document.querySelectorAll('.extra-qty').forEach(input => {
+                input.addEventListener('change', function() {
+                    const index = parseInt(this.dataset.index);
+                    orderItems[index].extra_quantity = this.value;
+                    updateTotalQuantity(index);
+                });
+            });
+
+            document.querySelectorAll('.remaining-qty').forEach(input => {
+                input.addEventListener('change', function() {
+                    const index = parseInt(this.dataset.index);
+                    orderItems[index].remaining_quantity = this.value;
+                    updateTotalQuantity(index);
+                });
+            });
+        }
+
+        // Update total quantity for an item
+        function updateTotalQuantity(index) {
+            const item = orderItems[index];
+            const salesQty = parseFloat(item.sales_quantity) || 0;
+            const extraQty = parseFloat(item.extra_quantity) || 0;
+            const remainingQty = parseFloat(item.remaining_quantity) || 0;
+            const totalQty = salesQty + extraQty - remainingQty;
+
+            // Update the total quantity in the table
+            const rows = itemsTableBody.querySelectorAll('tr');
+            if (rows[index]) {
+                const totalQtyCell = rows[index].querySelector('.total-qty');
+                if (totalQtyCell) {
+                    totalQtyCell.textContent = totalQty.toFixed(3);
+                }
+            }
+
+            // Update the total quantity in the orderItems array
+            item.total_quantity = totalQty.toFixed(3);
+        }
+
+        // Function to fetch all products
+        function fetchAllProducts() {
+            fetch('{% url "delivery:get-all-products" %}')
+                .then(response => response.json())
+                .then(data => {
+                    allProducts = data.products || [];
+                    populateProductSelect();
+                })
+                .catch(error => {
+                    console.error('Error fetching products:', error);
+                });
+        }
+
+        // Populate product select dropdown
+        function populateProductSelect() {
+            productSelect.innerHTML = '<option value="">Select Product</option>';
+
+            // Filter out products that are already in the order
+            const existingProductIds = orderItems.map(item => item.product_id);
+            const availableProducts = allProducts.filter(product => !existingProductIds.includes(product.id));
+
+            availableProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.code} - ${product.name}`;
+                productSelect.appendChild(option);
+            });
+        }
+
+        // Add a new product to the order
+        function addNewProduct() {
+            const productId = productSelect.value;
+            if (!productId) {
+                alert('Please select a product');
+                return;
+            }
+
+            const selectedProduct = allProducts.find(p => p.id == productId);
+            if (!selectedProduct) {
+                alert('Product not found');
+                return;
+            }
+
+            const salesQty = parseFloat(document.getElementById('salesQuantity').value) || 0;
+            const extraQty = parseFloat(document.getElementById('extraQuantity').value) || 0;
+            const remainingQty = parseFloat(document.getElementById('remainingQuantity').value) || 0;
+
+            // Create new item
+            const newItem = {
+                product_id: productId,
+                product_name: `${selectedProduct.code} - ${selectedProduct.name}`,
+                sales_quantity: salesQty.toFixed(3),
+                extra_quantity: extraQty.toFixed(3),
+                remaining_quantity: remainingQty.toFixed(3),
+                total_quantity: (salesQty + extraQty - remainingQty).toFixed(3)
+            };
+
+            // Add to order items
+            orderItems.push(newItem);
+
+            // Update table
+            updateItemsTable();
+
+            // Close modal and reset form
+            addProductModal.hide();
+            document.getElementById('salesQuantity').value = '0';
+            document.getElementById('extraQuantity').value = '0';
+            document.getElementById('remainingQuantity').value = '0';
+        }
+
+        // Event listeners for form fields
+        routeSelect.addEventListener('change', fetchSalesSummary);
+        deliveryTeamSelect.addEventListener('change', fetchSalesSummary);
+        deliveryDateInput.addEventListener('change', fetchSalesSummary);
+
+        // Event listener for add product button
+        addProductBtn.addEventListener('click', function() {
+            if (!checkRequiredFields()) {
+                alert('Please select route, delivery team, and date first');
+                return;
+            }
+
+            // Fetch products if not already fetched
+            if (allProducts.length === 0) {
+                fetchAllProducts();
+            } else {
+                populateProductSelect();
+            }
+
+            addProductModal.show();
+        });
+
+        // Event listener for confirm add product button
+        confirmAddProductBtn.addEventListener('click', addNewProduct);
+
+        // Event listener for submit order button
+        document.getElementById('submitOrderBtn').addEventListener('click', function() {
+            submitOrderForm();
+        });
+
+        // Form submission function
+        function submitOrderForm() {
+            console.log('Manual form submission triggered');
+
+            if (!checkRequiredFields()) {
+                alert('Please fill in all required fields');
+                return;
+            }
+
+            if (orderItems.length === 0) {
+                alert('No items to order');
+                return;
+            }
+
+            try {
+                // Set the items data in the hidden input field
+                document.getElementById('itemsData').value = JSON.stringify(orderItems);
+
+                // Get form data
+                const formData = new FormData(purchaseOrderForm);
+
+                console.log('Form data prepared, submitting...');
+
+                // Submit the form
+                fetch(purchaseOrderForm.action, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    console.log('Response received:', response);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Data received:', data);
+                    if (data.success) {
+                        // Close modal and refresh page
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('purchaseOrderModal'));
+                        modal.hide();
+                        location.reload();
+                    } else {
+                        alert(data.error || 'An error occurred');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                });
+            } catch (error) {
+                console.error('Error in form submission:', error);
+                alert('An error occurred while preparing the form data. Please try again.');
+            }
+        }
+
+        // Prevent default form submission and use our custom handler
+        purchaseOrderForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            submitOrderForm();
+        });
     });
 </script>
 {% endblock %}

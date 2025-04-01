@@ -5,23 +5,23 @@ from django.db.models import Count, Sum, Q, Prefetch
 from web_project import TemplateLayout
 from web_project.mixins import DeliveryTeamRequiredMixin
 from .models import (
-    DeliveryOrder, 
-    DailyDeliveryTeam, 
-    Distributor, 
-    PurchaseOrder, 
-    PurchaseOrderItem, 
-    DeliveryTeam, 
+    DeliveryOrder,
+    DailyDeliveryTeam,
+    Distributor,
+    PurchaseOrder,
+    PurchaseOrderItem,
+    DeliveryTeam,
     LoadingOrder,
-    DeliveryOrderItem, 
-    BrokenOrder, 
-    BrokenOrderItem, 
-    ReturnedOrder, 
-    ReturnedOrderItem, 
-    FutureOrderRequest, 
-    FutureOrderRequestItem, 
-    DeliveryExpense, 
-    CashDenomination, 
-    SellerPriceCache, 
+    DeliveryOrderItem,
+    BrokenOrder,
+    BrokenOrderItem,
+    ReturnedOrder,
+    ReturnedOrderItem,
+    FutureOrderRequest,
+    FutureOrderRequestItem,
+    DeliveryExpense,
+    CashDenomination,
+    SellerPriceCache,
     GeneralPriceCache
  )
 from apps.sales.models import SalesOrder, OrderItem
@@ -54,7 +54,7 @@ class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, Templ
 
         # Base queryset for delivery orders
         delivery_orders = DeliveryOrder.objects.select_related(
-            'seller', 'route', 'sales_order', 
+            'seller', 'route', 'sales_order',
             'loading_order', 'loading_order__purchase_order'
         ).filter(delivery_date=today)
 
@@ -63,7 +63,7 @@ class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, Templ
             distributor = Distributor.objects.get(user=user)
             delivery_teams = distributor.delivery_teams.all()
             context['distributor'] = distributor
-            
+
             # Filter orders for distributor's teams
             delivery_orders = delivery_orders.filter(
                 loading_order__purchase_order__delivery_team__in=delivery_teams
@@ -76,9 +76,9 @@ class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, Templ
                 Q(delivery_man__user=user),
                 delivery_date=today
             ).select_related('delivery_team', 'route')
-            
+
             context['daily_teams'] = daily_teams
-            
+
             # Filter orders for team member's assignments
             team_ids = daily_teams.values_list('delivery_team', flat=True)
             delivery_orders = delivery_orders.filter(
@@ -96,10 +96,10 @@ class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, Templ
             'collected_amount': delivery_orders.aggregate(
                 total=Sum('amount_collected')
             )['total'] or 0,
-            
+
             # Recent orders
             'recent_orders': delivery_orders.order_by('-created_at')[:10],
-            
+
             # Route summary
             'route_summary': delivery_orders.values('route__name').annotate(
                 total_orders=Count('id'),
@@ -115,13 +115,13 @@ class PurchaseOrderListView(LoginRequiredMixin, DeliveryTeamRequiredMixin, ListV
     model = PurchaseOrder
     template_name = 'delivery/purchase_order_list.html'
     context_object_name = 'purchase_orders'
-    
+
     def get_queryset(self):
         return PurchaseOrder.objects.select_related(
-            'route', 
+            'route',
             'delivery_team'
         ).order_by('-created_at')
-    
+
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
         context.update({
@@ -171,33 +171,33 @@ def create_purchase_order(request):
             'delivery_teams': DeliveryTeam.objects.filter(is_active=True).order_by('name')
         }
         return render(request, 'delivery/purchase_order_form.html', context)
-    
+
     elif request.method == 'POST':
         try:
             delivery_team_id = request.POST.get('delivery_team')
             route_id = request.POST.get('route')
             delivery_date = request.POST.get('delivery_date')
-            
+
             # Validate required fields
             if not all([delivery_team_id, route_id, delivery_date]):
                 return JsonResponse({
                     'success': False,
                     'error': 'Missing required fields'
                 }, status=400)
-            
+
             # Check for existing order
             existing_order = PurchaseOrder.objects.filter(
                 delivery_team_id=delivery_team_id,
                 route_id=route_id,
                 delivery_date=delivery_date
             ).first()
-            
+
             if existing_order:
                 return JsonResponse({
                     'success': False,
                     'error': 'Purchase order already exists for this team, route and date'
                 }, status=400)
-            
+
             # Create purchase order
             purchase_order = PurchaseOrder.objects.create(
                 delivery_team_id=delivery_team_id,
@@ -208,18 +208,42 @@ def create_purchase_order(request):
                 created_by=request.user,
                 updated_by=request.user
             )
-            
+
             # Create purchase order items
-            items_data = json.loads(request.POST.get('items', '[]'))
+            items_data_str = request.POST.get('items_data')
+            print(f"Items data received: {items_data_str}")
+
+            if not items_data_str:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No items data provided'
+                }, status=400)
+
+            try:
+                items_data = json.loads(items_data_str)
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error: {e}")
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Invalid items data format: {str(e)}'
+                }, status=400)
+
+            if not items_data:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No items to process'
+                }, status=400)
+
+            print(f"Processing {len(items_data)} items")
             for item in items_data:
                 sales_qty = Decimal(item['sales_quantity'])
                 extra_qty = Decimal(item['extra_quantity'])
                 remaining_qty = Decimal(item['remaining_quantity'])
-                
+
                 # Validate quantities
                 if (sales_qty + extra_qty - remaining_qty) < sales_qty:
                     raise ValueError(f"Total quantity must be greater than or equal to sales quantity for {item['product_name']}")
-                
+
                 PurchaseOrderItem.objects.create(
                     purchase_order=purchase_order,
                     product_id=item['product_id'],
@@ -227,9 +251,9 @@ def create_purchase_order(request):
                     extra_quantity=extra_qty,
                     remaining_quantity=remaining_qty
                 )
-            
+
             return JsonResponse({'success': True})
-            
+
         except Exception as e:
             return JsonResponse({
                 'success': False,
@@ -243,15 +267,15 @@ class PurchaseOrderEditView(LoginRequiredMixin, View):
                 PurchaseOrder.objects.select_related('route', 'delivery_team'),
                 pk=pk
             )
-            
+
             context = {
                 'purchase_order': purchase_order,
                 'routes': Route.objects.all().order_by('name'),
                 'delivery_teams': DeliveryTeam.objects.filter(is_active=True).order_by('name'),
             }
-            
+
             return render(request, 'delivery/purchase_order_edit_form.html', context)
-            
+
         except Exception as e:
             return JsonResponse({
                 'success': False,
@@ -262,25 +286,25 @@ class PurchaseOrderEditView(LoginRequiredMixin, View):
     def put(self, request, pk):
         max_retries = 3
         retry_count = 0
-        
+
         while retry_count < max_retries:
             try:
                 with transaction.atomic():
                     purchase_order = get_object_or_404(PurchaseOrder, pk=pk)
                     data = QueryDict(request.body)
-                    
+
                     # Update purchase order
                     purchase_order.route_id = data.get('route')
                     purchase_order.delivery_team_id = data.get('delivery_team')
                     purchase_order.delivery_date = data.get('delivery_date')
                     purchase_order.notes = data.get('notes', '')
                     purchase_order.save()
-                    
+
                     # Update items
                     for item in purchase_order.items.all():
                         extra_qty_key = f'extra_qty_{item.product.id}'
                         remaining_qty_key = f'remaining_qty_{item.product.id}'
-                        
+
                         if extra_qty_key in data:
                             item.extra_quantity = Decimal(str(data[extra_qty_key]))
                         if remaining_qty_key in data:
@@ -291,13 +315,13 @@ class PurchaseOrderEditView(LoginRequiredMixin, View):
                     purchase_orders = PurchaseOrder.objects.select_related(
                         'route', 'delivery_team'
                     ).order_by('-delivery_date', '-created_at')
-                    
+
                     html_content = render_to_string(
                         'delivery/partials/purchase_order_table.html',
                         {'purchase_orders': purchase_orders},
                         request=request
                     )
-                    
+
                     return JsonResponse({
                         'success': True,
                         'html': html_content,
@@ -313,7 +337,7 @@ class PurchaseOrderEditView(LoginRequiredMixin, View):
                         'message': 'Purchase order updated, refreshing page...'
                     })
                 time.sleep(0.1)  # Wait briefly before retrying
-                
+
             except Exception as e:
                 return JsonResponse({
                     'success': False,
@@ -325,13 +349,13 @@ class PurchaseOrderDetailView(LoginRequiredMixin, View):
     def get(self, request, pk):
         purchase_order = get_object_or_404(
             PurchaseOrder.objects.select_related(
-                'route', 
+                'route',
                 'delivery_team',
                 'delivery_team__distributor'
             ).prefetch_related('items__product'),
             pk=pk
         )
-        
+
         context = {
             'purchase_order': purchase_order,
             'title': f'Purchase Order Details - {purchase_order.order_number}'
@@ -369,7 +393,7 @@ class DeliveryTeamCreateView(LoginRequiredMixin, View):
             context['distributor'] = distributor
         else:
             context['distributors'] = Distributor.objects.all().order_by('name')
-        
+
         return render(request, 'delivery/team_form_modal.html', context)
 
     def post(self, request):
@@ -377,19 +401,19 @@ class DeliveryTeamCreateView(LoginRequiredMixin, View):
             name = request.POST.get('name')
             route_id = request.POST.get('route')
             distributor_id = request.POST.get('distributor')
-            
+
             if request.user.role == 'DISTRIBUTOR':
                 distributor = Distributor.objects.get(user=request.user)
             else:
                 distributor = Distributor.objects.get(id=distributor_id)
-            
+
             team = DeliveryTeam.objects.create(
                 name=name,
                 route_id=route_id,
                 distributor=distributor,
                 is_active=True
             )
-            
+
             return JsonResponse({
                 'success': True,
                 'message': 'Team created successfully'
@@ -474,24 +498,24 @@ def update_purchase_order_item(request, pk, product_id):
                 'success': False,
                 'error': 'No data provided'
             }, status=400)
-            
+
         purchase_order = PurchaseOrder.objects.get(pk=pk)
         item = purchase_order.items.get(product_id=product_id)
-        
+
         data = json.loads(request.body)
-        
+
         if 'extra_quantity' in data:
             item.extra_quantity = Decimal(str(data['extra_quantity']))
         if 'remaining_quantity' in data:
             item.remaining_quantity = Decimal(str(data['remaining_quantity']))
-            
+
         item.save()
-        
+
         return JsonResponse({
             'success': True,
             'total_quantity': str(item.total_quantity)
         })
-        
+
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
@@ -517,10 +541,10 @@ def check_existing_order(request):
         route_id=route_id,
         delivery_date=delivery_date
     )
-    
+
     if exclude_id:
         query = query.exclude(id=exclude_id)
-    
+
     exists = query.exists()
     return JsonResponse({'exists': exists})
 
@@ -528,14 +552,14 @@ class LoadingOrderListView(LoginRequiredMixin, ListView):
     model = LoadingOrder
     template_name = 'delivery/loading_order_list.html'
     context_object_name = 'loading_orders'
-    
+
     def get_queryset(self):
         return LoadingOrder.objects.select_related(
             'purchase_order',
             'purchase_order__route',
             'purchase_order__delivery_team'
         ).order_by('-created_at')
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context.update({
@@ -607,12 +631,12 @@ def create_loading_order(request):
                 created_by=request.user,
                 updated_by=request.user
             )
-            
+
             return JsonResponse({
                 'success': True,
                 'message': 'Loading order created successfully'
             })
-            
+
         except PurchaseOrder.DoesNotExist:
             return JsonResponse({
                 'success': False,
@@ -623,7 +647,7 @@ def create_loading_order(request):
                 'success': False,
                 'error': str(e)
             }, status=400)
-    
+
     return JsonResponse({
         'success': False,
         'error': 'Invalid request method'
@@ -640,13 +664,13 @@ class LoadingOrderDetailView(LoginRequiredMixin, View):
                 ).prefetch_related('purchase_order__items__product'),
                 pk=pk
             )
-            
+
             context = {
                 'loading_order': loading_order,
                 'title': f'Loading Order Details - {loading_order.order_number}'
             }
             return render(request, 'delivery/loading_order_detail.html', context)
-            
+
         except Exception as e:
             messages.error(request, str(e))
             return redirect('delivery:loading-order-list')
@@ -662,7 +686,7 @@ class LoadingOrderEditView(LoginRequiredMixin, View):
                 ),
                 pk=pk
             )
-            
+
             if loading_order.status != 'draft':
                 messages.error(request, 'Only draft loading orders can be edited')
                 return redirect('delivery:loading-order-list')
@@ -672,7 +696,7 @@ class LoadingOrderEditView(LoginRequiredMixin, View):
                 'routes': Route.objects.all().order_by('name')
             }
             return render(request, 'delivery/loading_order_edit_form.html', context)
-            
+
         except Exception as e:
             messages.error(request, str(e))
             return redirect('delivery:loading-order-list')
@@ -680,25 +704,25 @@ class LoadingOrderEditView(LoginRequiredMixin, View):
     def post(self, request, pk):
         try:
             loading_order = get_object_or_404(LoadingOrder, pk=pk)
-            
+
             if loading_order.status != 'draft':
                 return JsonResponse({
                     'success': False,
                     'error': 'Only draft loading orders can be edited'
                 }, status=400)
-            
+
             loading_order.loading_date = request.POST.get('loading_date')
             loading_order.loading_time = request.POST.get('loading_time')
             loading_order.notes = request.POST.get('notes')
             loading_order.crates_loaded = request.POST.get('crates_loaded')
             loading_order.updated_by = request.user
             loading_order.save()
-            
+
             return JsonResponse({
                 'success': True,
                 'message': 'Loading order updated successfully'
             })
-            
+
         except Exception as e:
             return JsonResponse({
                 'success': False,
@@ -711,27 +735,27 @@ class DeliveryOrderListView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
-        
+
         # Add filters
         status_filter = self.request.GET.get('status', 'pending')
         date_filter = self.request.GET.get('date', timezone.now().date().isoformat())
         route_filter = self.request.GET.get('route')
-        
+
         # Base queryset
         orders = DeliveryOrder.objects.select_related(
             'route', 'seller', 'sales_order', 'loading_order'
         )
-        
+
         # Apply filters
         if status_filter != 'all':
             orders = orders.filter(status=status_filter)
-        
+
         if date_filter:
             orders = orders.filter(delivery_date=date_filter)
-            
+
         if route_filter:
             orders = orders.filter(route_id=route_filter)
-            
+
         context.update({
             'orders': orders.order_by('-delivery_date', '-delivery_time'),
             'routes': Route.objects.all().order_by('name'),
@@ -750,7 +774,7 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
         routes = Route.objects.all().order_by('name')
         sellers = Seller.objects.all().order_by('store_name')
         sales_orders = SalesOrder.objects.filter(status='confirmed').order_by('-created_at')
-        
+
         return render(request, 'delivery/delivery_order_form.html', {
             'routes': routes,
             'sellers': sellers,
@@ -760,7 +784,7 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
     def post(self, request):
         try:
             data = json.loads(request.body)
-            
+
             # Create delivery order
             delivery_order = DeliveryOrder.objects.create(
                 route_id=data['route_id'],
@@ -774,7 +798,7 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
                 created_by=request.user,
                 updated_by=request.user
             )
-            
+
             # Create delivery order items
             for item in data['items']:
                 DeliveryOrderItem.objects.create(
@@ -784,12 +808,12 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
                     delivered_quantity=Decimal(item['delivered_quantity']),
                     unit_price=Decimal(item['unit_price'])
                 )
-            
+
             return JsonResponse({
                 'status': 'success',
                 'message': 'Delivery order created successfully'
             })
-            
+
         except Exception as e:
             return JsonResponse({
                 'status': 'error',
@@ -802,18 +826,18 @@ class BrokenOrderListView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
-        
+
         date_filter = self.request.GET.get('date', timezone.now().date().isoformat())
         route_filter = self.request.GET.get('route')
-        
+
         orders = BrokenOrder.objects.select_related('route', 'loading_order')
-        
+
         if date_filter:
             orders = orders.filter(report_date=date_filter)
-            
+
         if route_filter:
             orders = orders.filter(route_id=route_filter)
-            
+
         context.update({
             'orders': orders.order_by('-report_date', '-report_time'),
             'routes': Route.objects.all().order_by('name'),
@@ -834,7 +858,7 @@ class BrokenOrderCreateView(LoginRequiredMixin, View):
     def post(self, request):
         try:
             data = json.loads(request.body)
-            
+
             broken_order = BrokenOrder.objects.create(
                 loading_order_id=data['loading_order_id'],
                 route_id=data['route_id'],
@@ -844,7 +868,7 @@ class BrokenOrderCreateView(LoginRequiredMixin, View):
                 created_by=request.user,
                 updated_by=request.user
             )
-            
+
             for item in data['items']:
                 BrokenOrderItem.objects.create(
                     broken_order=broken_order,
@@ -852,12 +876,12 @@ class BrokenOrderCreateView(LoginRequiredMixin, View):
                     quantity=item['quantity'],
                     reason=item['reason']
                 )
-            
+
             return JsonResponse({
                 'status': 'success',
                 'order_number': broken_order.order_number
             })
-            
+
         except Exception as e:
             return HttpResponseBadRequest(str(e))
 
@@ -867,20 +891,20 @@ class ReturnedOrderListView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = TemplateLayout.init(self, super().get_context_data(**kwargs))
-        
+
         date_filter = self.request.GET.get('date', timezone.now().date().isoformat())
         route_filter = self.request.GET.get('route')
-        
+
         orders = ReturnedOrder.objects.select_related(
             'route', 'delivery_order', 'delivery_order__seller'
         )
-        
+
         if date_filter:
             orders = orders.filter(return_date=date_filter)
-            
+
         if route_filter:
             orders = orders.filter(route_id=route_filter)
-            
+
         context.update({
             'orders': orders.order_by('-return_date', '-return_time'),
             'routes': Route.objects.all().order_by('name'),
@@ -897,7 +921,7 @@ class ReturnedOrderCreateView(LoginRequiredMixin, View):
         delivery_orders = DeliveryOrder.objects.filter(
             status='completed'
         ).order_by('-delivery_date')
-        
+
         return render(request, 'delivery/returned_order_form.html', {
             'routes': routes,
             'delivery_orders': delivery_orders,
@@ -906,7 +930,7 @@ class ReturnedOrderCreateView(LoginRequiredMixin, View):
     def post(self, request):
         try:
             data = json.loads(request.body)
-            
+
             returned_order = ReturnedOrder.objects.create(
                 delivery_order_id=data['delivery_order_id'],
                 route_id=data['route_id'],
@@ -917,19 +941,19 @@ class ReturnedOrderCreateView(LoginRequiredMixin, View):
                 created_by=request.user,
                 updated_by=request.user
             )
-            
+
             for item in data['items']:
                 ReturnedOrderItem.objects.create(
                     returned_order=returned_order,
                     product_id=item['product_id'],
                     quantity=item['quantity']
                 )
-            
+
             return JsonResponse({
                 'status': 'success',
                 'order_number': returned_order.order_number
             })
-            
+
         except Exception as e:
             return HttpResponseBadRequest(str(e))
 
@@ -938,11 +962,116 @@ class DeliveryOrderSyncView(LoginRequiredMixin, View):
     def post(self, request):
         try:
             data = json.loads(request.body)
-            
+
             # Handle sync logic here
             # This would include creating/updating delivery orders
             # based on data from mobile app
-            
+
             return JsonResponse({'status': 'success'})
         except Exception as e:
             return HttpResponseBadRequest(str(e))
+
+
+
+
+@require_http_methods(["GET"])
+def get_route_sellers(request, route_id):
+    sellers = Seller.objects.filter(route_id=route_id).values('id', 'store_name')
+    return JsonResponse({'sellers': list(sellers)})
+
+@require_http_methods(["GET"])
+def get_seller_sales_items(request):
+    print('seller: ', request.GET.get('seller'))
+    seller = request.GET.get('seller')
+    route = request.GET.get('route')
+    delivery_date = request.GET.get('date')
+
+    if not all([seller, route, delivery_date]):
+        return JsonResponse({
+            'success': False,
+            'error': 'Missing required parameters'
+        }, status=400)
+
+    try:
+        sales_order = SalesOrder.objects.filter(
+            seller__id=seller,
+            seller__route__id=route,
+            delivery_date=delivery_date,
+            status='draft'
+        ).first()
+
+        if not sales_order:
+            return JsonResponse({'items': []})
+
+        items = sales_order.items.select_related('product').values(
+            'product_id',
+            'product__name',
+            'product__code',
+            'quantity',
+            'unit_price'
+        )
+
+        items_data = [{
+            'product_id': str(item['product_id']),
+            'product_name': f"{item['product__code']} - {item['product__name']}",
+            'quantity': str(item['quantity']),
+            'unit_price': str(item['unit_price'])
+        } for item in items]
+
+        return JsonResponse({
+            'success': True,
+            'items': items_data
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+@require_http_methods(["GET"])
+def get_available_products(request, route_id):
+    print('route: ', route_id)
+    delivery_date = request.GET.get('date')
+
+    loading_order = LoadingOrder.objects.filter(
+        route_id=route_id,
+        loading_date=delivery_date,
+        status='completed'
+    ).first()
+
+    if not loading_order:
+        return JsonResponse({'products': []})
+
+    products = loading_order.items.select_related('product').values(
+        'product_id',
+        'product__name',
+        'product__code',
+        'remaining_quantity'
+    )
+
+    return JsonResponse({
+        'products': [{
+            'id': item['product_id'],
+            'name': f"{item['product__code']} - {item['product__name']}",
+            'available_quantity': str(item['remaining_quantity'])
+        } for item in products]
+    })
+
+@require_http_methods(["GET"])
+def get_all_products(request):
+    """API endpoint to fetch all active products"""
+    from apps.products.models import Product
+
+    products = Product.objects.filter(is_active=True).values(
+        'id', 'name', 'code', 'category__name'
+    ).order_by('category__name', 'name')
+
+    return JsonResponse({
+        'products': [{
+            'id': str(product['id']),
+            'name': product['name'],
+            'code': product['code'],
+            'category': product['category__name']
+        } for product in products]
+    })

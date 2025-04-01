@@ -3,14 +3,16 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Create Purchase Order</h5>
-                <button type="button" 
-                        class="btn-close" 
-                        data-bs-dismiss="modal" 
+                <button type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
                         aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="purchaseOrderForm" method="POST" action="{% url 'delivery:purchase-order-create' %}">
                     {% csrf_token %}
+                    <!-- Hidden input for items data -->
+                    <input type="hidden" name="items_data" id="itemsData">
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Route</label>
@@ -34,9 +36,9 @@
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Delivery Date</label>
-                            <input type="date" 
-                                   class="form-control" 
-                                   name="delivery_date" 
+                            <input type="date"
+                                   class="form-control"
+                                   name="delivery_date"
                                    required>
                         </div>
                     </div>
@@ -56,18 +58,60 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-secondary" id="addProductBtn">
+                                <i class="bx bx-plus"></i> Add Product
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Add Product Modal -->
+                    <div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Add Product</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Product</label>
+                                        <select class="form-select" id="productSelect" required>
+                                            <option value="">Select Product</option>
+                                            <!-- Products will be loaded here -->
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Sales Quantity</label>
+                                        <input type="number" class="form-control" id="salesQuantity" value="0" step="0.001" min="0">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Extra Quantity</label>
+                                        <input type="number" class="form-control" id="extraQuantity" value="0" step="0.001" min="0">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Remaining Quantity</label>
+                                        <input type="number" class="form-control" id="remainingQuantity" value="0" step="0.001" min="0">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-primary" id="confirmAddProduct">Add Product</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Notes</label>
-                        <textarea class="form-control" 
-                                  name="notes" 
+                        <textarea class="form-control"
+                                  name="notes"
                                   rows="3"></textarea>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" 
-                                class="btn btn-outline-secondary" 
+                        <button type="button"
+                                class="btn btn-outline-secondary"
                                 data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Create Order</button>
+                        <button type="button" id="submitOrderBtn" class="btn btn-primary">Create Order</button>
                     </div>
                 </form>
             </div>
