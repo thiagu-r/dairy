@@ -4,9 +4,28 @@ from django.utils import timezone
 from django.db.models import Count, Sum, Q, Prefetch
 from web_project import TemplateLayout
 from web_project.mixins import DeliveryTeamRequiredMixin
-from .models import DeliveryOrder, DailyDeliveryTeam, Distributor, PurchaseOrder, PurchaseOrderItem, DeliveryTeam, LoadingOrder
+from .models import (
+    DeliveryOrder, 
+    DailyDeliveryTeam, 
+    Distributor, 
+    PurchaseOrder, 
+    PurchaseOrderItem, 
+    DeliveryTeam, 
+    LoadingOrder,
+    DeliveryOrderItem, 
+    BrokenOrder, 
+    BrokenOrderItem, 
+    ReturnedOrder, 
+    ReturnedOrderItem, 
+    FutureOrderRequest, 
+    FutureOrderRequestItem, 
+    DeliveryExpense, 
+    CashDenomination, 
+    SellerPriceCache, 
+    GeneralPriceCache
+ )
 from apps.sales.models import SalesOrder, OrderItem
-from apps.seller.models import Route
+from apps.seller.models import Route, Seller
 from decimal import Decimal
 import json
 from django.db import transaction, OperationalError
@@ -21,7 +40,9 @@ from django.http import QueryDict
 from django.template.loader import render_to_string
 from django.core.exceptions import ValidationError
 from django.contrib.auth.decorators import login_required
-
+from django.contrib import messages
+from django.shortcuts import redirect
+from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
 
 class DeliveryDashboardView(LoginRequiredMixin, DeliveryTeamRequiredMixin, TemplateView):
     template_name = "delivery/dashboard.html"
@@ -645,9 +666,9 @@ class LoadingOrderEditView(LoginRequiredMixin, View):
             if loading_order.status != 'draft':
                 messages.error(request, 'Only draft loading orders can be edited')
                 return redirect('delivery:loading-order-list')
-            
             context = {
                 'loading_order': loading_order,
+                'items': loading_order.purchase_order.items.all(),
                 'routes': Route.objects.all().order_by('name')
             }
             return render(request, 'delivery/loading_order_edit_form.html', context)
@@ -669,6 +690,7 @@ class LoadingOrderEditView(LoginRequiredMixin, View):
             loading_order.loading_date = request.POST.get('loading_date')
             loading_order.loading_time = request.POST.get('loading_time')
             loading_order.notes = request.POST.get('notes')
+            loading_order.crates_loaded = request.POST.get('crates_loaded')
             loading_order.updated_by = request.user
             loading_order.save()
             
@@ -682,3 +704,245 @@ class LoadingOrderEditView(LoginRequiredMixin, View):
                 'success': False,
                 'error': str(e)
             }, status=400)
+
+class DeliveryOrderListView(LoginRequiredMixin, TemplateView):
+    template_name = "delivery/delivery_order_list.html"
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get_context_data(self, **kwargs):
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        
+        # Add filters
+        status_filter = self.request.GET.get('status', 'pending')
+        date_filter = self.request.GET.get('date', timezone.now().date().isoformat())
+        route_filter = self.request.GET.get('route')
+        
+        # Base queryset
+        orders = DeliveryOrder.objects.select_related(
+            'route', 'seller', 'sales_order', 'loading_order'
+        )
+        
+        # Apply filters
+        if status_filter != 'all':
+            orders = orders.filter(status=status_filter)
+        
+        if date_filter:
+            orders = orders.filter(delivery_date=date_filter)
+            
+        if route_filter:
+            orders = orders.filter(route_id=route_filter)
+            
+        context.update({
+            'orders': orders.order_by('-delivery_date', '-delivery_time'),
+            'routes': Route.objects.all().order_by('name'),
+            'sellers': Seller.objects.all().order_by('store_name'),
+            'sales_orders': SalesOrder.objects.filter(status='confirmed').order_by('-created_at'),
+            'current_status': status_filter,
+            'current_date': date_filter,
+            'current_route': route_filter,
+        })
+        return context
+
+class DeliveryOrderCreateView(LoginRequiredMixin, View):
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get(self, request):
+        routes = Route.objects.all().order_by('name')
+        sellers = Seller.objects.all().order_by('store_name')
+        sales_orders = SalesOrder.objects.filter(status='confirmed').order_by('-created_at')
+        
+        return render(request, 'delivery/delivery_order_form.html', {
+            'routes': routes,
+            'sellers': sellers,
+            'sales_orders': sales_orders,
+        })
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            
+            # Create delivery order
+            delivery_order = DeliveryOrder.objects.create(
+                route_id=data['route_id'],
+                seller_id=data['seller_id'],
+                sales_order_id=data['sales_order_id'],
+                delivery_date=data['delivery_date'],
+                delivery_time=data['delivery_time'],
+                payment_method=data['payment_method'],
+                notes=data.get('notes'),
+                status='pending',
+                created_by=request.user,
+                updated_by=request.user
+            )
+            
+            # Create delivery order items
+            for item in data['items']:
+                DeliveryOrderItem.objects.create(
+                    delivery_order=delivery_order,
+                    product_id=item['product_id'],
+                    ordered_quantity=Decimal(item['ordered_quantity']),
+                    delivered_quantity=Decimal(item['delivered_quantity']),
+                    unit_price=Decimal(item['unit_price'])
+                )
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Delivery order created successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'error': str(e)
+            }, status=400)
+
+class BrokenOrderListView(LoginRequiredMixin, TemplateView):
+    template_name = "delivery/broken_order_list.html"
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get_context_data(self, **kwargs):
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        
+        date_filter = self.request.GET.get('date', timezone.now().date().isoformat())
+        route_filter = self.request.GET.get('route')
+        
+        orders = BrokenOrder.objects.select_related('route', 'loading_order')
+        
+        if date_filter:
+            orders = orders.filter(report_date=date_filter)
+            
+        if route_filter:
+            orders = orders.filter(route_id=route_filter)
+            
+        context.update({
+            'orders': orders.order_by('-report_date', '-report_time'),
+            'routes': Route.objects.all().order_by('name'),
+            'current_date': date_filter,
+            'current_route': route_filter,
+        })
+        return context
+
+class BrokenOrderCreateView(LoginRequiredMixin, View):
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get(self, request):
+        routes = Route.objects.all().order_by('name')
+        return render(request, 'delivery/broken_order_form.html', {
+            'routes': routes,
+        })
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            
+            broken_order = BrokenOrder.objects.create(
+                loading_order_id=data['loading_order_id'],
+                route_id=data['route_id'],
+                report_date=data['report_date'],
+                report_time=data['report_time'],
+                notes=data.get('notes'),
+                created_by=request.user,
+                updated_by=request.user
+            )
+            
+            for item in data['items']:
+                BrokenOrderItem.objects.create(
+                    broken_order=broken_order,
+                    product_id=item['product_id'],
+                    quantity=item['quantity'],
+                    reason=item['reason']
+                )
+            
+            return JsonResponse({
+                'status': 'success',
+                'order_number': broken_order.order_number
+            })
+            
+        except Exception as e:
+            return HttpResponseBadRequest(str(e))
+
+class ReturnedOrderListView(LoginRequiredMixin, TemplateView):
+    template_name = "delivery/returned_order_list.html"
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get_context_data(self, **kwargs):
+        context = TemplateLayout.init(self, super().get_context_data(**kwargs))
+        
+        date_filter = self.request.GET.get('date', timezone.now().date().isoformat())
+        route_filter = self.request.GET.get('route')
+        
+        orders = ReturnedOrder.objects.select_related(
+            'route', 'delivery_order', 'delivery_order__seller'
+        )
+        
+        if date_filter:
+            orders = orders.filter(return_date=date_filter)
+            
+        if route_filter:
+            orders = orders.filter(route_id=route_filter)
+            
+        context.update({
+            'orders': orders.order_by('-return_date', '-return_time'),
+            'routes': Route.objects.all().order_by('name'),
+            'current_date': date_filter,
+            'current_route': route_filter,
+        })
+        return context
+
+class ReturnedOrderCreateView(LoginRequiredMixin, View):
+    login_url = reverse_lazy('auth-login-basic')
+
+    def get(self, request):
+        routes = Route.objects.all().order_by('name')
+        delivery_orders = DeliveryOrder.objects.filter(
+            status='completed'
+        ).order_by('-delivery_date')
+        
+        return render(request, 'delivery/returned_order_form.html', {
+            'routes': routes,
+            'delivery_orders': delivery_orders,
+        })
+
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            
+            returned_order = ReturnedOrder.objects.create(
+                delivery_order_id=data['delivery_order_id'],
+                route_id=data['route_id'],
+                return_date=data['return_date'],
+                return_time=data['return_time'],
+                reason=data['reason'],
+                notes=data.get('notes'),
+                created_by=request.user,
+                updated_by=request.user
+            )
+            
+            for item in data['items']:
+                ReturnedOrderItem.objects.create(
+                    returned_order=returned_order,
+                    product_id=item['product_id'],
+                    quantity=item['quantity']
+                )
+            
+            return JsonResponse({
+                'status': 'success',
+                'order_number': returned_order.order_number
+            })
+            
+        except Exception as e:
+            return HttpResponseBadRequest(str(e))
+
+# API views for mobile app sync
+class DeliveryOrderSyncView(LoginRequiredMixin, View):
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            
+            # Handle sync logic here
+            # This would include creating/updating delivery orders
+            # based on data from mobile app
+            
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return HttpResponseBadRequest(str(e))

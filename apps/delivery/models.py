@@ -494,6 +494,21 @@ class DeliveryOrder(models.Model):
     
     status = models.CharField(max_length=20, choices=ORDER_STATUS, default='pending')
     notes = models.TextField(blank=True, null=True)
+    sync_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('synced', 'Synced'),
+            ('failed', 'Failed'),
+        ],
+        default='pending'
+    )
+    local_id = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
@@ -521,7 +536,46 @@ class DeliveryOrder(models.Model):
     def __str__(self):
         return f"DO {self.order_number} - {self.sales_order.seller.store_name}"
 
+    # def save(self, *args, **kwargs):
+    #     if not self.pk and not self.opening_balance:  # Only for new orders
+    #         # Get last order's total balance for this seller
+    #         last_order = DeliveryOrder.objects.filter(
+    #             seller=self.seller,
+    #             delivery_date__lt=self.delivery_date
+    #         ).order_by('-delivery_date', '-delivery_time').first()
+            
+    #         self.opening_balance = last_order.total_balance if last_order else Decimal('0.00')
+
+    #     # Calculate total price from items
+    #     self.total_price = sum(
+    #         item.delivered_quantity * item.product.price
+    #         for item in self.items.all()
+    #     )
+
+    #     # Calculate balance amount for this delivery
+    #     self.balance_amount = self.total_price - self.amount_collected
+
+    #     # Calculate total balance including opening balance
+    #     self.total_balance = self.opening_balance + self.balance_amount
+            
+    #     super().save(*args, **kwargs)
     def save(self, *args, **kwargs):
+        if not self.order_number:
+            # Generate order number: DO-YYYYMMDD-XXXX
+            today = timezone.now().date()
+            prefix = f"DO-{today.strftime('%Y%m%d')}-"
+            last_order = DeliveryOrder.objects.filter(
+                order_number__startswith=prefix
+            ).order_by('-order_number').first()
+            
+            if last_order:
+                last_number = int(last_order.order_number.split('-')[-1])
+                new_number = str(last_number + 1).zfill(4)
+            else:
+                new_number = '0001'
+            
+            self.order_number = f"{prefix}{new_number}"
+
         if not self.pk and not self.opening_balance:  # Only for new orders
             # Get last order's total balance for this seller
             last_order = DeliveryOrder.objects.filter(
@@ -533,7 +587,7 @@ class DeliveryOrder(models.Model):
 
         # Calculate total price from items
         self.total_price = sum(
-            item.delivered_quantity * item.product.price
+            item.delivered_quantity * item.unit_price
             for item in self.items.all()
         )
 

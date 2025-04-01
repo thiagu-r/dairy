@@ -41,25 +41,25 @@ urlpatterns = [
     path("", include("apps.authentication.urls")),
 
     # Card urls
-    path("", include("apps.cards.urls")),
+    # path("", include("apps.cards.urls")),
 
     # UI urls
-    path("", include("apps.ui.urls")),
+    # path("", include("apps.ui.urls")),
 
     # Extended UI urls
-    path("", include("apps.extended_ui.urls")),
+    # path("", include("apps.extended_ui.urls")),
 
     # Icons urls
-    path("", include("apps.icons.urls")),
+    # path("", include("apps.icons.urls")),
 
     # Forms urls
-    path("", include("apps.forms.urls")),
+    # path("", include("apps.forms.urls")),
 
     # FormLayouts urls
-    path("", include("apps.form_layouts.urls")),
+    # path("", include("apps.form_layouts.urls")),
 
     # Tables urls
-    path("", include("apps.tables.urls")),
+    # path("", include("apps.tables.urls")),
 
     # Seller urls
     path("", include("apps.seller.urls")),

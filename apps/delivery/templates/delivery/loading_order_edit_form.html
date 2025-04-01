@@ -25,18 +25,53 @@
                 <input type="number" class="form-control" name="crates_loaded" value="{{ loading_order.crates_loaded }}" required>
             </div>
         </div>
+
+        <!-- Loading Order Items Table -->
+        <div class="table-responsive mt-4">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Purchase Order Qty</th>
+                        <th>Return Qty</th>
+                        <th>Total Qty</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.purchase_order_quantity }}</td>
+                        <td>
+                            <input type="number" 
+                                   class="form-control return-qty" 
+                                   name="return_qty_{{ item.id }}"
+                                   value="{{ item.return_quantity }}"
+                                   min="0"
+                                   step="0.001">
+                        </td>
+                        <td>{{ item.total_quantity }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No items found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
         <div class="mb-3">
             <label class="form-label">Notes</label>
             <textarea class="form-control" name="notes" rows="3">{{ loading_order.notes }}</textarea>
         </div>
-        
-        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
 
-        <div class="modal-footer">
-            <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="submit" class="btn btn-primary">Update Loading Order</button>
-        </div>
+        <div id="errorMessage" class="alert alert-danger" style="display: none;"></div>
     </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    <button type="submit" form="loadingOrderEditForm" class="btn btn-primary">Save Changes</button>
 </div>
 
 <script>
@@ -44,6 +79,17 @@ document.getElementById('loadingOrderEditForm').addEventListener('submit', funct
     e.preventDefault();
     
     const formData = new FormData(this);
+    
+    // Add items data
+    const itemsData = [];
+    document.querySelectorAll('.return-qty').forEach(input => {
+        const itemId = input.name.split('_')[1];
+        itemsData.push({
+            id: itemId,
+            return_quantity: input.value
+        });
+    });
+    formData.append('items', JSON.stringify(itemsData));
     
     fetch(this.action, {
         method: 'POST',

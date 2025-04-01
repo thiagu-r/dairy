@@ -166,6 +166,14 @@
         <div class="text-truncate">Loading Orders</div>
       </a>
     </li>
+
+    <!-- Uncomment and update the Delivery Orders section -->
+    <li class="menu-item {% if '/delivery/orders/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:delivery-order-list' %}" class="menu-link">
+          <i class="menu-icon tf-icons bx bx-truck"></i>
+          <div class="text-truncate">Delivery Orders</div>
+      </a>
+    </li>
     {% endif %}
 
     <!-- Delivery Orders -->

@@ -1,0 +1,311 @@
+<div class="modal-header">
+    <h5 class="modal-title">Create Delivery Order</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <form id="deliveryOrderForm" method="POST">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Route</label>
+                <select class="form-select" name="route_id" id="routeSelect" required>
+                    <option value="">Select Route</option>
+                    {% for route in routes %}
+                    <option value="{{ route.id }}">{{ route.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Seller</label>
+                <select class="form-select" name="seller_id" id="sellerSelect" required disabled>
+                    <option value="">Select Seller</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Delivery Date</label>
+                <input type="date" class="form-control" name="delivery_date" id="deliveryDate" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Delivery Time</label>
+                <input type="time" class="form-control" name="delivery_time" required>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Payment Method</label>
+                <select class="form-select" name="payment_method" required>
+                    <option value="cash">Cash</option>
+                    <option value="credit">Credit</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Opening Balance</label>
+                <input type="text" class="form-control" id="openingBalance" readonly>
+            </div>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Notes</label>
+            <textarea class="form-control" name="notes" rows="2"></textarea>
+        </div>
+
+        <div id="orderItems">
+            <h6>Order Items</h6>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Ordered Qty</th>
+                        <th>Delivered Qty</th>
+                        <th>Unit Price</th>
+                        <th>Total</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="orderItemsBody"></tbody>
+            </table>
+            <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">Add Item</button>
+        </div>
+
+        <div class="row mt-3">
+            <div class="col-md-4">
+                <label class="form-label">Amount Collected</label>
+                <input type="number" class="form-control" name="amount_collected" id="amountCollected" value="0" step="0.01">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Total Amount</label>
+                <input type="text" class="form-control" id="totalAmount" readonly>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Total Balance</label>
+                <input type="text" class="form-control" id="totalBalance" readonly>
+            </div>
+        </div>
+
+        <div class="alert alert-danger d-none" id="errorMessage"></div>
+    </form>
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
+    <button type="submit" class="btn btn-primary" form="deliveryOrderForm">Create Order</button>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Product</label>
+                    <select class="form-select" id="productSelect"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="productQuantity" min="0" step="0.001">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="confirmAddProduct">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('deliveryOrderForm');
+        const routeSelect = document.getElementById('routeSelect');
+        const sellerSelect = document.getElementById('sellerSelect');
+        const deliveryDate = document.getElementById('deliveryDate');
+        const orderItemsBody = document.getElementById('orderItemsBody');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const amountCollected = document.getElementById('amountCollected');
+        const errorMessage = document.getElementById('errorMessage');
+        const addProductModal = new bootstrap.Modal(document.getElementById('addProductModal'));
+        
+        let orderItems = [];
+        let availableProducts = [];
+    
+        // Load sellers when route is selected
+        routeSelect.addEventListener('change', function() {
+            const routeId = this.value;
+            sellerSelect.disabled = true;
+            sellerSelect.innerHTML = '<option value="">Select Seller</option>';
+            
+            if (routeId) {
+                fetch(`/api/routes/${routeId}/sellers/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        data.sellers.forEach(seller => {
+                            const option = new Option(seller.store_name, seller.id);
+                            sellerSelect.add(option);
+                        });
+                        sellerSelect.disabled = false;
+                    });
+            }
+        });
+    
+        // Load seller data and sales items when seller is selected
+        sellerSelect.addEventListener('change', function() {
+            const sellerId = this.value;
+            const routeId = routeSelect.value;
+            const date = deliveryDate.value;
+    
+            if (sellerId && date) {
+                // Load opening balance
+                fetch(`/api/sellers/${sellerId}/opening-balance/?date=${date}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('openingBalance').value = data.opening_balance;
+                    });
+    
+                // Load sales order items
+                fetch(`/api/sellers/${sellerId}/sales-items/?date=${date}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        orderItems = data.items.map(item => ({
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            ordered_quantity: item.quantity,
+                            delivered_quantity: item.quantity,
+                            unit_price: item.unit_price,
+                            total: item.quantity * item.unit_price
+                        }));
+                        updateOrderItemsTable();
+                    });
+    
+                // Load available products from loading order
+                fetch(`/api/routes/${routeId}/available-products/?date=${date}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        availableProducts = data.products;
+                    });
+            }
+        });
+    
+        // Update order items table
+        function updateOrderItemsTable() {
+            orderItemsBody.innerHTML = orderItems.map((item, index) => `
+                <tr>
+                    <td>${item.product_name}</td>
+                    <td>${item.ordered_quantity}</td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm delivered-qty" 
+                               value="${item.delivered_quantity}" min="0" step="0.001"
+                               data-index="${index}">
+                    </td>
+                    <td>${item.unit_price}</td>
+                    <td>${(item.delivered_quantity * item.unit_price).toFixed(2)}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-danger remove-item" 
+                                data-index="${index}">×</button>
+                    </td>
+                </tr>
+            `).join('');
+    
+            // Add event listeners for quantity changes
+            document.querySelectorAll('.delivered-qty').forEach(input => {
+                input.addEventListener('change', function() {
+                    const index = this.dataset.index;
+                    orderItems[index].delivered_quantity = parseFloat(this.value);
+                    orderItems[index].total = orderItems[index].delivered_quantity * orderItems[index].unit_price;
+                    calculateTotals();
+                });
+            });
+    
+            // Add event listeners for remove buttons
+            document.querySelectorAll('.remove-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    orderItems.splice(this.dataset.index, 1);
+                    updateOrderItemsTable();
+                });
+            });
+    
+            calculateTotals();
+        }
+    
+        // Calculate totals
+        function calculateTotals() {
+            const total = orderItems.reduce((sum, item) => sum + item.total, 0);
+            const collected = parseFloat(amountCollected.value) || 0;
+            const opening = parseFloat(document.getElementById('openingBalance').value) || 0;
+            
+            document.getElementById('totalAmount').value = total.toFixed(2);
+            document.getElementById('totalBalance').value = (opening + total - collected).toFixed(2);
+        }
+    
+        // Handle amount collected changes
+        amountCollected.addEventListener('input', calculateTotals);
+    
+        // Add new item
+        addItemBtn.addEventListener('click', function() {
+            const productSelect = document.getElementById('productSelect');
+            productSelect.innerHTML = availableProducts.map(product => 
+                `<option value="${product.id}">${product.name}</option>`
+            ).join('');
+            addProductModal.show();
+        });
+    
+        // Confirm add product
+        document.getElementById('confirmAddProduct').addEventListener('click', async function() {
+            const productId = document.getElementById('productSelect').value;
+            const quantity = parseFloat(document.getElementById('productQuantity').value);
+            
+            if (productId && quantity > 0) {
+                // Get product price
+                const sellerId = sellerSelect.value;
+                const response = await fetch(`/api/products/${productId}/price/?seller_id=${sellerId}`);
+                const data = await response.json();
+                
+                const product = availableProducts.find(p => p.id === productId);
+                orderItems.push({
+                    product_id: productId,
+                    product_name: product.name,
+                    ordered_quantity: 0,
+                    delivered_quantity: quantity,
+                    unit_price: data.price,
+                    total: quantity * data.price
+                });
+                
+                updateOrderItemsTable();
+                addProductModal.hide();
+            }
+        });
+    
+        // Form submission
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            formData.append('items', JSON.stringify(orderItems));
+            
+            fetch('{% url "delivery:delivery-order-create" %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken'),
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(Object.fromEntries(formData)),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    errorMessage.textContent = data.error || 'An error occurred';
+                    errorMessage.classList.remove('d-none');
+                }
+            })
+            .catch(error => {
+                errorMessage.textContent = 'An error occurred while creating the order';
+                errorMessage.classList.remove('d-none');
+            });
+        });
+    });
+    </script>
