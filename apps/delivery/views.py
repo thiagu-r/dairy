@@ -12,6 +12,7 @@ from .models import (
     PurchaseOrderItem,
     DeliveryTeam,
     LoadingOrder,
+    LoadingOrderItem,
     DeliveryOrderItem,
     BrokenOrder,
     BrokenOrderItem,
@@ -620,6 +621,7 @@ def create_loading_order(request):
                     'error': 'Loading order already exists for this purchase order and date'
                 }, status=400)
 
+            # Create the loading order
             loading_order = LoadingOrder.objects.create(
                 purchase_order=purchase_order,
                 route_id=request.POST.get('route'),
@@ -631,6 +633,19 @@ def create_loading_order(request):
                 created_by=request.user,
                 updated_by=request.user
             )
+
+            # Create loading order items from purchase order items
+            purchase_order_items = purchase_order.items.all()
+            for po_item in purchase_order_items:
+                # Create loading order item
+                LoadingOrderItem.objects.create(
+                    loading_order=loading_order,
+                    product=po_item.product,
+                    purchase_order_quantity=po_item.total_quantity,
+                    loaded_quantity=po_item.total_quantity,  # Initially set to purchase order quantity
+                    total_quantity=po_item.total_quantity,   # Initially set to purchase order quantity
+                    remaining_quantity=po_item.total_quantity  # Initially all quantity is remaining
+                )
 
             return JsonResponse({
                 'success': True,
@@ -804,6 +819,7 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
         })
 
     def put(self, request, pk):
+        print("Received delivery order update request")
         """Update an existing delivery order"""
         try:
             print(f"Updating delivery order {pk}")
@@ -1329,60 +1345,122 @@ def get_available_products(request, route_id):
 
     loading_order = LoadingOrder.objects.filter(
         route_id=route_id,
-        loading_date=delivery_date,
-        status='completed'
+        loading_date=delivery_date
     ).first()
 
     if not loading_order:
-        return JsonResponse({'products': []})
+        return JsonResponse({
+            'products': [],
+            'error': 'No loading order found for this route and date'
+        })
 
-    products = loading_order.items.select_related('product').values(
-        'product_id',
-        'product__name',
-        'product__code',
-        'remaining_quantity'
-    )
+    # Get loading order items with remaining quantity > 0
+    try:
+        products = loading_order.items.select_related('product').values(
+            'product_id',
+            'product__name',
+            'product__code',
+            'loaded_quantity',
+            'delivered_quantity',
+            'return_quantity',
+            'remaining_quantity'
+        )
 
-    return JsonResponse({
-        'products': [{
-            'id': item['product_id'],
-            'name': f"{item['product__code']} - {item['product__name']}",
-            'available_quantity': str(item['remaining_quantity'])
-        } for item in products]
-    })
+        return JsonResponse({
+            'products': [{
+                'id': item['product_id'],
+                'name': f"{item['product__code']} - {item['product__name']}",
+                'loaded_quantity': str(item['loaded_quantity']),
+                'delivered_quantity': str(item['delivered_quantity']),
+                'return_quantity': str(item['return_quantity']),
+                'available_quantity': str(item['remaining_quantity'])
+            } for item in products]
+        })
+    except Exception as e:
+        print(f"Error getting available products: {str(e)}")
+        return JsonResponse({
+            'products': [],
+            'error': str(e)
+        }, status=500)
 
 @require_http_methods(["GET"])
 def get_all_products(request):
     """API endpoint to fetch all active products"""
-    from apps.products.models import Product, PricePlan
+    from apps.products.models import Product, PricePlan, ProductPrice
     from django.db.models import F, Value, DecimalField
 
-    # Get the default price plan
-    default_price_plan = PricePlan.objects.filter(is_default=True).first()
+    try:
+        # Get the general price plan
+        general_price_plan = PricePlan.objects.filter(is_general=True, is_active=True).first()
 
-    if default_price_plan:
-        # Get products with prices from the default price plan
-        products = Product.objects.filter(is_active=True).annotate(
-            price=F('price_items__price')
-        ).filter(
-            price_items__price_plan=default_price_plan
-        ).values(
-            'id', 'name', 'code', 'category__name', 'price'
-        ).order_by('category__name', 'name')
-    else:
-        # If no default price plan, use a default price of 0
-        products = Product.objects.filter(is_active=True).annotate(
-            price=Value(0, output_field=DecimalField(max_digits=10, decimal_places=2))
-        ).values(
-            'id', 'name', 'code', 'category__name', 'price'
-        ).order_by('category__name', 'name')
+        if general_price_plan:
+            # Get products with prices from the general price plan
+            products = Product.objects.filter(is_active=True).annotate(
+                price=F('prices__price')
+            ).filter(
+                prices__price_plan=general_price_plan
+            ).values(
+                'id', 'name', 'code', 'category__name', 'price'
+            ).order_by('category__name', 'name')
+        else:
+            # If no general price plan, use a default price of 0
+            products = Product.objects.filter(is_active=True).annotate(
+                price=Value(0, output_field=DecimalField(max_digits=10, decimal_places=2))
+            ).values(
+                'id', 'name', 'code', 'category__name', 'price'
+            ).order_by('category__name', 'name')
 
-    return JsonResponse({
-        'products': [{
-            'id': str(product['id']),
-            'name': product['name'],
-            'code': product['code'],
-            'category': product['category__name'],
-            'price': str(product['price']) if product['price'] is not None else '0.00'
-        } for product in products]
-    })
+        print(f"Found {len(products)} active products")
+        return JsonResponse({
+            'products': [{
+                'id': str(product['id']),
+                'name': product['name'],
+                'code': product['code'],
+                'category': product['category__name'],
+                'price': str(product['price']) if product['price'] is not None else '0.00'
+            } for product in products]
+        })
+    except Exception as e:
+        print(f"Error fetching products: {str(e)}")
+        return JsonResponse({
+            'products': [],
+            'error': str(e)
+        }, status=500)
+
+    # This return statement is unreachable due to the try-except block above
+
+@require_http_methods(["GET"])
+def get_product_price(request, product_id):
+    """API endpoint to fetch the price of a product"""
+    from apps.products.models import Product, PricePlan, ProductPrice
+    from django.db.models import F
+
+    try:
+        # Get the general price plan
+        general_price_plan = PricePlan.objects.filter(is_general=True, is_active=True).first()
+
+        if general_price_plan:
+            # Get the price from the general price plan
+            product_price = ProductPrice.objects.filter(
+                product_id=product_id,
+                price_plan=general_price_plan
+            ).first()
+
+            if product_price:
+                return JsonResponse({
+                    'success': True,
+                    'price': str(product_price.price)
+                })
+
+        # If no price found, return 0
+        return JsonResponse({
+            'success': True,
+            'price': '0.00'
+        })
+
+    except Exception as e:
+        print(f"Error getting product price: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

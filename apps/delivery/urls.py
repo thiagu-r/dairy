@@ -40,5 +40,6 @@ urlpatterns = [
     path('api/sales-items/', views.get_seller_sales_items, name='get-seller-sales-items'),
     path('api/routes/<int:route_id>/available-products/', views.get_available_products, name='get-available-products'),
     path('api/products/', views.get_all_products, name='get-all-products'),
+    path('api/products/<int:product_id>/price/', views.get_product_price, name='get-product-price'),
     path('api/check-existing-delivery-order/', views.check_existing_delivery_order, name='check-existing-delivery-order'),
 ]

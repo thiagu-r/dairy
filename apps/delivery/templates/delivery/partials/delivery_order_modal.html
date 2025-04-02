@@ -112,10 +112,7 @@
         </table>
     </div>
 
-    <!-- Add Product Button -->
-    <button type="button" class="btn btn-secondary mt-2" id="addProductBtn">
-        Add Additional Product
-    </button>
+    <!-- Add Product Button is already in the form -->
 </div>
 
 <!-- Add Product Modal -->
@@ -150,13 +147,15 @@
         const deliveryDate = document.getElementById('deliveryDate');
         const orderItemsSection = document.getElementById('orderItemsSection');
         const orderItemsBody = document.getElementById('orderItemsBody');
-        const addProductBtn = document.getElementById('addProductBtn');
+        const addItemBtn = document.getElementById('addItemBtn');
         const deliveryOrderForm = document.getElementById('deliveryOrderForm');
         const totalAmountInput = document.getElementById('totalAmount');
         const amountCollectedInput = document.getElementById('amountCollected');
         const totalBalanceInput = document.getElementById('totalBalance');
 
-        let orderItems = [];
+        // Make orderItems accessible from window object for reset functionality
+        window.orderItems = [];
+        let orderItems = window.orderItems;
         let availableProducts = [];
         let salesOrderId = null;
 
@@ -297,32 +296,41 @@
         }
 
         // Add new product
-        addProductBtn.addEventListener('click', function() {
+        addItemBtn.addEventListener('click', function() {
             // Check if route and date are selected
             if (!routeSelect.value || !deliveryDate.value) {
                 alert('Please select route and delivery date first');
                 return;
             }
 
-            // Fetch all products if not already loaded
-            if (availableProducts.length === 0) {
-                fetch(`/api/products/`)
-                    .then(response => response.json())
-                    .then(data => {
-                        availableProducts = data.products || [];
-                        populateProductDropdown();
-                    })
-                    .catch(error => {
-                        console.error('Error fetching products:', error);
-                        alert('Error loading products. Please try again.');
-                    });
-            } else {
-                populateProductDropdown();
-            }
+            // Fetch available products from loading order
+            const routeId = routeSelect.value;
+            const date = deliveryDate.value;
 
-            // Show product selection modal
-            const addProductModal = new bootstrap.Modal(document.getElementById('addProductModal'));
-            addProductModal.show();
+            // Fetch available products from loading order
+            fetch(`/api/routes/${routeId}/available-products/?date=${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    availableProducts = data.products || [];
+                    console.log('Available products from loading order:', availableProducts);
+
+                    if (availableProducts.length === 0) {
+                        alert('No available products found in the loading order for this route and date.');
+                        return;
+                    }
+
+                    console.log('Available products:', availableProducts);
+
+                    populateProductDropdown();
+
+                    // Show product selection modal
+                    const addProductModal = new bootstrap.Modal(document.getElementById('addProductModal'));
+                    addProductModal.show();
+                })
+                .catch(error => {
+                    console.error('Error fetching available products:', error);
+                    alert('Error loading available products. Please try again.');
+                });
         });
 
         // Populate product dropdown
@@ -337,8 +345,22 @@
             availableForAdd.forEach(product => {
                 const option = document.createElement('option');
                 option.value = product.id;
-                option.textContent = `${product.code || ''} - ${product.name}`;
-                option.dataset.price = product.price || '0.00';
+                option.textContent = `${product.name} (Loaded: ${product.loaded_quantity}, Available: ${product.available_quantity})`;
+
+                // Store available quantity in dataset
+                option.dataset.availableQuantity = product.available_quantity;
+
+                // Get price from default price plan or use 0
+                // We'll need to fetch this from the server or use a default
+                fetch(`/api/products/${product.id}/price/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        option.dataset.price = data.price || '0.00';
+                    })
+                    .catch(() => {
+                        option.dataset.price = '0.00';
+                    });
+
                 productSelect.appendChild(option);
             });
         }
@@ -359,6 +381,15 @@
             }
 
             const selectedOption = productSelect.options[productSelect.selectedIndex];
+            const availableQuantity = parseFloat(selectedOption.dataset.availableQuantity || 0);
+            const requestedQuantity = parseFloat(productQuantity.value);
+
+            // Check if requested quantity is within available quantity
+            if (requestedQuantity > availableQuantity) {
+                alert(`Cannot add more than available quantity (${availableQuantity})`);
+                return;
+            }
+
             const productId = productSelect.value;
             const productName = selectedOption.textContent;
             const quantity = parseFloat(productQuantity.value);

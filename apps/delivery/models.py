@@ -405,14 +405,22 @@ class LoadingOrderItem(models.Model):
     loading_order = models.ForeignKey(LoadingOrder, related_name='items', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     purchase_order_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    loaded_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    delivered_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     return_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
-    total_quantity = models.DecimalField(max_digits=10, decimal_places=3,default=0)
+    remaining_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
+    total_quantity = models.DecimalField(max_digits=10, decimal_places=3, default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ['loading_order', 'product']
+
+    def save(self, *args, **kwargs):
+        # Calculate remaining quantity
+        self.remaining_quantity = self.loaded_quantity - self.delivered_quantity - self.return_quantity
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.product.name} - {self.loaded_quantity} units"

@@ -52,7 +52,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in loading_order.purchase_order.items.all %}
+                                {% for item in loading_order.items.all %}
                                 <tr>
                                     <td>{{ item.product.code }} - {{ item.product.name }}</td>
                                     <td>{{ item.total_quantity }}</td>

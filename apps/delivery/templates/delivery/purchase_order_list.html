@@ -244,13 +244,26 @@
         // Function to fetch all products
         function fetchAllProducts() {
             fetch('{% url "delivery:get-all-products" %}')
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    if (data.error) {
+                        console.error('API error:', data.error);
+                        alert(`Error fetching products: ${data.error}`);
+                        return;
+                    }
+
                     allProducts = data.products || [];
+                    console.log('Fetched products:', allProducts);
                     populateProductSelect();
                 })
                 .catch(error => {
                     console.error('Error fetching products:', error);
+                    alert(`Error fetching products: ${error.message}`);
                 });
         }
 
@@ -265,7 +278,8 @@
             availableProducts.forEach(product => {
                 const option = document.createElement('option');
                 option.value = product.id;
-                option.textContent = `${product.code} - ${product.name}`;
+                option.textContent = `${product.code} - ${product.name} (Price: ${product.price || '0.00'})`;
+                option.dataset.price = product.price || '0.00';
                 productSelect.appendChild(option);
             });
         }
