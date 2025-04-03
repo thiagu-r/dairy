@@ -104,11 +104,11 @@
                     <tbody>
                         {% for item in items %}
                         <tr>
-                            <td>{{ item.product.code }} - {{ item.product.name }}</td>
-                            <td>{{ item.ordered_quantity }}</td>
-                            <td>{{ item.delivered_quantity }}</td>
-                            <td>{{ item.unit_price }}</td>
-                            <td>{{ item.total_price }}</td>
+                            <td>{{ item.product.code|default:'' }} - {{ item.product.name|default:'Unknown Product' }}</td>
+                            <td>{{ item.ordered_quantity|floatformat:3 }}</td>
+                            <td>{{ item.delivered_quantity|floatformat:3 }}</td>
+                            <td>{{ item.unit_price|floatformat:2 }}</td>
+                            <td>{{ item.total_price|floatformat:2 }}</td>
                         </tr>
                         {% empty %}
                         <tr>

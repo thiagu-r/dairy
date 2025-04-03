@@ -790,8 +790,11 @@ class DeliveryOrderListView(LoginRequiredMixin, TemplateView):
                 order.status_color = 'danger'
 
             # Format display values
-            order.total_amount = order.total_price
-            order.paid_amount = order.amount_collected
+            order.total_amount = order.total_price if order.total_price is not None else 0
+            order.paid_amount = order.amount_collected if order.amount_collected is not None else 0
+
+            # Debug
+            print(f"Order {order.pk}: total_price={order.total_price}, total_amount={order.total_amount}")
 
         context.update({
             'delivery_orders': delivery_orders,
@@ -943,11 +946,9 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
                 # status='completed'
             ).first()
 
+            # Even if there's no loading order, we'll continue
             if not loading_order:
-                return JsonResponse({
-                    'status': 'error',
-                    'error': 'No completed loading order found for this route and date'
-                }, status=400)
+                print(f"No loading order found for route {route_id} and date {delivery_date}, but continuing anyway")
 
             # First, calculate the total price and prepare items
             total_price = Decimal('0.00')
@@ -963,9 +964,19 @@ class DeliveryOrderCreateView(LoginRequiredMixin, View):
                 # Make sure product_id is correctly handled
                 try:
                     product_id = int(item['product_id'])
+                    # Get extra_quantity if it exists, otherwise calculate it as delivered - ordered
+                    extra_qty = Decimal(item.get('extra_quantity', 0))
+
+                    # If extra_quantity is not provided but delivered_quantity > ordered_quantity,
+                    # calculate extra_quantity as the difference
+                    if extra_qty == 0 and delivered_qty > ordered_qty:
+                        extra_qty = delivered_qty - ordered_qty
+                        print(f"Calculated extra_quantity: {extra_qty} (delivered={delivered_qty}, ordered={ordered_qty})")
+
                     items_to_create.append({
                         'product_id': product_id,
                         'ordered_quantity': ordered_qty,
+                        'extra_quantity': extra_qty,
                         'delivered_quantity': delivered_qty,
                         'unit_price': unit_price,
                         'total_price': item_total
@@ -1052,9 +1063,15 @@ class DeliveryOrderDetailView(LoginRequiredMixin, View):
                 pk=pk
             )
 
+            # Get items and debug
+            items = delivery_order.items.all()
+            print(f"Delivery order {pk} has {items.count()} items")
+            for item in items:
+                print(f"Item: product={item.product.name if item.product else 'None'}, ordered={item.ordered_quantity}, delivered={item.delivered_quantity}")
+
             context = TemplateLayout.init(self, {
                 'delivery_order': delivery_order,
-                'items': delivery_order.items.all(),
+                'items': items,
                 'title': f'Delivery Order Details - {delivery_order.order_number}'
             })
 
@@ -1348,10 +1365,11 @@ def get_available_products(request, route_id):
         loading_date=delivery_date
     ).first()
 
+    # Even if there's no loading order, return an empty list without an error
     if not loading_order:
+        print(f"No loading order found for route {route_id} and date {delivery_date}, returning empty list")
         return JsonResponse({
-            'products': [],
-            'error': 'No loading order found for this route and date'
+            'products': []
         })
 
     # Get loading order items with remaining quantity > 0

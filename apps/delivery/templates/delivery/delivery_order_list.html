@@ -73,8 +73,8 @@
                             <td>{{ order.seller.store_name }}</td>
                             <td>{{ order.route.name }}</td>
                             <td>{{ order.delivery_date }}</td>
-                            <td>{{ order.total_amount }}</td>
-                            <td>{{ order.paid_amount }}</td>
+                            <td>{{ order.total_amount|floatformat:2 }}</td>
+                            <td>{{ order.paid_amount|floatformat:2 }}</td>
                             <td>
                                 <span class="badge bg-label-{{ order.status_color }}">
                                     {{ order.get_status_display }}

@@ -247,6 +247,7 @@
                                     product_id: item.product_id,
                                     product_name: item.product_name,
                                     ordered_quantity: item.quantity,
+                                    extra_quantity: 0,  // Initialize extra_quantity to 0
                                     delivered_quantity: item.quantity,
                                     unit_price: item.unit_price,
                                     total: item.quantity * item.unit_price
@@ -400,6 +401,7 @@
                 product_id: productId,  // This should be a string or number that can be converted to an integer
                 product_name: productName,
                 ordered_quantity: quantity,
+                extra_quantity: 0,  // Initialize extra_quantity to 0
                 delivered_quantity: quantity,
                 unit_price: unitPrice,
                 total: quantity * unitPrice
@@ -409,6 +411,7 @@
                 product_id: productId,
                 product_name: productName,
                 ordered_quantity: quantity,
+                extra_quantity: 0,
                 delivered_quantity: quantity,
                 unit_price: unitPrice
             });
@@ -431,8 +434,19 @@
         window.updateDeliveredQuantity = function(productId, quantity) {
             const item = orderItems.find(item => item.product_id === productId);
             if (item) {
-                item.delivered_quantity = parseFloat(quantity);
+                const newDeliveredQty = parseFloat(quantity);
+                const orderedQty = parseFloat(item.ordered_quantity);
+
+                // Calculate extra quantity as the difference between delivered and ordered
+                const extraQty = Math.max(0, newDeliveredQty - orderedQty);
+
+                // Update the item
+                item.delivered_quantity = newDeliveredQty;
+                item.extra_quantity = extraQty;
                 item.total = item.delivered_quantity * item.unit_price;
+
+                console.log(`Updated item ${item.product_name}: ordered=${orderedQty}, extra=${extraQty}, delivered=${newDeliveredQty}`);
+
                 updateTotals();
             }
         };
