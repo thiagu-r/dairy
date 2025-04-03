@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import public_sales_views
 
 app_name = 'delivery'
 
@@ -44,4 +45,16 @@ urlpatterns = [
     path('api/check-existing-delivery-order/', views.check_existing_delivery_order, name='check-existing-delivery-order'),
     path('api/sellers/<int:seller_id>/opening-balance/', views.get_seller_opening_balance, name='get-seller-opening-balance'),
     path('api/delivery-orders/<int:order_id>/', views.get_delivery_order, name='get-delivery-order'),
+
+    # Public Sales URLs
+    path('delivery/public-sales/', public_sales_views.PublicSaleListView.as_view(), name='public-sale-list'),
+    path('delivery/public-sales/create/', public_sales_views.PublicSaleCreateView.as_view(), name='public-sale-create'),
+    path('delivery/public-sales/<int:pk>/', public_sales_views.PublicSaleDetailView.as_view(), name='public-sale-detail'),
+    path('delivery/public-sales/<int:pk>/edit/', public_sales_views.PublicSaleUpdateView.as_view(), name='public-sale-edit'),
+    path('delivery/public-sales/<int:pk>/complete/', public_sales_views.PublicSaleCompleteView.as_view(), name='public-sale-complete'),
+    path('delivery/public-sales/<int:pk>/cancel/', public_sales_views.PublicSaleCancelView.as_view(), name='public-sale-cancel'),
+    path('delivery/public-sales/<int:pk>/delete/', public_sales_views.PublicSaleDeleteView.as_view(), name='public-sale-delete'),
+
+    # API for Public Sales
+    path('api/delivery/public-sales/available-products/', public_sales_views.get_available_products_for_public_sale, name='get-available-products-for-public-sale'),
 ]

@@ -23,7 +23,9 @@ from .models import (
     DeliveryExpense,
     CashDenomination,
     SellerPriceCache,
-    GeneralPriceCache
+    GeneralPriceCache,
+    PublicSale,
+    PublicSaleItem
  )
 from apps.sales.models import SalesOrder, OrderItem
 from apps.seller.models import Route, Seller

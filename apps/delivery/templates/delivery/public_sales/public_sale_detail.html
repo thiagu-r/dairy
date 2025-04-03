@@ -1,0 +1,221 @@
+{% extends "layout/layout_vertical.html" %}
+
+{% block title %}Public Sale Details{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Delivery / Public Sales /</span> {{ public_sale.sale_number }}
+    </h4>
+
+    <!-- Alert Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <!-- Public Sale Details -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Public Sale Details</h5>
+                    <div>
+                        <a href="{% url 'delivery:public-sale-edit' public_sale.id %}" class="btn btn-sm btn-outline-primary me-1">
+                            <i class="bx bx-edit-alt me-1"></i> Edit
+                        </a>
+                        <a href="{% url 'delivery:public-sale-list' %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bx bx-arrow-back me-1"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Sale Number:</strong> {{ public_sale.sale_number }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong>
+                            {% if public_sale.status == 'pending' %}
+                            <span class="badge bg-label-warning">Pending</span>
+                            {% elif public_sale.status == 'completed' %}
+                            <span class="badge bg-label-success">Completed</span>
+                            {% elif public_sale.status == 'cancelled' %}
+                            <span class="badge bg-label-danger">Cancelled</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Sale Date:</strong> {{ public_sale.sale_date }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Sale Time:</strong> {{ public_sale.sale_time }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Route:</strong> {{ public_sale.route.name }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Delivery Team:</strong> {{ public_sale.delivery_team.name }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Loading Order:</strong> 
+                            {% if public_sale.loading_order %}
+                            {{ public_sale.loading_order.order_number }}
+                            {% else %}
+                            N/A
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Payment Method:</strong> {{ public_sale.get_payment_method_display }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <strong>Customer Name:</strong> {{ public_sale.customer_name|default:"Public" }}
+                        </div>
+                    </div>
+                    {% if public_sale.customer_phone %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <strong>Customer Phone:</strong> {{ public_sale.customer_phone }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if public_sale.customer_address %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <strong>Customer Address:</strong> {{ public_sale.customer_address }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if public_sale.notes %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <strong>Notes:</strong> {{ public_sale.notes }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial Details -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Financial Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Total Amount:</strong> {{ public_sale.total_price|floatformat:2 }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Amount Collected:</strong> {{ public_sale.amount_collected|floatformat:2 }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Balance Amount:</strong> {{ public_sale.balance_amount|floatformat:2 }}
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Created By:</strong> {{ public_sale.created_by.get_full_name }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Created At:</strong> {{ public_sale.created_at }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Updated By:</strong> {{ public_sale.updated_by.get_full_name }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Updated At:</strong> {{ public_sale.updated_at }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Actions -->
+            {% if public_sale.status == 'pending' %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <form action="{% url 'delivery:public-sale-complete' public_sale.id %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bx bx-check me-1"></i> Mark as Completed
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <form action="{% url 'delivery:public-sale-cancel' public_sale.id %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="bx bx-x me-1"></i> Cancel Sale
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Sale Items -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Sale Items</h5>
+        </div>
+        <div class="table-responsive text-nowrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Unit Price</th>
+                        <th>Total Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.product.code }} - {{ item.product.name }}</td>
+                        <td>{{ item.quantity|floatformat:3 }}</td>
+                        <td>{{ item.unit_price|floatformat:2 }}</td>
+                        <td>{{ item.total_price|floatformat:2 }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No items found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3" class="text-end">Total:</th>
+                        <th>{{ public_sale.total_price|floatformat:2 }}</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

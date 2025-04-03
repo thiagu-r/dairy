@@ -1,0 +1,136 @@
+{% extends "layout/layout_vertical.html" %}
+
+{% block title %}Public Sales{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Delivery /</span> Public Sales
+    </h4>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Public Sales</h5>
+            <a href="{% url 'delivery:public-sale-create' %}" class="btn btn-primary">
+                <i class="bx bx-plus me-1"></i> Create Public Sale
+            </a>
+        </div>
+
+        <!-- Filters -->
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="sale-date-filter" class="form-label">Sale Date</label>
+                    <input type="date" class="form-control" id="sale-date-filter" name="sale_date" value="{{ current_filters.sale_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="route-filter" class="form-label">Route</label>
+                    <select class="form-select" id="route-filter" name="route">
+                        <option value="">All Routes</option>
+                        {% for route in routes %}
+                        <option value="{{ route.id }}" {% if current_filters.route == route.id|stringformat:"i" %}selected{% endif %}>{{ route.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="status-filter" class="form-label">Status</label>
+                    <select class="form-select" id="status-filter" name="status">
+                        <option value="">All Statuses</option>
+                        {% for key, value in statuses.items %}
+                        <option value="{{ key }}" {% if current_filters.status == key %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Filter</button>
+                    <a href="{% url 'delivery:public-sale-list' %}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive text-nowrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Sale Number</th>
+                        <th>Date & Time</th>
+                        <th>Route</th>
+                        <th>Customer</th>
+                        <th>Total Amount</th>
+                        <th>Collected</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="table-border-bottom-0">
+                    {% for sale in public_sales %}
+                    <tr>
+                        <td>{{ sale.sale_number }}</td>
+                        <td>{{ sale.sale_date }} {{ sale.sale_time }}</td>
+                        <td>{{ sale.route.name }}</td>
+                        <td>{{ sale.customer_name|default:"Public" }}</td>
+                        <td>{{ sale.total_price|floatformat:2 }}</td>
+                        <td>{{ sale.amount_collected|floatformat:2 }}</td>
+                        <td>
+                            {% if sale.status == 'pending' %}
+                            <span class="badge bg-label-warning">Pending</span>
+                            {% elif sale.status == 'completed' %}
+                            <span class="badge bg-label-success">Completed</span>
+                            {% elif sale.status == 'cancelled' %}
+                            <span class="badge bg-label-danger">Cancelled</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="dropdown">
+                                <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                    <i class="bx bx-dots-vertical-rounded"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a href="{% url 'delivery:public-sale-detail' sale.id %}" class="dropdown-item">
+                                        <i class="bx bx-show-alt me-1"></i> View
+                                    </a>
+                                    <a href="{% url 'delivery:public-sale-edit' sale.id %}" class="dropdown-item">
+                                        <i class="bx bx-edit-alt me-1"></i> Edit
+                                    </a>
+                                    {% if sale.status == 'pending' %}
+                                    <form action="{% url 'delivery:public-sale-complete' sale.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bx bx-check me-1"></i> Complete
+                                        </button>
+                                    </form>
+                                    <form action="{% url 'delivery:public-sale-cancel' sale.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bx bx-x me-1"></i> Cancel
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center">No public sales found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+    // Add filter functionality
+    document.getElementById('sale-date-filter').addEventListener('change', filterOrders);
+    document.getElementById('route-filter').addEventListener('change', filterOrders);
+    document.getElementById('status-filter').addEventListener('change', filterOrders);
+
+    function filterOrders() {
+        document.querySelector('form').submit();
+    }
+</script>
+{% endblock %}

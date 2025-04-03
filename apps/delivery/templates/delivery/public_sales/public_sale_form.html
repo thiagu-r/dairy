@@ -1,0 +1,527 @@
+{% extends "layout/layout_vertical.html" %}
+
+{% block title %}{% if public_sale %}Edit{% else %}Create{% endif %} Public Sale{% endblock %}
+
+{% block vendor_css %}
+<!-- We'll use the default select instead of select2 -->
+{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Delivery / Public Sales /</span> {% if public_sale %}Edit{% else %}Create{% endif %} Public Sale
+    </h4>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% if public_sale %}Edit{% else %}Create{% endif %} Public Sale</h5>
+                    <a href="{% url 'delivery:public-sale-list' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bx bx-arrow-back me-1"></i> Back to List
+                    </a>
+                </div>
+                <div class="card-body">
+                    <form id="publicSaleForm" method="post" action="{% if public_sale %}{% url 'delivery:public-sale-edit' public_sale.id %}{% else %}{% url 'delivery:public-sale-create' %}{% endif %}">
+                        {% csrf_token %}
+
+                        <!-- Hidden input for items data -->
+                        <input type="hidden" id="itemsData" name="items_data" value="">
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Route</label>
+                                <select class="form-select" id="routeSelect" name="route_id" required>
+                                    <option value="">Select Route</option>
+                                    {% for route in routes %}
+                                    <option value="{{ route.id }}" {% if public_sale and public_sale.route_id == route.id %}selected{% endif %}>{{ route.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Delivery Team (Optional)</label>
+                                <select class="form-select" id="deliveryTeamSelect" name="delivery_team_id">
+                                    <option value="">Select Delivery Team</option>
+                                    {% for team in delivery_teams %}
+                                    <option value="{{ team.id }}" {% if public_sale and public_sale.delivery_team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Loading Order (Optional)</label>
+                                <select class="form-select" id="loadingOrderSelect" name="loading_order_id">
+                                    <option value="">Select Loading Order</option>
+                                    {% for order in loading_orders %}
+                                    <option value="{{ order.id }}" {% if public_sale and public_sale.loading_order_id == order.id %}selected{% endif %} data-route-id="{{ order.route_id }}">{{ order.order_number }} - {{ order.loading_date }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted">If not selected, you can add any product</small>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Method</label>
+                                <select class="form-select" id="paymentMethodSelect" name="payment_method" required>
+                                    {% for key, value in payment_methods.items %}
+                                    <option value="{{ key }}" {% if public_sale and public_sale.payment_method == key %}selected{% endif %}>{{ value }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Sale Date</label>
+                                <input type="date" class="form-control" id="saleDate" name="sale_date" value="{% if public_sale %}{{ public_sale.sale_date|date:'Y-m-d' }}{% else %}{% now 'Y-m-d' %}{% endif %}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Sale Time</label>
+                                <input type="time" class="form-control" id="saleTime" name="sale_time" value="{% if public_sale %}{{ public_sale.sale_time|time:'H:i' }}{% else %}{% now 'H:i' %}{% endif %}" required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Customer Name (Optional)</label>
+                                <input type="text" class="form-control" id="customerName" name="customer_name" value="{% if public_sale %}{{ public_sale.customer_name }}{% endif %}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Customer Phone (Optional)</label>
+                                <input type="text" class="form-control" id="customerPhone" name="customer_phone" value="{% if public_sale %}{{ public_sale.customer_phone }}{% endif %}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Customer Address (Optional)</label>
+                                <input type="text" class="form-control" id="customerAddress" name="customer_address" value="{% if public_sale %}{{ public_sale.customer_address }}{% endif %}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <label class="form-label">Notes (Optional)</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="2">{% if public_sale %}{{ public_sale.notes }}{% endif %}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Sale Items Section -->
+                        <div id="saleItems" class="mb-3">
+                            <h6>Sale Items</h6>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>Unit Price</th>
+                                            <th>Total</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="saleItemsBody"></tbody>
+                                </table>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">Add Item</button>
+                        </div>
+
+                        <!-- Financial Information -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Total Amount</label>
+                                <input type="text" class="form-control" id="totalAmount" readonly value="{% if public_sale %}{{ public_sale.total_price }}{% else %}0.00{% endif %}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Amount Collected</label>
+                                <input type="number" step="0.01" class="form-control" id="amountCollected" name="amount_collected" value="{% if public_sale %}{{ public_sale.amount_collected }}{% else %}0.00{% endif %}">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Balance Amount</label>
+                                <input type="text" class="form-control" id="balanceAmount" readonly value="{% if public_sale %}{{ public_sale.balance_amount }}{% else %}0.00{% endif %}">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-12">
+                                <button type="submit" class="btn btn-primary">{% if public_sale %}Update{% else %}Create{% endif %} Public Sale</button>
+                                <a href="{% url 'delivery:public-sale-list' %}" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addProductForm">
+                    <div class="mb-3">
+                        <label class="form-label">Product</label>
+                        <select class="form-select" id="productSelect" required>
+                            <option value="">Select Product</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Available Quantity</label>
+                        <input type="text" class="form-control" id="availableQuantity" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" step="0.001" class="form-control" id="productQuantity" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Unit Price</label>
+                        <input type="number" step="0.01" class="form-control" id="unitPrice" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveProductBtn">Add Product</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block vendor_js %}
+<!-- No vendor JS needed -->
+{% endblock %}
+
+{% block page_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Global variables
+        let saleItems = [];
+        let availableProducts = [];
+
+        // No need for select2 initialization
+
+        // Elements
+        const loadingOrderSelect = document.getElementById('loadingOrderSelect');
+        const saleItemsBody = document.getElementById('saleItemsBody');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const totalAmountInput = document.getElementById('totalAmount');
+        const amountCollectedInput = document.getElementById('amountCollected');
+        const balanceAmountInput = document.getElementById('balanceAmount');
+        const publicSaleForm = document.getElementById('publicSaleForm');
+
+        // Initialize with existing items if editing
+        {% if public_sale %}
+        {% for item in items %}
+        saleItems.push({
+            product_id: {{ item.product.id }},
+            product_name: "{{ item.product.code }} - {{ item.product.name }}",
+            quantity: {{ item.quantity }},
+            unit_price: {{ item.unit_price }},
+            total: {{ item.total_price }}
+        });
+        {% endfor %}
+        updateSaleItemsTable();
+        {% endif %}
+
+        // Load available products when loading order is selected
+        loadingOrderSelect.addEventListener('change', function() {
+            const loadingOrderId = this.value;
+
+            // If a loading order is selected, fetch available products
+            if (loadingOrderId) {
+                fetch(`/api/delivery/public-sales/available-products/?loading_order_id=${loadingOrderId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            availableProducts = data.products;
+                            console.log('Available products from loading order:', availableProducts);
+                        } else {
+                            console.error('Error loading available products:', data.error);
+                            availableProducts = [];
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        availableProducts = [];
+                    });
+            } else {
+                // If no loading order is selected, we'll allow adding any product
+                console.log('No loading order selected, will allow adding any product');
+                availableProducts = [];
+            }
+
+            // Also update the route select if the loading order has a route
+            if (loadingOrderId) {
+                const selectedOption = this.options[this.selectedIndex];
+                const routeId = selectedOption.dataset.routeId;
+                if (routeId) {
+                    document.getElementById('routeSelect').value = routeId;
+                }
+            }
+        });
+
+        // Update available quantity and unit price when product is selected
+        document.getElementById('productSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                document.getElementById('availableQuantity').value = selectedOption.dataset.availableQuantity;
+                document.getElementById('unitPrice').value = selectedOption.dataset.price;
+                document.getElementById('productQuantity').max = selectedOption.dataset.availableQuantity;
+            } else {
+                document.getElementById('availableQuantity').value = '';
+                document.getElementById('unitPrice').value = '';
+                document.getElementById('productQuantity').max = '';
+            }
+        });
+
+        // Add item button click
+        addItemBtn.addEventListener('click', function() {
+            // Reset form
+            document.getElementById('addProductForm').reset();
+
+            // Clear product select options
+            const productSelect = document.getElementById('productSelect');
+            productSelect.innerHTML = '<option value="">Select Product</option>';
+
+            // If we have available products from a loading order, use those
+            if (availableProducts.length > 0) {
+                // Add available products to select
+                availableProducts.forEach(product => {
+                    // Skip products already in the sale items
+                    if (!saleItems.some(item => item.product_id === product.id)) {
+                        const option = document.createElement('option');
+                        option.value = product.id;
+                        option.textContent = `${product.code} - ${product.name} (${product.available_quantity})`;
+                        option.dataset.availableQuantity = product.available_quantity;
+                        option.dataset.price = product.price;
+                        productSelect.appendChild(option);
+                    }
+                });
+            } else {
+                // If no loading order is selected, fetch all products
+                fetch('/api/products/')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Add all products to select
+                        data.products.forEach(product => {
+                            // Skip products already in the sale items
+                            if (!saleItems.some(item => item.product_id === product.id)) {
+                                const option = document.createElement('option');
+                                option.value = product.id;
+                                option.textContent = `${product.code} - ${product.name}`;
+                                option.dataset.availableQuantity = 999; // No limit if no loading order
+                                option.dataset.price = product.price;
+                                productSelect.appendChild(option);
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error fetching products:', error);
+                    });
+            }
+
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('addProductModal'));
+            modal.show();
+        });
+
+        // Save product button click
+        document.getElementById('saveProductBtn').addEventListener('click', function() {
+            const productSelect = document.getElementById('productSelect');
+            const productQuantity = document.getElementById('productQuantity');
+            const unitPrice = document.getElementById('unitPrice');
+
+            // Validate form
+            if (!productSelect.value || !productQuantity.value || !unitPrice.value) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            // Validate quantity
+            const availableQuantity = parseFloat(document.getElementById('availableQuantity').value);
+            const quantity = parseFloat(productQuantity.value);
+
+            if (quantity <= 0) {
+                alert('Quantity must be greater than 0');
+                return;
+            }
+
+            if (quantity > availableQuantity) {
+                alert(`Quantity cannot exceed available quantity (${availableQuantity})`);
+                return;
+            }
+
+            // Get product details
+            const productId = parseInt(productSelect.value);
+            const productName = productSelect.options[productSelect.selectedIndex].text;
+            const unitPriceValue = parseFloat(unitPrice.value);
+
+            // Add to sale items
+            saleItems.push({
+                product_id: productId,
+                product_name: productName,
+                quantity: quantity,
+                unit_price: unitPriceValue,
+                total: quantity * unitPriceValue
+            });
+
+            // Update table
+            updateSaleItemsTable();
+
+            // Update totals
+            updateTotals();
+
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('addProductModal')).hide();
+        });
+
+        // Update quantity
+        window.updateQuantity = function(index, quantity) {
+            const item = saleItems[index];
+            if (item) {
+                // Validate quantity
+                const availableProduct = availableProducts.find(p => p.id === item.product_id);
+                const availableQuantity = availableProduct ? parseFloat(availableProduct.available_quantity) : Infinity;
+
+                if (quantity > availableQuantity) {
+                    alert(`Quantity cannot exceed available quantity (${availableQuantity})`);
+                    return;
+                }
+
+                item.quantity = parseFloat(quantity);
+                item.total = item.quantity * item.unit_price;
+
+                // Update table
+                updateSaleItemsTable();
+
+                // Update totals
+                updateTotals();
+            }
+        };
+
+        // Remove item
+        window.removeItem = function(index) {
+            saleItems.splice(index, 1);
+
+            // Update table
+            updateSaleItemsTable();
+
+            // Update totals
+            updateTotals();
+        };
+
+        // Update sale items table
+        function updateSaleItemsTable() {
+            saleItemsBody.innerHTML = '';
+
+            saleItems.forEach((item, index) => {
+                const row = document.createElement('tr');
+
+                row.innerHTML = `
+                    <td>${item.product_name}</td>
+                    <td>
+                        <input type="number" step="0.001" class="form-control form-control-sm" value="${item.quantity}"
+                               onchange="updateQuantity(${index}, this.value)">
+                    </td>
+                    <td>${item.unit_price.toFixed(2)}</td>
+                    <td>${item.total.toFixed(2)}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${index})">
+                            <i class="bx bx-trash"></i>
+                        </button>
+                    </td>
+                `;
+
+                saleItemsBody.appendChild(row);
+            });
+        }
+
+        // Update totals
+        function updateTotals() {
+            const total = saleItems.reduce((sum, item) => sum + item.total, 0);
+            totalAmountInput.value = total.toFixed(2);
+
+            const amountCollected = parseFloat(amountCollectedInput.value) || 0;
+            balanceAmountInput.value = (total - amountCollected).toFixed(2);
+        }
+
+        // Handle amount collected changes
+        amountCollectedInput.addEventListener('input', updateTotals);
+
+        // Form submission
+        publicSaleForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            // Validate form
+            if (!this.checkValidity()) {
+                e.stopPropagation();
+                this.classList.add('was-validated');
+                return;
+            }
+
+            if (saleItems.length === 0) {
+                alert('Please add at least one item');
+                return;
+            }
+
+            // Set the items data in the hidden input field
+            document.getElementById('itemsData').value = JSON.stringify(saleItems);
+
+            // Submit the form
+            const formData = new FormData(this);
+
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    // Redirect to the detail page
+                    window.location.href = data.redirect_url;
+                } else {
+                    // Show error message
+                    alert(data.error || 'An error occurred');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        });
+
+        // Initialize
+        updateTotals();
+
+        // Load available products if loading order is already selected
+        if (loadingOrderSelect.value) {
+            loadingOrderSelect.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+{% endblock %}

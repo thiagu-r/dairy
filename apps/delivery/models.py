@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal
+import uuid
 from apps.authentication.models import CustomUser
 from apps.seller.models import Route, Seller
 from apps.products.models import Product
@@ -1212,3 +1213,84 @@ class GeneralPriceCache(models.Model):
                 name='unique_product_price_period'
             )
         ]
+
+
+class PublicSale(models.Model):
+    """Model for recording sales to the public during delivery routes"""
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    )
+
+    PAYMENT_METHOD_CHOICES = (
+        ('cash', 'Cash'),
+        ('credit', 'Credit'),
+        ('bank_transfer', 'Bank Transfer'),
+    )
+
+    # Basic information
+    sale_number = models.CharField(max_length=20, unique=True, editable=False)
+    route = models.ForeignKey(Route, on_delete=models.PROTECT, related_name='public_sales')
+    delivery_team = models.ForeignKey('DeliveryTeam', on_delete=models.PROTECT, related_name='public_sales', null=True, blank=True)
+    loading_order = models.ForeignKey('LoadingOrder', on_delete=models.PROTECT, related_name='public_sales', null=True, blank=True)
+
+    # Customer information (optional since it's a public sale)
+    customer_name = models.CharField(max_length=100, blank=True)
+    customer_phone = models.CharField(max_length=20, blank=True)
+    customer_address = models.TextField(blank=True)
+
+    # Sale details
+    sale_date = models.DateField()
+    sale_time = models.TimeField()
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
+    notes = models.TextField(blank=True)
+
+    # Financial information
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    amount_collected = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    balance_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Status and tracking
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_by = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='created_public_sales')
+    updated_by = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='updated_public_sales')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Generate a unique sale number if not already set
+        if not self.sale_number:
+            self.sale_number = f"PS-{uuid.uuid4().hex[:8].upper()}"
+
+        # Calculate balance amount
+        self.balance_amount = self.total_price - self.amount_collected
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.sale_number} - {self.sale_date} - {self.customer_name or 'Public'}"
+
+
+class PublicSaleItem(models.Model):
+    """Model for items in a public sale"""
+    public_sale = models.ForeignKey(PublicSale, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    quantity = models.DecimalField(max_digits=10, decimal_places=3)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # Calculate total price
+        self.total_price = self.quantity * self.unit_price
+        super().save(*args, **kwargs)
+
+        # Update the total price of the public sale
+        self.public_sale.total_price = self.public_sale.items.aggregate(total=models.Sum('total_price'))['total'] or 0
+        self.public_sale.save()
+
+    def __str__(self):
+        return f"{self.product.name} - {self.quantity} - {self.total_price}"
