@@ -42,4 +42,6 @@ urlpatterns = [
     path('api/products/', views.get_all_products, name='get-all-products'),
     path('api/products/<int:product_id>/price/', views.get_product_price, name='get-product-price'),
     path('api/check-existing-delivery-order/', views.check_existing_delivery_order, name='check-existing-delivery-order'),
+    path('api/sellers/<int:seller_id>/opening-balance/', views.get_seller_opening_balance, name='get-seller-opening-balance'),
+    path('api/delivery-orders/<int:order_id>/', views.get_delivery_order, name='get-delivery-order'),
 ]

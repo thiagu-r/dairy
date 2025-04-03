@@ -1,5 +1,5 @@
 <div class="modal-header">
-    <h5 class="modal-title">Create Delivery Order</h5>
+    <h5 class="modal-title" id="deliveryOrderModalTitle">Create Delivery Order</h5>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 <div class="modal-body">
@@ -45,7 +45,7 @@
             </div>
             <div class="col-md-6 mb-3">
                 <label class="form-label">Opening Balance</label>
-                <input type="text" class="form-control" id="openingBalance" readonly>
+                <input type="text" class="form-control" id="openingBalance" name="opening_balance" readonly>
             </div>
         </div>
         <div class="mb-3">
@@ -60,10 +60,10 @@
                     <tr>
                         <th>Product</th>
                         <th>Ordered Qty</th>
-                        <th>Delivered Qty</th>
+                        <th>Extra Qty</th>
+                        <th>Total Qty</th>
                         <th>Unit Price</th>
                         <th>Total</th>
-                        <th></th>
                     </tr>
                 </thead>
                 <tbody id="orderItemsBody"></tbody>
@@ -78,11 +78,11 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Total Amount</label>
-                <input type="text" class="form-control" id="totalAmount" readonly>
+                <input type="text" class="form-control" id="totalAmount" name="total_price" readonly>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Total Balance</label>
-                <input type="text" class="form-control" id="totalBalance" readonly>
+                <input type="text" class="form-control" id="totalBalance" name="total_balance" readonly>
             </div>
         </div>
 
@@ -91,7 +91,7 @@
 </div>
 <div class="modal-footer">
     <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Close</button>
-    <button type="submit" class="btn btn-primary" form="deliveryOrderForm">Create Order</button>
+    <button type="submit" class="btn btn-primary" form="deliveryOrderForm" id="submitButton">Create Order</button>
 </div>
 
 
@@ -103,12 +103,13 @@
                 <tr>
                     <th>Product</th>
                     <th>Ordered Qty</th>
-                    <th>Delivered Qty</th>
+                    <th>Extra Qty</th>
+                    <th>Total Qty</th>
                     <th>Unit Price</th>
                     <th>Total</th>
                 </tr>
             </thead>
-            <tbody id="orderItemsBody"></tbody>
+            <tbody id="orderItemsBody2"></tbody>
         </table>
     </div>
 
@@ -141,23 +142,87 @@
 </div>
 
 <script>
+    // Global variables
+    let orderItems = [];
+    let availableProducts = [];
+    let salesOrderId = null;
+
+    // Function to reset the form and clear all data
+    function resetForm() {
+        console.log('Resetting form and clearing data');
+
+        // Reset the form
+        document.getElementById('deliveryOrderForm').reset();
+
+        // Clear order items and available products
+        orderItems = [];
+        availableProducts = [];
+        salesOrderId = null;
+
+        // Hide order items section
+        const orderItemsSection = document.getElementById('orderItems');
+        if (orderItemsSection) {
+            orderItemsSection.style.display = 'none';
+        }
+
+        // Clear the order items table
+        const orderItemsBody = document.getElementById('orderItemsBody');
+        if (orderItemsBody) {
+            orderItemsBody.innerHTML = '';
+        }
+
+        // Reset the selects
+        document.getElementById('routeSelect').selectedIndex = 0;
+        document.getElementById('sellerSelect').innerHTML = '<option value="">Select Seller</option>';
+
+        // Reset the payment fields
+        document.getElementById('openingBalance').value = '0';
+        document.getElementById('amountCollected').value = '0';
+        document.getElementById('balanceAmount').value = '0';
+        document.getElementById('totalBalance').value = '0';
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
+        // Get the modal element
+        const modal = document.getElementById('createDeliveryOrderModal');
+
+        // Add event listener for when the modal is hidden
+        modal.addEventListener('hidden.bs.modal', function () {
+            console.log('Modal closed, resetting form');
+            resetForm();
+        });
+
+        // Add event listener for the custom setOrderItems event
+        modal.addEventListener('setOrderItems', function(event) {
+            console.log('Received setOrderItems event:', event.detail);
+            orderItems = event.detail.items;
+            updateOrderItemsTable();
+
+            // Show the order items section inside the form
+            document.getElementById('orderItems').style.display = 'block';
+
+            // Hide the add item button in edit mode
+            const addItemBtn = document.getElementById('addItemBtn');
+            if (addItemBtn) {
+                addItemBtn.style.display = 'none';
+            }
+        });
+
         const routeSelect = document.getElementById('routeSelect');
         const sellerSelect = document.getElementById('sellerSelect');
         const deliveryDate = document.getElementById('deliveryDate');
-        const orderItemsSection = document.getElementById('orderItemsSection');
-        const orderItemsBody = document.getElementById('orderItemsBody');
+        // Get the order items section element
+        const orderItemsSection = document.getElementById('orderItems');
+
+        // This is now defined locally in updateOrderItemsTable
         const addItemBtn = document.getElementById('addItemBtn');
         const deliveryOrderForm = document.getElementById('deliveryOrderForm');
         const totalAmountInput = document.getElementById('totalAmount');
         const amountCollectedInput = document.getElementById('amountCollected');
         const totalBalanceInput = document.getElementById('totalBalance');
 
-        // Make orderItems accessible from window object for reset functionality
-        window.orderItems = [];
-        let orderItems = window.orderItems;
-        let availableProducts = [];
-        let salesOrderId = null;
+        // Use the global variables defined above
+        window.orderItems = orderItems;
 
         // Load sellers when route is selected
         routeSelect.addEventListener('change', function() {
@@ -212,7 +277,9 @@
                         // Set order items
                         orderItems = data.items;
                         updateOrderItemsTable();
-                        orderItemsSection.style.display = 'block';
+                        if (orderItemsSection) {
+                            orderItemsSection.style.display = 'block';
+                        }
 
                         // Show edit message
                         const alertDiv = document.createElement('div');
@@ -234,8 +301,43 @@
                         // Load available products from loading order
                         return fetch(`/api/routes/${routeId}/available-products/?date=${date}`);
                     } else {
-                        // No existing order, load sales order items
-                        return fetch(`/api/sales-items/?seller=${sellerId}&route=${routeId}&date=${date}`)
+                        console.log(`Fetching opening balance for seller ${sellerId} and date ${date}`);
+
+                        // First, fetch the opening balance for this seller
+                        return fetch(`/api/sellers/${sellerId}/opening-balance/?date=${date}`)
+                            .then(response => {
+                                console.log(`Opening balance API response status: ${response.status}`);
+                                if (!response.ok) {
+                                    console.warn(`Could not fetch opening balance: ${response.statusText}`);
+                                    return { status: 'error', opening_balance: 0 };
+                                }
+                                return response.json();
+                            })
+                            .then(balanceData => {
+                                console.log(`Opening balance API response data:`, balanceData);
+
+                                // Set the opening balance
+                                if (balanceData.status === 'success') {
+                                    const openingBalance = balanceData.opening_balance;
+                                    console.log(`Setting opening balance to ${openingBalance}`);
+                                    document.getElementById('openingBalance').value = openingBalance;
+                                    updateTotals(); // Update totals to reflect the new opening balance
+                                } else {
+                                    console.warn(`Opening balance API returned error: ${balanceData.error || 'Unknown error'}`);
+                                    document.getElementById('openingBalance').value = 0;
+                                }
+
+                                // Then, load sales order items
+                                console.log(`Fetching sales items for seller ${sellerId}, route ${routeId}, and date ${date}`);
+                                return fetch(`/api/sales-items/?seller=${sellerId}&route=${routeId}&date=${date}`);
+                            })
+                            .catch(error => {
+                                console.error(`Error fetching opening balance: ${error.message}`);
+                                document.getElementById('openingBalance').value = 0;
+
+                                // Continue with sales items even if opening balance fails
+                                return fetch(`/api/sales-items/?seller=${sellerId}&route=${routeId}&date=${date}`);
+                            })
                             .then(response => {
                                 if (!response.ok) {
                                     throw new Error('Network response was not ok');
@@ -253,7 +355,9 @@
                                     total: item.quantity * item.unit_price
                                 }));
                                 updateOrderItemsTable();
-                                orderItemsSection.style.display = 'block';
+                                if (orderItemsSection) {
+                                    orderItemsSection.style.display = 'block';
+                                }
 
                                 // Load available products from loading order
                                 return fetch(`/api/routes/${routeId}/available-products/?date=${date}`);
@@ -271,7 +375,9 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    orderItemsSection.style.display = 'none';
+                    if (orderItemsSection) {
+                        orderItemsSection.style.display = 'none';
+                    }
                 });
         }
 
@@ -280,20 +386,44 @@
 
         // Update order items table
         function updateOrderItemsTable() {
-            orderItemsBody.innerHTML = orderItems.map(item => `
+            console.log('Updating order items table with items:', orderItems);
+
+            // Get the order items body element
+            const orderItemsBody = document.getElementById('orderItemsBody');
+
+            if (!orderItemsBody) {
+                console.error('orderItemsBody element not found!');
+                return;
+            }
+
+            console.log('Found orderItemsBody element:', orderItemsBody);
+
+            orderItemsBody.innerHTML = orderItems.map(item => {
+                // Calculate available quantity for extra
+                const orderedQty = parseFloat(item.ordered_quantity) || 0;
+                const extraQty = parseFloat(item.extra_quantity) || 0;
+                const availableQty = 100; // Default to a high value if not available
+
+                return `
                 <tr>
                     <td>${item.product_name}</td>
                     <td>${item.ordered_quantity}</td>
                     <td>
                         <input type="number"
                                class="form-control form-control-sm"
-                               value="${item.delivered_quantity}"
-                               onchange="updateDeliveredQuantity('${item.product_id}', this.value)">
+                               value="${extraQty}"
+                               data-product-id="${item.product_id}"
+                               data-ordered-qty="${orderedQty}"
+                               min="0"
+                               max="${Math.max(0, availableQty)}"
+                               onchange="updateExtraQuantity('${item.product_id}', this.value)">
                     </td>
+                    <td>${parseFloat(orderedQty) + parseFloat(extraQty)}</td>
                     <td>${item.unit_price}</td>
-                    <td>${(item.delivered_quantity * item.unit_price).toFixed(2)}</td>
+                    <td>${((parseFloat(orderedQty) + parseFloat(extraQty)) * parseFloat(item.unit_price)).toFixed(2)}</td>
                 </tr>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // Add new product
@@ -430,34 +560,88 @@
             productQuantity.value = '';
         });
 
-        // Update delivered quantity
+        // Update extra quantity
+        window.updateExtraQuantity = function(productId, extraQty) {
+            const item = orderItems.find(item => item.product_id === productId);
+            if (item) {
+                // Parse values
+                extraQty = parseFloat(extraQty) || 0;
+                const orderedQty = parseFloat(item.ordered_quantity) || 0;
+
+                // Ensure extra quantity is not negative
+                if (extraQty < 0) {
+                    extraQty = 0;
+                }
+
+                // Update the item
+                item.extra_quantity = extraQty;
+
+                // Calculate delivered quantity as ordered + extra
+                const deliveredQty = orderedQty + extraQty;
+                item.delivered_quantity = deliveredQty;
+
+                // Update total
+                item.total = deliveredQty * parseFloat(item.unit_price);
+
+                console.log(`Updated item ${item.product_name}: ordered=${orderedQty}, extra=${extraQty}, delivered=${deliveredQty}, total=${item.total}`);
+
+                // Update the table and totals
+                updateOrderItemsTable();
+                updateTotals();
+            }
+        };
+
+        // Keep for backward compatibility
         window.updateDeliveredQuantity = function(productId, quantity) {
+            console.warn('updateDeliveredQuantity is deprecated, use updateExtraQuantity instead');
+            // Calculate extra quantity as the difference between delivered and ordered
             const item = orderItems.find(item => item.product_id === productId);
             if (item) {
                 const newDeliveredQty = parseFloat(quantity);
                 const orderedQty = parseFloat(item.ordered_quantity);
-
-                // Calculate extra quantity as the difference between delivered and ordered
                 const extraQty = Math.max(0, newDeliveredQty - orderedQty);
 
-                // Update the item
-                item.delivered_quantity = newDeliveredQty;
-                item.extra_quantity = extraQty;
-                item.total = item.delivered_quantity * item.unit_price;
-
-                console.log(`Updated item ${item.product_name}: ordered=${orderedQty}, extra=${extraQty}, delivered=${newDeliveredQty}`);
-
-                updateTotals();
+                // Call the new function
+                updateExtraQuantity(productId, extraQty);
             }
         };
 
         // Update totals
         function updateTotals() {
-            const total = orderItems.reduce((sum, item) => sum + (item.delivered_quantity * item.unit_price), 0);
-            totalAmountInput.value = total.toFixed(2);
+            // Calculate total from order items
+            const itemsTotal = orderItems.reduce((sum, item) => sum + (item.delivered_quantity * item.unit_price), 0);
+            console.log(`Items total: ${itemsTotal}`);
 
+            // Set the total amount input (this is just the items total, not including opening balance)
+            totalAmountInput.value = itemsTotal.toFixed(2);
+
+            // Get opening balance and amount collected
+            const openingBalance = parseFloat(document.getElementById('openingBalance').value) || 0;
             const amountCollected = parseFloat(amountCollectedInput.value) || 0;
-            totalBalanceInput.value = (total - amountCollected).toFixed(2);
+
+            console.log(`Opening balance: ${openingBalance}, Amount collected: ${amountCollected}`);
+
+            // Calculate total balance (opening balance + items total - amount collected)
+            const totalBalance = openingBalance + itemsTotal - amountCollected;
+            console.log(`Total balance: ${totalBalance} = ${openingBalance} + ${itemsTotal} - ${amountCollected}`);
+
+            // Set the total balance input
+            totalBalanceInput.value = totalBalance.toFixed(2);
+
+            // Calculate and set the balance amount (items total - amount collected)
+            const balanceAmount = itemsTotal - amountCollected;
+            console.log(`Balance amount: ${balanceAmount} = ${itemsTotal} - ${amountCollected}`);
+
+            // Create or update the hidden balance_amount input
+            let balanceAmountInput = document.getElementById('balanceAmount');
+            if (!balanceAmountInput) {
+                balanceAmountInput = document.createElement('input');
+                balanceAmountInput.type = 'hidden';
+                balanceAmountInput.id = 'balanceAmount';
+                balanceAmountInput.name = 'balance_amount';
+                document.getElementById('deliveryOrderForm').appendChild(balanceAmountInput);
+            }
+            balanceAmountInput.value = balanceAmount.toFixed(2);
         }
 
         // Handle amount collected changes
@@ -468,7 +652,11 @@
             e.preventDefault();
 
             // Validate form
-            if (!routeSelect.value || !sellerSelect.value || !deliveryDate.value) {
+            // Check if we're in edit mode (disabled fields)
+            const isEditMode = routeSelect.disabled || sellerSelect.disabled || deliveryDate.disabled;
+
+            // Only validate enabled fields
+            if (!isEditMode && (!routeSelect.value || !sellerSelect.value || !deliveryDate.value)) {
                 alert('Please fill in all required fields');
                 return;
             }
@@ -482,8 +670,36 @@
                 // Set the items data in the hidden input field
                 document.getElementById('itemsData').value = JSON.stringify(orderItems);
 
-                // Get form data
+                // If we're in edit mode, make sure disabled fields are included
+                if (isEditMode) {
+                    // Re-enable disabled fields temporarily to include them in the form data
+                    const disabledFields = [];
+
+                    if (routeSelect.disabled) {
+                        routeSelect.disabled = false;
+                        disabledFields.push(routeSelect);
+                    }
+
+                    if (sellerSelect.disabled) {
+                        sellerSelect.disabled = false;
+                        disabledFields.push(sellerSelect);
+                    }
+
+                    if (deliveryDate.disabled) {
+                        deliveryDate.disabled = false;
+                        disabledFields.push(deliveryDate);
+                    }
+                }
+
+                // Get form data after potentially re-enabling fields
                 const formData = new FormData(this);
+
+                // Disable the fields again if in edit mode
+                if (isEditMode) {
+                    if (routeSelect.value) routeSelect.disabled = true;
+                    if (sellerSelect.value) sellerSelect.disabled = true;
+                    if (deliveryDate.value) deliveryDate.disabled = true;
+                }
 
                 // Add sales order ID if available
                 if (salesOrderId) {

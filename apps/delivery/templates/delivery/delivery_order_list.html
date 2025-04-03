@@ -87,10 +87,11 @@
                                         <i class="bx bx-show"></i>
                                     </a>
                                     {% if order.status == 'pending' %}
-                                    <a href="{% url 'delivery:delivery-order-edit' order.id %}"
-                                       class="btn btn-icon btn-sm btn-outline-warning">
+                                    <button type="button"
+                                            class="btn btn-icon btn-sm btn-outline-warning"
+                                            onclick="openEditModal({{ order.id }})">
                                         <i class="bx bx-edit"></i>
-                                    </a>
+                                    </button>
                                     {% endif %}
                                 </div>
                             </td>
@@ -165,6 +166,120 @@
     function syncMobileData() {
         // This will be implemented later for mobile app integration
         alert('Mobile data synchronization will be implemented in the future.');
+    }
+
+    function openEditModal(orderId) {
+        console.log(`Opening edit modal for order ${orderId}`);
+
+        // Get the modal
+        const modal = document.getElementById('createDeliveryOrderModal');
+        const modalTitle = document.getElementById('deliveryOrderModalTitle');
+        const submitButton = document.getElementById('submitButton');
+        const form = document.getElementById('deliveryOrderForm');
+
+        // Update the modal title and button text
+        modalTitle.textContent = 'Edit Delivery Order';
+        submitButton.textContent = 'Update Order';
+
+        // Update the form action
+        form.action = `/delivery/orders/${orderId}/edit/`;
+
+        // Fetch the delivery order data
+        fetch(`/api/delivery-orders/${orderId}/`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch delivery order data');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Fetched delivery order data:', data);
+
+                // Populate the form with the delivery order data
+                populateDeliveryOrderForm(data);
+
+                // Show the modal
+                const bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+            })
+            .catch(error => {
+                console.error('Error fetching delivery order data:', error);
+                alert('Failed to load delivery order data. Please try again.');
+            });
+    }
+
+    function populateDeliveryOrderForm(data) {
+        // Get form elements
+        const routeSelect = document.getElementById('routeSelect');
+        const sellerSelect = document.getElementById('sellerSelect');
+        const deliveryDate = document.getElementById('deliveryDate');
+        const deliveryTime = document.querySelector('input[name="delivery_time"]');
+        const paymentMethod = document.getElementById('paymentMethod');
+        const notes = document.getElementById('notes');
+        const openingBalance = document.getElementById('openingBalance');
+        const amountCollected = document.getElementById('amountCollected');
+
+        // Set form values and disable route, seller, and date fields
+        routeSelect.value = data.route_id;
+        routeSelect.disabled = true; // Disable route selection
+
+        // Load sellers for the selected route
+        fetch(`/api/routes/${data.route_id}/sellers/`)
+            .then(response => response.json())
+            .then(sellersData => {
+                // Clear existing options
+                sellerSelect.innerHTML = '<option value="">Select Seller</option>';
+
+                // Add new options
+                sellersData.sellers.forEach(seller => {
+                    const option = new Option(seller.store_name, seller.id);
+                    sellerSelect.add(option);
+                });
+
+                // Set the selected seller and disable it
+                sellerSelect.value = data.seller_id;
+                sellerSelect.disabled = true; // Disable seller selection
+
+                // Now that we have the seller, load the order items
+                console.log('Setting order items:', data.items);
+
+                // We need to access the orderItems variable in the modal's scope
+                const modal = document.getElementById('createDeliveryOrderModal');
+
+                // Use a custom event to pass the items to the modal
+                const event = new CustomEvent('setOrderItems', {
+                    detail: {
+                        items: data.items.map(item => ({
+                            product_id: item.product_id,
+                            product_name: item.product_name,
+                            ordered_quantity: item.ordered_quantity,
+                            extra_quantity: item.extra_quantity || 0,
+                            delivered_quantity: item.delivered_quantity,
+                            unit_price: item.unit_price,
+                            total: item.delivered_quantity * item.unit_price
+                        }))
+                    }
+                });
+
+                modal.dispatchEvent(event);
+
+                // Show the order items section
+                // The modal will handle showing the order items section when it receives the setOrderItems event
+            });
+
+        // Set other form values
+        deliveryDate.value = data.delivery_date;
+        deliveryDate.disabled = true; // Disable date selection
+        deliveryTime.value = data.delivery_time;
+        paymentMethod.value = data.payment_method;
+        notes.value = data.notes || '';
+        openingBalance.value = data.opening_balance;
+        amountCollected.value = data.amount_collected;
+
+        // Update totals
+        if (typeof updateTotals === 'function') {
+            updateTotals();
+        }
     }
 
     // Add filter functionality
