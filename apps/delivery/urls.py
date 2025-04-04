@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
 from . import public_sales_views
+from . import broken_order_views
+from . import return_order_views
 
 app_name = 'delivery'
 
@@ -57,4 +59,28 @@ urlpatterns = [
 
     # API for Public Sales
     path('api/delivery/public-sales/available-products/', public_sales_views.get_available_products_for_public_sale, name='get-available-products-for-public-sale'),
+
+    # Broken Orders URLs
+    path('delivery/broken-products/', broken_order_views.BrokenOrderListView.as_view(), name='broken-order-list'),
+    path('delivery/broken-products/create/', broken_order_views.BrokenOrderCreateView.as_view(), name='broken-order-create'),
+    path('delivery/broken-products/<int:pk>/', broken_order_views.BrokenOrderDetailView.as_view(), name='broken-order-detail'),
+    path('delivery/broken-products/<int:pk>/edit/', broken_order_views.BrokenOrderUpdateView.as_view(), name='broken-order-edit'),
+    path('delivery/broken-products/<int:pk>/approve/', broken_order_views.BrokenOrderApproveView.as_view(), name='broken-order-approve'),
+    path('delivery/broken-products/<int:pk>/reject/', broken_order_views.BrokenOrderRejectView.as_view(), name='broken-order-reject'),
+    path('delivery/broken-products/<int:pk>/delete/', broken_order_views.BrokenOrderDeleteView.as_view(), name='broken-order-delete'),
+
+    # API for Broken Orders
+    path('api/delivery/broken-orders/available-products/', broken_order_views.get_available_products_for_broken_order, name='get-available-products-for-broken-order'),
+
+    # Return Orders URLs
+    path('delivery/return-orders/', return_order_views.ReturnOrderListView.as_view(), name='return-order-list'),
+    path('delivery/return-orders/create/', return_order_views.ReturnOrderCreateView.as_view(), name='return-order-create'),
+    path('delivery/return-orders/<int:pk>/', return_order_views.ReturnOrderDetailView.as_view(), name='return-order-detail'),
+    path('delivery/return-orders/<int:pk>/edit/', return_order_views.ReturnOrderUpdateView.as_view(), name='return-order-edit'),
+    path('delivery/return-orders/<int:pk>/approve/', return_order_views.ReturnOrderApproveView.as_view(), name='return-order-approve'),
+    path('delivery/return-orders/<int:pk>/reject/', return_order_views.ReturnOrderRejectView.as_view(), name='return-order-reject'),
+    path('delivery/return-orders/<int:pk>/delete/', return_order_views.ReturnOrderDeleteView.as_view(), name='return-order-delete'),
+
+    # API for Return Orders
+    path('api/delivery/return-orders/available-products/', return_order_views.get_available_products_for_return, name='get-available-products-for-return'),
 ]

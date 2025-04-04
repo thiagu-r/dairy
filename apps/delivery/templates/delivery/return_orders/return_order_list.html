@@ -1,0 +1,122 @@
+{% extends "layout/layout_vertical.html" %}
+
+{% block title %}Return Orders{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Delivery /</span> Return Orders
+    </h4>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Return Orders</h5>
+            <a href="{% url 'delivery:return-order-create' %}" class="btn btn-primary">
+                <i class="bx bx-plus me-1"></i> Create Return Order
+            </a>
+        </div>
+
+        <!-- Filters -->
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="return-date-filter" class="form-label">Return Date</label>
+                    <input type="date" class="form-control" id="return-date-filter" name="return_date" value="{{ current_filters.return_date }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="status-filter" class="form-label">Status</label>
+                    <select class="form-select" id="status-filter" name="status">
+                        <option value="">All Statuses</option>
+                        {% for key, value in statuses.items %}
+                        <option value="{{ key }}" {% if current_filters.status == key %}selected{% endif %}>{{ value }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Filter</button>
+                    <a href="{% url 'delivery:return-order-list' %}" class="btn btn-outline-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-responsive text-nowrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Order Number</th>
+                        <th>Return Date</th>
+                        <th>Route</th>
+                        <th>Delivery Order</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="table-border-bottom-0">
+                    {% for order in return_orders %}
+                    <tr>
+                        <td>{{ order.order_number }}</td>
+                        <td>{{ order.return_date }}</td>
+                        <td>{{ order.route.name }}</td>
+                        <td>{% if order.delivery_order %}{{ order.delivery_order.order_number }}{% else %}<span class="text-muted">N/A</span>{% endif %}</td>
+                        <td>
+                            {% if order.status == 'pending' %}
+                            <span class="badge bg-label-warning">Pending</span>
+                            {% elif order.status == 'approved' %}
+                            <span class="badge bg-label-success">Approved</span>
+                            {% elif order.status == 'rejected' %}
+                            <span class="badge bg-label-danger">Rejected</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="dropdown">
+                                <button type="button" class="btn p-0 dropdown-toggle hide-arrow" data-bs-toggle="dropdown">
+                                    <i class="bx bx-dots-vertical-rounded"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a href="{% url 'delivery:return-order-detail' order.id %}" class="dropdown-item">
+                                        <i class="bx bx-show-alt me-1"></i> View
+                                    </a>
+                                    {% if order.status == 'pending' %}
+                                    <a href="{% url 'delivery:return-order-edit' order.id %}" class="dropdown-item">
+                                        <i class="bx bx-edit-alt me-1"></i> Edit
+                                    </a>
+                                    <form action="{% url 'delivery:return-order-approve' order.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bx bx-check me-1"></i> Approve
+                                        </button>
+                                    </form>
+                                    <form action="{% url 'delivery:return-order-reject' order.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="bx bx-x me-1"></i> Reject
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No return orders found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+    // Add filter functionality
+    document.getElementById('return-date-filter').addEventListener('change', filterOrders);
+    document.getElementById('status-filter').addEventListener('change', filterOrders);
+
+    function filterOrders() {
+        document.querySelector('form').submit();
+    }
+</script>
+{% endblock %}

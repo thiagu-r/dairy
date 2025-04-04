@@ -183,6 +183,22 @@
           <div class="text-truncate">Public Sales</div>
       </a>
     </li>
+
+    <!-- Broken Products Menu Item -->
+    <li class="menu-item {% if '/delivery/broken-products/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:broken-order-list' %}" class="menu-link">
+          <i class="menu-icon tf-icons bx bx-error-circle"></i>
+          <div class="text-truncate">Broken Products</div>
+      </a>
+    </li>
+
+    <!-- Return Orders Menu Item -->
+    <li class="menu-item {% if '/delivery/return-orders/' in request.path %}active{% endif %}">
+      <a href="{% url 'delivery:return-order-list' %}" class="menu-link">
+          <i class="menu-icon tf-icons bx bx-package"></i>
+          <div class="text-truncate">Return Orders</div>
+      </a>
+    </li>
     {% endif %}
 
     <!-- Delivery Orders -->

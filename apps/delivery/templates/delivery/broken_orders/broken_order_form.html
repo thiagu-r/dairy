@@ -1,0 +1,378 @@
+{% extends "layout/layout_vertical.html" %}
+
+{% block title %}{% if broken_order %}Edit{% else %}Report{% endif %} Broken Products{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Delivery / Broken Products /</span> {% if broken_order %}Edit{% else %}Report{% endif %} Broken Products
+    </h4>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{% if broken_order %}Edit{% else %}Report{% endif %} Broken Products</h5>
+                    <a href="{% url 'delivery:broken-order-list' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bx bx-arrow-back me-1"></i> Back to List
+                    </a>
+                </div>
+                <div class="card-body">
+                    <form id="brokenOrderForm" method="post" action="{% if broken_order %}{% url 'delivery:broken-order-edit' broken_order.id %}{% else %}{% url 'delivery:broken-order-create' %}{% endif %}">
+                        {% csrf_token %}
+                        
+                        <!-- Hidden input for items data -->
+                        <input type="hidden" id="itemsData" name="items_data" value="">
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Delivery Team</label>
+                                <select class="form-select" id="deliveryTeamSelect" name="delivery_team_id" required>
+                                    <option value="">Select Delivery Team</option>
+                                    {% for team in delivery_teams %}
+                                    <option value="{{ team.id }}" {% if broken_order and broken_order.delivery_team_id == team.id %}selected{% endif %}>{{ team.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Loading Order</label>
+                                <select class="form-select" id="loadingOrderSelect" name="loading_order_id" required>
+                                    <option value="">Select Loading Order</option>
+                                    {% for order in loading_orders %}
+                                    <option value="{{ order.id }}" {% if broken_order and broken_order.loading_order_id == order.id %}selected{% endif %} data-team-id="{{ order.delivery_team_id }}">{{ order.order_number }} - {{ order.loading_date }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Report Date</label>
+                                <input type="date" class="form-control" id="reportDate" name="report_date" value="{% if broken_order %}{{ broken_order.report_date|date:'Y-m-d' }}{% else %}{% now 'Y-m-d' %}{% endif %}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Notes (Optional)</label>
+                                <textarea class="form-control" id="notes" name="notes" rows="1">{% if broken_order %}{{ broken_order.notes }}{% endif %}</textarea>
+                            </div>
+                        </div>
+                        
+                        <!-- Broken Items Section -->
+                        <div id="brokenItems" class="mb-3">
+                            <h6>Broken Products</h6>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>Reason</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="brokenItemsBody"></tbody>
+                                </table>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">Add Product</button>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <button type="submit" class="btn btn-primary">{% if broken_order %}Update{% else %}Submit{% endif %} Report</button>
+                                <a href="{% url 'delivery:broken-order-list' %}" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Broken Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addProductForm">
+                    <div class="mb-3">
+                        <label class="form-label">Product</label>
+                        <select class="form-select" id="productSelect" required>
+                            <option value="">Select Product</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" step="0.001" class="form-control" id="productQuantity" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason</label>
+                        <textarea class="form-control" id="productReason" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveProductBtn">Add Product</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block page_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Global variables
+        let brokenItems = [];
+        let availableProducts = [];
+        
+        // Elements
+        const loadingOrderSelect = document.getElementById('loadingOrderSelect');
+        const deliveryTeamSelect = document.getElementById('deliveryTeamSelect');
+        const brokenItemsBody = document.getElementById('brokenItemsBody');
+        const addItemBtn = document.getElementById('addItemBtn');
+        const brokenOrderForm = document.getElementById('brokenOrderForm');
+        
+        // Initialize with existing items if editing
+        {% if broken_order %}
+        {% for item in items %}
+        brokenItems.push({
+            product_id: {{ item.product.id }},
+            product_name: "{{ item.product.code }} - {{ item.product.name }}",
+            quantity: {{ item.quantity }},
+            reason: "{{ item.reason|escapejs }}"
+        });
+        {% endfor %}
+        updateBrokenItemsTable();
+        {% endif %}
+        
+        // Update delivery team when loading order is selected
+        loadingOrderSelect.addEventListener('change', function() {
+            const loadingOrderId = this.value;
+            if (!loadingOrderId) {
+                return;
+            }
+            
+            // Get the delivery team ID from the selected loading order
+            const selectedOption = this.options[this.selectedIndex];
+            const teamId = selectedOption.dataset.teamId;
+            
+            if (teamId) {
+                deliveryTeamSelect.value = teamId;
+            }
+            
+            // Load available products from the loading order
+            fetch(`/api/delivery/broken-orders/available-products/?loading_order_id=${loadingOrderId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === 'success') {
+                        availableProducts = data.products;
+                        console.log('Available products:', availableProducts);
+                    } else {
+                        console.error('Error loading available products:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        });
+        
+        // Add item button click
+        addItemBtn.addEventListener('click', function() {
+            // Check if loading order is selected
+            if (!loadingOrderSelect.value) {
+                alert('Please select a loading order first');
+                return;
+            }
+            
+            // Reset form
+            document.getElementById('addProductForm').reset();
+            
+            // Clear product select options
+            const productSelect = document.getElementById('productSelect');
+            productSelect.innerHTML = '<option value="">Select Product</option>';
+            
+            // Add available products to select
+            availableProducts.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.code} - ${product.name}`;
+                option.dataset.quantity = product.quantity;
+                productSelect.appendChild(option);
+            });
+            
+            // Show modal
+            const modal = new bootstrap.Modal(document.getElementById('addProductModal'));
+            modal.show();
+        });
+        
+        // Save product button click
+        document.getElementById('saveProductBtn').addEventListener('click', function() {
+            const productSelect = document.getElementById('productSelect');
+            const productQuantity = document.getElementById('productQuantity');
+            const productReason = document.getElementById('productReason');
+            
+            // Validate form
+            if (!productSelect.value || !productQuantity.value) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            // Validate quantity
+            const quantity = parseFloat(productQuantity.value);
+            
+            if (quantity <= 0) {
+                alert('Quantity must be greater than 0');
+                return;
+            }
+            
+            // Get product details
+            const productId = parseInt(productSelect.value);
+            const productName = productSelect.options[productSelect.selectedIndex].text;
+            const reason = productReason.value;
+            
+            // Check if product already exists in the list
+            const existingItemIndex = brokenItems.findIndex(item => item.product_id === productId);
+            
+            if (existingItemIndex !== -1) {
+                // Update existing item
+                brokenItems[existingItemIndex].quantity = quantity;
+                brokenItems[existingItemIndex].reason = reason;
+            } else {
+                // Add to broken items
+                brokenItems.push({
+                    product_id: productId,
+                    product_name: productName,
+                    quantity: quantity,
+                    reason: reason
+                });
+            }
+            
+            // Update table
+            updateBrokenItemsTable();
+            
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('addProductModal')).hide();
+        });
+        
+        // Update quantity
+        window.updateQuantity = function(index, quantity) {
+            const item = brokenItems[index];
+            if (item) {
+                item.quantity = parseFloat(quantity);
+                
+                // Update table
+                updateBrokenItemsTable();
+            }
+        };
+        
+        // Update reason
+        window.updateReason = function(index, reason) {
+            const item = brokenItems[index];
+            if (item) {
+                item.reason = reason;
+            }
+        };
+        
+        // Remove item
+        window.removeItem = function(index) {
+            brokenItems.splice(index, 1);
+            
+            // Update table
+            updateBrokenItemsTable();
+        };
+        
+        // Update broken items table
+        function updateBrokenItemsTable() {
+            brokenItemsBody.innerHTML = '';
+            
+            brokenItems.forEach((item, index) => {
+                const row = document.createElement('tr');
+                
+                row.innerHTML = `
+                    <td>${item.product_name}</td>
+                    <td>
+                        <input type="number" step="0.001" class="form-control form-control-sm" value="${item.quantity}" 
+                               onchange="updateQuantity(${index}, this.value)">
+                    </td>
+                    <td>
+                        <textarea class="form-control form-control-sm" 
+                                  onchange="updateReason(${index}, this.value)">${item.reason || ''}</textarea>
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeItem(${index})">
+                            <i class="bx bx-trash"></i>
+                        </button>
+                    </td>
+                `;
+                
+                brokenItemsBody.appendChild(row);
+            });
+        }
+        
+        // Form submission
+        brokenOrderForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Validate form
+            if (!this.checkValidity()) {
+                e.stopPropagation();
+                this.classList.add('was-validated');
+                return;
+            }
+            
+            if (brokenItems.length === 0) {
+                alert('Please add at least one broken product');
+                return;
+            }
+            
+            // Set the items data in the hidden input field
+            document.getElementById('itemsData').value = JSON.stringify(brokenItems);
+            
+            // Submit the form
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    // Redirect to the detail page
+                    window.location.href = data.redirect_url;
+                } else {
+                    // Show error message
+                    alert(data.error || 'An error occurred');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            });
+        });
+        
+        // Load available products if loading order is already selected
+        if (loadingOrderSelect.value) {
+            loadingOrderSelect.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,173 @@
+{% extends "layout/layout_vertical.html" %}
+
+{% block title %}Return Order Details{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Delivery / Return Orders /</span> {{ return_order.order_number }}
+    </h4>
+
+    <!-- Alert Messages -->
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <!-- Return Order Details -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Return Order Details</h5>
+                    <div>
+                        {% if return_order.status == 'pending' %}
+                        <a href="{% url 'delivery:return-order-edit' return_order.id %}" class="btn btn-sm btn-outline-primary me-1">
+                            <i class="bx bx-edit-alt me-1"></i> Edit
+                        </a>
+                        {% endif %}
+                        <a href="{% url 'delivery:return-order-list' %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bx bx-arrow-back me-1"></i> Back to List
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Order Number:</strong> {{ return_order.order_number }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong>
+                            {% if return_order.status == 'pending' %}
+                            <span class="badge bg-label-warning">Pending</span>
+                            {% elif return_order.status == 'approved' %}
+                            <span class="badge bg-label-success">Approved</span>
+                            {% elif return_order.status == 'rejected' %}
+                            <span class="badge bg-label-danger">Rejected</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Return Date:</strong> {{ return_order.return_date }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Route:</strong> {{ return_order.route.name }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <strong>Delivery Order:</strong>
+                            {% if return_order.delivery_order %}
+                            <a href="{% url 'delivery:delivery-order-detail' return_order.delivery_order.id %}">
+                                {{ return_order.delivery_order.order_number }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted">Not associated with a delivery order</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if return_order.reason %}
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <strong>Reason:</strong> {{ return_order.reason }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Actions -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Order Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Created By:</strong> {{ return_order.created_by.get_full_name }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Created At:</strong> {{ return_order.created_at }}
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Updated By:</strong> {{ return_order.updated_by.get_full_name }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Updated At:</strong> {{ return_order.updated_at }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Actions -->
+            {% if return_order.status == 'pending' %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <form action="{% url 'delivery:return-order-approve' return_order.id %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="bx bx-check me-1"></i> Approve Order
+                                </button>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <form action="{% url 'delivery:return-order-reject' return_order.id %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger w-100">
+                                    <i class="bx bx-x me-1"></i> Reject Order
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Return Items -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Returned Products</h5>
+        </div>
+        <div class="table-responsive text-nowrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item.product.code }} - {{ item.product.name }}</td>
+                        <td>{{ item.quantity|floatformat:3 }}</td>
+                        <td>{{ item.reason }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">No returned products found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

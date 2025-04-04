@@ -835,7 +835,9 @@ class ReturnedOrder(models.Model):
     delivery_order = models.ForeignKey(
         DeliveryOrder,
         on_delete=models.PROTECT,
-        related_name='returned_orders'
+        related_name='returned_orders',
+        null=True,
+        blank=True
     )
     route = models.ForeignKey(
         Route,
@@ -843,7 +845,7 @@ class ReturnedOrder(models.Model):
         related_name='returned_orders'
     )
     return_date = models.DateField(db_index=True)
-    return_time = models.TimeField()
+    return_time = models.TimeField(blank=True, null=True)
     reason = models.TextField(help_text='Reason for return')
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
