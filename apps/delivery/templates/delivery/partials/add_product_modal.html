@@ -1,0 +1,99 @@
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="addProductModalBody">
+                <div class="mb-3">
+                    <label class="form-label">Product</label>
+                    <select class="form-select" id="productSelect"></select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="productQuantity" min="0" step="0.001">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="confirmAddProduct">Add</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get elements
+        const addProductModal = document.getElementById('addProductModal');
+        const addProductModalBody = document.getElementById('addProductModalBody');
+        const productSelect = document.getElementById('productSelect');
+        const productQuantity = document.getElementById('productQuantity');
+        const confirmAddProduct = document.getElementById('confirmAddProduct');
+        
+        // Add event listener for product select change
+        productSelect.addEventListener('change', function() {
+            if (this.value) {
+                const selectedOption = this.options[this.selectedIndex];
+                const availableQuantity = selectedOption.dataset.availableQuantity || 0;
+                
+                // Set the max attribute for the quantity input
+                productQuantity.max = availableQuantity;
+                
+                // Add a helpful message
+                const quantityLabel = document.querySelector('label[for="productQuantity"]');
+                if (quantityLabel) {
+                    quantityLabel.textContent = `Quantity (Max: ${availableQuantity})`;
+                }
+            }
+        });
+        
+        // Add event listener for the Add Product button
+        confirmAddProduct.addEventListener('click', function() {
+            if (!productSelect.value) {
+                alert('Please select a product');
+                return;
+            }
+            
+            if (!productQuantity.value || parseFloat(productQuantity.value) <= 0) {
+                alert('Please enter a valid quantity');
+                return;
+            }
+            
+            const selectedOption = productSelect.options[productSelect.selectedIndex];
+            const availableQuantity = parseFloat(selectedOption.dataset.availableQuantity || 0);
+            const requestedQuantity = parseFloat(productQuantity.value);
+            
+            // Check if requested quantity is within available quantity
+            if (requestedQuantity > availableQuantity) {
+                alert(`Cannot add more than available quantity (${availableQuantity})`);
+                return;
+            }
+            
+            const productId = productSelect.value;
+            const productName = selectedOption.textContent;
+            const quantity = parseFloat(productQuantity.value);
+            const unitPrice = parseFloat(selectedOption.dataset.price || '0.00');
+            
+            // Create a custom event to pass the product data back to the main modal
+            const event = new CustomEvent('productAdded', {
+                detail: {
+                    product_id: productId,
+                    product_name: productName,
+                    ordered_quantity: quantity,
+                    extra_quantity: 0,
+                    delivered_quantity: quantity,
+                    unit_price: unitPrice,
+                    total: quantity * unitPrice
+                }
+            });
+            
+            // Dispatch the event
+            document.dispatchEvent(event);
+            
+            // Close the modal
+            bootstrap.Modal.getInstance(addProductModal).hide();
+        });
+    });
+</script>

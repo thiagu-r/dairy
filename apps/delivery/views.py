@@ -263,7 +263,7 @@ def create_purchase_order(request):
                 'error': str(e)
             }, status=400)
 
-class PurchaseOrderEditView(LoginRequiredMixin, View):
+class PurchaseOrderEditView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     def get(self, request, pk):
         try:
             purchase_order = get_object_or_404(
@@ -348,7 +348,7 @@ class PurchaseOrderEditView(LoginRequiredMixin, View):
                     'refresh': True
                 }, status=400)
 
-class PurchaseOrderDetailView(LoginRequiredMixin, View):
+class PurchaseOrderDetailView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     def get(self, request, pk):
         purchase_order = get_object_or_404(
             PurchaseOrder.objects.select_related(
@@ -365,7 +365,7 @@ class PurchaseOrderDetailView(LoginRequiredMixin, View):
         }
         return render(request, 'delivery/purchase_order_detail.html', context)
 
-class DeliveryTeamListView(LoginRequiredMixin, ListView):
+class DeliveryTeamListView(LoginRequiredMixin,DeliveryTeamRequiredMixin, ListView):
     model = DeliveryTeam
     template_name = 'delivery/team_list.html'
     context_object_name = 'teams'
@@ -386,7 +386,7 @@ class DeliveryTeamListView(LoginRequiredMixin, ListView):
             context['distributors'] = Distributor.objects.all().order_by('name')
         return context
 
-class DeliveryTeamCreateView(LoginRequiredMixin, View):
+class DeliveryTeamCreateView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     def get(self, request):
         context = {
             'routes': Route.objects.all().order_by('name')
@@ -551,7 +551,7 @@ def check_existing_order(request):
     exists = query.exists()
     return JsonResponse({'exists': exists})
 
-class LoadingOrderListView(LoginRequiredMixin, ListView):
+class LoadingOrderListView(LoginRequiredMixin,DeliveryTeamRequiredMixin, ListView):
     model = LoadingOrder
     template_name = 'delivery/loading_order_list.html'
     context_object_name = 'loading_orders'
@@ -670,7 +670,7 @@ def create_loading_order(request):
         'error': 'Invalid request method'
     }, status=400)
 
-class LoadingOrderDetailView(LoginRequiredMixin, View):
+class LoadingOrderDetailView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     def get(self, request, pk):
         try:
             loading_order = get_object_or_404(
@@ -692,7 +692,7 @@ class LoadingOrderDetailView(LoginRequiredMixin, View):
             messages.error(request, str(e))
             return redirect('delivery:loading-order-list')
 
-class LoadingOrderEditView(LoginRequiredMixin, View):
+class LoadingOrderEditView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     def get(self, request, pk):
         try:
             loading_order = get_object_or_404(
@@ -746,7 +746,7 @@ class LoadingOrderEditView(LoginRequiredMixin, View):
                 'error': str(e)
             }, status=400)
 
-class DeliveryOrderListView(LoginRequiredMixin, TemplateView):
+class DeliveryOrderListView(LoginRequiredMixin,DeliveryTeamRequiredMixin, TemplateView):
     template_name = "delivery/delivery_order_list.html"
     login_url = reverse_lazy('auth-login-basic')
 
@@ -809,7 +809,7 @@ class DeliveryOrderListView(LoginRequiredMixin, TemplateView):
         })
         return context
 
-class DeliveryOrderCreateView(LoginRequiredMixin, View):
+class DeliveryOrderCreateView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     login_url = reverse_lazy('auth-login-basic')
 
     def get(self, request, pk=None):
@@ -1087,7 +1087,7 @@ class DeliveryOrderDetailView(LoginRequiredMixin, View):
             messages.error(request, str(e))
             return redirect('delivery:delivery-order-list')
 
-class BrokenOrderListView(LoginRequiredMixin, TemplateView):
+class BrokenOrderListView(LoginRequiredMixin,DeliveryTeamRequiredMixin, TemplateView):
     template_name = "delivery/broken_order_list.html"
     login_url = reverse_lazy('auth-login-basic')
 
@@ -1113,7 +1113,7 @@ class BrokenOrderListView(LoginRequiredMixin, TemplateView):
         })
         return context
 
-class BrokenOrderCreateView(LoginRequiredMixin, View):
+class BrokenOrderCreateView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     login_url = reverse_lazy('auth-login-basic')
 
     def get(self, request):
@@ -1152,7 +1152,7 @@ class BrokenOrderCreateView(LoginRequiredMixin, View):
         except Exception as e:
             return HttpResponseBadRequest(str(e))
 
-class ReturnedOrderListView(LoginRequiredMixin, TemplateView):
+class ReturnedOrderListView(LoginRequiredMixin,DeliveryTeamRequiredMixin, TemplateView):
     template_name = "delivery/returned_order_list.html"
     login_url = reverse_lazy('auth-login-basic')
 
@@ -1180,7 +1180,7 @@ class ReturnedOrderListView(LoginRequiredMixin, TemplateView):
         })
         return context
 
-class ReturnedOrderCreateView(LoginRequiredMixin, View):
+class ReturnedOrderCreateView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
     login_url = reverse_lazy('auth-login-basic')
 
     def get(self, request):

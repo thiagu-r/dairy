@@ -98,7 +98,11 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Quantity</label>
+                        <label class="form-label">Available Quantity</label>
+                        <input type="text" class="form-control" id="availableQuantity" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Return Quantity</label>
                         <input type="number" step="0.001" class="form-control" id="productQuantity" required>
                     </div>
                     <div class="mb-3">
@@ -202,10 +206,19 @@
                         const option = document.createElement('option');
                         option.value = product.id;
                         option.textContent = `${product.code} - ${product.name}`;
-                        if (product.delivered_quantity) {
+
+                        // Add max returnable quantity if available
+                        if (product.max_returnable) {
+                            option.textContent += ` (Max Returnable: ${product.max_returnable})`;
+                            option.dataset.maxReturnable = product.max_returnable;
+                            option.dataset.loadedQuantity = product.loaded_quantity || 0;
+                            option.dataset.deliveredQuantity = product.delivered_quantity || 0;
+                            option.dataset.brokenQuantity = product.broken_quantity || 0;
+                        } else if (product.delivered_quantity) {
                             option.textContent += ` (Delivered: ${product.delivered_quantity})`;
                             option.dataset.deliveredQuantity = product.delivered_quantity;
                         }
+
                         productSelect.appendChild(option);
                     }
                 });
@@ -264,9 +277,15 @@
                 return;
             }
 
-            // Check if quantity exceeds delivered quantity (if available)
+            // Check if quantity exceeds max returnable quantity (if available)
             const selectedOption = productSelect.options[productSelect.selectedIndex];
-            if (selectedOption.dataset.deliveredQuantity) {
+            if (selectedOption.dataset.maxReturnable) {
+                const maxReturnable = parseFloat(selectedOption.dataset.maxReturnable);
+                if (quantity > maxReturnable) {
+                    alert(`Return quantity cannot exceed maximum returnable quantity (${maxReturnable})`);
+                    return;
+                }
+            } else if (selectedOption.dataset.deliveredQuantity) {
                 const deliveredQuantity = parseFloat(selectedOption.dataset.deliveredQuantity);
                 if (quantity > deliveredQuantity) {
                     alert(`Return quantity cannot exceed delivered quantity (${deliveredQuantity})`);
@@ -399,13 +418,57 @@
                     window.location.href = data.redirect_url;
                 } else {
                     // Show error message
-                    alert(data.error || 'An error occurred');
+                    if (data.invalid_items) {
+                        // Create a detailed error message for invalid items
+                        let errorMessage = data.error + ':\n\n';
+                        data.invalid_items.forEach(item => {
+                            errorMessage += `- ${item.product_name}: ${item.message}\n`;
+                        });
+                        alert(errorMessage);
+                    } else {
+                        alert(data.error || 'An error occurred');
+                    }
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
                 alert('An error occurred. Please try again.');
             });
+        });
+
+        // Update product select change handler
+        document.getElementById('productSelect').addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const availableQuantityInput = document.getElementById('availableQuantity');
+            const productQuantityInput = document.getElementById('productQuantity');
+
+            if (selectedOption.value) {
+                if (selectedOption.dataset.maxReturnable) {
+                    // If we have detailed information about max returnable quantity
+                    const maxReturnable = parseFloat(selectedOption.dataset.maxReturnable);
+                    const loadedQty = parseFloat(selectedOption.dataset.loadedQuantity) || 0;
+                    const deliveredQty = parseFloat(selectedOption.dataset.deliveredQuantity) || 0;
+                    const brokenQty = parseFloat(selectedOption.dataset.brokenQuantity) || 0;
+
+                    // Show detailed information
+                    availableQuantityInput.value = `Max Returnable: ${maxReturnable} (Loaded: ${loadedQty}, Delivered: ${deliveredQty}, Broken: ${brokenQty})`;
+
+                    // Set the max attribute for the quantity input
+                    productQuantityInput.max = maxReturnable;
+                } else if (selectedOption.dataset.deliveredQuantity) {
+                    // If we only have delivered quantity
+                    const deliveredQty = parseFloat(selectedOption.dataset.deliveredQuantity);
+                    availableQuantityInput.value = `Delivered: ${deliveredQty}`;
+                    productQuantityInput.max = deliveredQty;
+                } else {
+                    // If we don't have any quantity information
+                    availableQuantityInput.value = 'No quantity information available';
+                    productQuantityInput.max = '';
+                }
+            } else {
+                availableQuantityInput.value = '';
+                productQuantityInput.max = '';
+            }
         });
 
         // Load available products if route and date are already selected

@@ -1,6 +1,6 @@
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.exceptions import PermissionDenied
-
+from django.shortcuts import redirect
 class AdminRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         return (
@@ -27,7 +27,7 @@ class DeliveryTeamRequiredMixin(UserPassesTestMixin):
     def test_func(self):
         print('role:', self.request.user.role)
         if not self.request.user.is_authenticated:
-            return False
+            return redirect('auth-login-basic')
             
         # Allow staff and superusers
         if self.request.user.is_staff or self.request.user.is_superuser:

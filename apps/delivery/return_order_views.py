@@ -15,9 +15,15 @@ from .models import (
     ReturnedOrder,
     ReturnedOrderItem,
     DeliveryOrder,
+    DeliveryOrderItem,
+    LoadingOrder,
+    LoadingOrderItem,
+    BrokenOrder,
+    BrokenOrderItem,
     Product,
     Route
 )
+from django.db.models import Sum, F
 
 
 class ReturnOrderListView(LoginRequiredMixin, DeliveryTeamRequiredMixin, ListView):
@@ -142,7 +148,7 @@ class ReturnOrderCreateView(LoginRequiredMixin, DeliveryTeamRequiredMixin, View)
                 delivery_order=delivery_order,  # This might be None if no delivery order is found
                 route_id=route_id,
                 return_date=return_date,
-                reason=reason,
+                # reason=reason,
                 # status='pending',
                 created_by=request.user,
                 updated_by=request.user
@@ -154,13 +160,30 @@ class ReturnOrderCreateView(LoginRequiredMixin, DeliveryTeamRequiredMixin, View)
             else:
                 print(f"Created return order {return_order.order_number} without a delivery order for route {route_id}")
 
-            # Create return order items
+            # Calculate the maximum returnable quantity for each product
+            max_returnable = calculate_max_returnable_quantity(route_id, return_date)
+
+            # Validate and create return order items
+            invalid_items = []
             print('items_data: ', items_data)
             for item in items_data:
                 try:
                     product_id = int(item['product_id'])
                     quantity = Decimal(item['quantity'])
                     item_reason = item.get('reason', '')
+
+                    # Validate the quantity against the maximum returnable quantity
+                    if product_id in max_returnable and quantity > max_returnable[product_id]['max_returnable']:
+                        product_name = max_returnable[product_id]['product'].name
+                        max_qty = max_returnable[product_id]['max_returnable']
+                        invalid_items.append({
+                            'product_id': product_id,
+                            'product_name': product_name,
+                            'requested_quantity': float(quantity),
+                            'max_returnable': float(max_qty),
+                            'message': f"Requested quantity ({quantity}) exceeds maximum returnable quantity ({max_qty})"
+                        })
+                        continue
 
                     ReturnedOrderItem.objects.create(
                         returned_order=return_order,
@@ -171,6 +194,17 @@ class ReturnOrderCreateView(LoginRequiredMixin, DeliveryTeamRequiredMixin, View)
                 except Exception as e:
                     print(f"Error creating return order item: {str(e)}")
                     # Continue with other items even if one fails
+
+            # If there are invalid items, return an error
+            if invalid_items:
+                # Delete the return order since it's invalid
+                return_order.delete()
+
+                return JsonResponse({
+                    'status': 'error',
+                    'error': 'Some items exceed the maximum returnable quantity',
+                    'invalid_items': invalid_items
+                }, status=400)
 
             return JsonResponse({
                 'status': 'success',
@@ -273,6 +307,12 @@ class ReturnOrderUpdateView(LoginRequiredMixin, DeliveryTeamRequiredMixin, View)
             else:
                 print(f"Updated return order {return_order.order_number} without a delivery order for route {route_id}")
 
+            # Calculate the maximum returnable quantity for each product
+            max_returnable = calculate_max_returnable_quantity(route_id, return_date)
+
+            # Validate and create return order items
+            invalid_items = []
+
             # Delete existing items
             return_order.items.all().delete()
 
@@ -283,6 +323,19 @@ class ReturnOrderUpdateView(LoginRequiredMixin, DeliveryTeamRequiredMixin, View)
                     quantity = Decimal(item['quantity'])
                     item_reason = item.get('reason', '')
 
+                    # Validate the quantity against the maximum returnable quantity
+                    if product_id in max_returnable and quantity > max_returnable[product_id]['max_returnable']:
+                        product_name = max_returnable[product_id]['product'].name
+                        max_qty = max_returnable[product_id]['max_returnable']
+                        invalid_items.append({
+                            'product_id': product_id,
+                            'product_name': product_name,
+                            'requested_quantity': float(quantity),
+                            'max_returnable': float(max_qty),
+                            'message': f"Requested quantity ({quantity}) exceeds maximum returnable quantity ({max_qty})"
+                        })
+                        continue
+
                     ReturnedOrderItem.objects.create(
                         returned_order=return_order,
                         product_id=product_id,
@@ -292,6 +345,17 @@ class ReturnOrderUpdateView(LoginRequiredMixin, DeliveryTeamRequiredMixin, View)
                 except Exception as e:
                     print(f"Error updating return order item: {str(e)}")
                     # Continue with other items even if one fails
+
+            # If there are invalid items, return an error
+            if invalid_items:
+                # Delete the items we just created since they're invalid
+                return_order.items.all().delete()
+
+                return JsonResponse({
+                    'status': 'error',
+                    'error': 'Some items exceed the maximum returnable quantity',
+                    'invalid_items': invalid_items
+                }, status=400)
 
             return JsonResponse({
                 'status': 'success',
@@ -368,12 +432,76 @@ class ReturnOrderDeleteView(LoginRequiredMixin, DeliveryTeamRequiredMixin, View)
             return redirect('delivery:return-order-detail', pk=pk)
 
 
+# Helper function to calculate maximum returnable quantity
+def calculate_max_returnable_quantity(route_id, return_date):
+    """Calculate the maximum returnable quantity for each product based on loading orders, delivery orders, and broken orders"""
+    # Find the most recent loading order for this route and date
+    loading_order = LoadingOrder.objects.filter(
+        route_id=route_id,
+        loading_date__lte=return_date,
+        # status='completed'
+    ).order_by('-loading_date').first()
+
+    if not loading_order:
+        print(f"No loading order found for route {route_id} and date {return_date}")
+        return {}
+
+    # Get all products and quantities from the loading order
+    loading_items = LoadingOrderItem.objects.filter(loading_order=loading_order).select_related('product')
+    print('loading items: ', loading_items)
+
+    # Initialize a dictionary to store the maximum returnable quantity for each product
+    max_returnable = {}
+
+    for item in loading_items:
+        max_returnable[item.product_id] = {
+            'product': item.product,
+            'loaded_quantity': item.loaded_quantity,
+            'delivered_quantity': 0,
+            'broken_quantity': 0,
+            'max_returnable': item.loaded_quantity
+        }
+
+    # Get all delivery orders for this loading order
+    delivery_orders = DeliveryOrder.objects.filter(loading_order=loading_order)
+
+    # Calculate the total delivered quantity for each product
+    for order in delivery_orders:
+        delivery_items = DeliveryOrderItem.objects.filter(delivery_order=order)
+        for item in delivery_items:
+            if item.product_id in max_returnable:
+                max_returnable[item.product_id]['delivered_quantity'] += item.delivered_quantity
+
+    # Get all broken orders for this loading order
+    broken_orders = BrokenOrder.objects.filter(loading_order=loading_order)
+
+    # Calculate the total broken quantity for each product
+    for order in broken_orders:
+        broken_items = BrokenOrderItem.objects.filter(broken_order=order)
+        for item in broken_items:
+            if item.product_id in max_returnable:
+                max_returnable[item.product_id]['broken_quantity'] += item.quantity
+
+    # Calculate the maximum returnable quantity for each product
+    for product_id, data in max_returnable.items():
+        # Max returnable = Loaded - Delivered - Broken
+        data['max_returnable'] = max(
+            0,
+            data['loaded_quantity'] - data['delivered_quantity'] - data['broken_quantity']
+        )
+
+        print(f"Product {data['product'].name}: Loaded={data['loaded_quantity']}, Delivered={data['delivered_quantity']}, Broken={data['broken_quantity']}, Max Returnable={data['max_returnable']}")
+
+    return max_returnable
+
+
 # API Views for Return Orders
 def get_available_products_for_return(request):
     """API endpoint to get available products for return from a route"""
     route_id = request.GET.get('route_id')
     return_date = request.GET.get('return_date')
-
+    print('route: ', route_id)
+    print('return date: ', return_date)
     if not route_id:
         # If no route is specified, return all products
         try:
@@ -396,28 +524,14 @@ def get_available_products_for_return(request):
             }, status=500)
 
     try:
-        # Find the most recent delivery order for this route
-        delivery_order = None
-        if return_date:
-            delivery_order = DeliveryOrder.objects.filter(
-                route_id=route_id,
-                status='delivered',
-                delivery_date__lte=return_date
-            ).order_by('-delivery_date').first()
-        else:
-            delivery_order = DeliveryOrder.objects.filter(
-                route_id=route_id,
-                status='delivered'
-            ).order_by('-delivery_date').first()
-
-        if not delivery_order:
-            # If no delivery order is found, return all products for the route
+        # If we don't have both route_id and return_date, return all products
+        if not route_id or not return_date:
             products = Product.objects.all()
             product_list = [{
                 'id': product.id,
                 'code': product.code,
                 'name': product.name,
-                'price': float(product.price)
+                # 'price': float(product.price)
             } for product in products]
 
             return JsonResponse({
@@ -425,30 +539,63 @@ def get_available_products_for_return(request):
                 'products': product_list
             })
 
-        # Get the delivery order items
-        delivery_items = delivery_order.items.select_related('product').all()
+        # Calculate the maximum returnable quantity for each product
+        max_returnable = calculate_max_returnable_quantity(route_id, return_date)
+
+        # Find the most recent delivery order for this route (for reference only)
+        delivery_order = DeliveryOrder.objects.filter(
+            route_id=route_id,
+            # status='delivered',
+            delivery_date__lte=return_date
+        ).order_by('-delivery_date').first()
 
         # Format the response
         products = []
-        for item in delivery_items:
-            products.append({
-                'id': item.product.id,
-                'code': item.product.code,
-                'name': item.product.name,
-                'delivered_quantity': float(item.delivered_quantity),
-                'price': float(item.unit_price),
-                'delivery_order': delivery_order.order_number
+        for product_id, data in max_returnable.items():
+            if data['max_returnable'] > 0:
+                product = data['product']
+                products.append({
+                    'id': product.id,
+                    'code': product.code,
+                    'name': product.name,
+                    'max_returnable': float(data['max_returnable']),
+                    'loaded_quantity': float(data['loaded_quantity']),
+                    'delivered_quantity': float(data['delivered_quantity']),
+                    'broken_quantity': float(data['broken_quantity']),
+                    # 'price': float(product.price)
+                })
+
+        # If no products with returnable quantity, return all products
+        if not products:
+            print("No products with returnable quantity found, returning all products")
+            products = Product.objects.all()
+            product_list = [{
+                'id': product.id,
+                'code': product.code,
+                'name': product.name,
+                # 'price': float(product.price)
+            } for product in products]
+
+            return JsonResponse({
+                'status': 'success',
+                'products': product_list,
+                'message': 'No products with returnable quantity found for this route and date'
             })
 
-        return JsonResponse({
+        response_data = {
             'status': 'success',
-            'products': products,
-            'delivery_order': {
+            'products': products
+        }
+
+        # Add delivery order info if available
+        if delivery_order:
+            response_data['delivery_order'] = {
                 'id': delivery_order.id,
                 'order_number': delivery_order.order_number,
                 'delivery_date': delivery_order.delivery_date.strftime('%Y-%m-%d')
             }
-        })
+
+        return JsonResponse(response_data)
 
     except Exception as e:
         return JsonResponse({
