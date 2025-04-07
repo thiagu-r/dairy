@@ -72,6 +72,7 @@ urlpatterns = [
 
     # Delivery urls
     path('', include('apps.delivery.urls')),
+    path('', include('apps.api.urls')),
 
     path('', RedirectView.as_view(pattern_name='auth-login-basic'), name='index'),
     path('logout/', LogoutView.as_view(), name='logout'),

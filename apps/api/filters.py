@@ -8,7 +8,7 @@ from apps.delivery.models import (
     ReturnedOrder, 
     BrokenOrder, 
     PublicSale, 
-    Payment
+    # Payment
 )
 
 class SellerFilter(django_filters.FilterSet):
@@ -93,13 +93,13 @@ class PublicSaleFilter(django_filters.FilterSet):
         model = PublicSale
         fields = ['route', 'start_date', 'end_date', 'status', 'sync_status']
 
-class PaymentFilter(django_filters.FilterSet):
-    seller = django_filters.NumberFilter(field_name='seller__id')
-    start_date = django_filters.DateFilter(field_name='payment_date', lookup_expr='gte')
-    end_date = django_filters.DateFilter(field_name='payment_date', lookup_expr='lte')
-    payment_method = django_filters.CharFilter(field_name='payment_method')
-    sync_status = django_filters.CharFilter(field_name='sync_status')
+# class PaymentFilter(django_filters.FilterSet):
+#     seller = django_filters.NumberFilter(field_name='seller__id')
+#     start_date = django_filters.DateFilter(field_name='payment_date', lookup_expr='gte')
+#     end_date = django_filters.DateFilter(field_name='payment_date', lookup_expr='lte')
+#     payment_method = django_filters.CharFilter(field_name='payment_method')
+#     sync_status = django_filters.CharFilter(field_name='sync_status')
     
-    class Meta:
-        model = Payment
-        fields = ['seller', 'start_date', 'end_date', 'payment_method', 'sync_status']
+#     class Meta:
+#         model = Payment
+#         fields = ['seller', 'start_date', 'end_date', 'payment_method', 'sync_status']

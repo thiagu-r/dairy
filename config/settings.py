@@ -61,17 +61,15 @@ INSTALLED_APPS = [
     "apps.layouts",
     "apps.pages",
     "apps.authentication",
-    # "apps.cards",
-    # "apps.ui",
-    # "apps.extended_ui",
-    # "apps.icons",
-    # "apps.forms",
-    # "apps.form_layouts",
-    # "apps.tables",
+    
+    "rest_framework",
+    "rest_framework.authtoken",
+    "django_filters",
     "apps.seller",
     "apps.products",
     "apps.sales",
     "apps.delivery",
+    "apps.api",
 ]
 
 AUTH_USER_MODEL = 'authentication.CustomUser'
@@ -220,3 +218,9 @@ EMAIL_HOST_PASSWORD = 'your-email-password'  # Use environment variables for sec
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 # SESSION_COOKIE_SECURE = True  # if using HTTPS
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
+}
