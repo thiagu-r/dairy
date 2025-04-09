@@ -11,7 +11,7 @@ from django.utils import timezone
 from datetime import datetime
 
 from apps.seller.models import Seller, Route
-from apps.products.models import Product, PricePlan, ProductPrice
+from apps.products.models import Product, PricePlan, ProductPrice, Category
 from apps.sales.models import SalesOrder
 from apps.delivery.models import (
     PurchaseOrder,
@@ -40,7 +40,8 @@ from .serializers import (
     PublicSaleSerializer,
     # PaymentSerializer,
     SyncDataSerializer,
-    SyncStatusSerializer
+    SyncStatusSerializer,
+    CategorySerializer
 )
 
 from .filters import (
@@ -56,6 +57,10 @@ from .filters import (
 )
 
 # Authentication Views
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+
+@method_decorator(csrf_exempt, name='dispatch')
 class LoginView(ObtainAuthToken):
     serializer_class = LoginSerializer
 
@@ -78,6 +83,7 @@ class LoginView(ObtainAuthToken):
 
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -101,6 +107,16 @@ class SellerViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['store_name', 'route__name']
     ordering = ['store_name']
     pagination_class = None  # No pagination for master data
+
+class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'code']
+    ordering_fields = ['name', 'code']
+    ordering = ['name']
+    pagination_class = None  # No pagination for master data)
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Product.objects.filter(is_active=True)
@@ -266,6 +282,7 @@ class PublicSaleViewSet(viewsets.ModelViewSet):
 #         return super().create(request, *args, **kwargs)
 
 # Sync Views
+@method_decorator(csrf_exempt, name='dispatch')
 class SyncView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -325,6 +342,7 @@ class SyncView(APIView):
 
         return Response({'status': 'success', 'message': 'Data synchronized successfully'}, status=status.HTTP_200_OK)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class SyncStatusView(APIView):
     permission_classes = [IsAuthenticated]
 

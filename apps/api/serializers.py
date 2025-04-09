@@ -2,7 +2,7 @@ from rest_framework import serializers
 # from django.contrib.auth.models import User
 from apps.authentication.models import CustomUser as User
 from apps.seller.models import Seller, Route
-from apps.products.models import Product, PricePlan, ProductPrice
+from apps.products.models import Product, PricePlan, ProductPrice, Category
 from apps.sales.models import SalesOrder, OrderItem as SalesOrderItem
 from apps.delivery.models import (
     PurchaseOrder,
@@ -23,16 +23,22 @@ from apps.delivery.models import (
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name')
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role')
         read_only_fields = ('id',)
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=255)
     password = serializers.CharField(max_length=128, write_only=True)
 
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ('id', 'name', 'code')
+
 # Master Data Serializers
 class ProductPriceSerializer(serializers.ModelSerializer):
-    product_name = serializers.ReadOnlyField(source='product.name')
+    product_name = serializers.ReadOnlyField(source='product.name'),
+    category = CategorySerializer(source='product.category')
 
     class Meta:
         model = ProductPrice
@@ -56,11 +62,11 @@ class SellerSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.ReadOnlyField(source='category.name')
-    prices = ProductPriceSerializer(many=True, read_only=True, source='prices')
+    # prices = ProductPriceSerializer(many=True, read_only=True, source='prices')
 
     class Meta:
         model = Product
-        fields = ('id', 'code', 'name', 'category', 'category_name', 'is_liquid', 'unit_size', 'is_active', 'prices')
+        fields = ('id', 'code', 'name', 'category', 'category_name', 'is_liquid', 'unit_size', 'is_active')
 
 class RouteSerializer(serializers.ModelSerializer):
     class Meta:

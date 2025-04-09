@@ -64,12 +64,14 @@ INSTALLED_APPS = [
     
     "rest_framework",
     "rest_framework.authtoken",
+    "corsheaders",
     "django_filters",
     "apps.seller",
     "apps.products",
     "apps.sales",
     "apps.delivery",
     "apps.api",
+    "apps.admin_dashboard",
 ]
 
 AUTH_USER_MODEL = 'authentication.CustomUser'
@@ -83,6 +85,7 @@ AUTH_USER_MODEL = 'authentication.CustomUser'
 # LOGOUT_REDIRECT_URL = '/auth/login/'
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -101,6 +104,9 @@ LOGOUT_REDIRECT_URL = 'auth-login-basic'
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
 ]
+
+ALLOWED_HOSTS = ['*']
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = "config.urls"
 

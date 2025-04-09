@@ -21,11 +21,13 @@ from django.contrib.auth.views import LogoutView
 from django.views.generic.base import RedirectView
 from web_project.views import SystemView
 from apps.authentication.views import AdminDashboardView, LogoutView, AuthLoginBasicView
+from apps.admin_dashboard.views import DashboardHomeView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
     # Dashboard urls
+    # path('admin_dashboard/', DashboardHomeView.as_view(), name='admin_dashboard'),
     path('admin_dashboard/', AdminDashboardView.as_view(), name='admin_dashboard'),
     # path('sales/dashboard/', apps.sales.views.DashboardView.as_view(), name='sales:dashboard'),
     # path('delivery/dashboard/', delivery_views.DashboardView.as_view(), name='delivery:dashboard'),
@@ -72,7 +74,8 @@ urlpatterns = [
 
     # Delivery urls
     path('', include('apps.delivery.urls')),
-    path('', include('apps.api.urls')),
+    path('apiapp/', include('apps.api.urls')),
+    path('', include('apps.admin_dashboard.urls')),
 
     path('', RedirectView.as_view(pattern_name='auth-login-basic'), name='index'),
     path('logout/', LogoutView.as_view(), name='logout'),
