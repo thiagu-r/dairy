@@ -22,6 +22,8 @@ from django.views.generic.base import RedirectView
 from web_project.views import SystemView
 from apps.authentication.views import AdminDashboardView, LogoutView, AuthLoginBasicView
 from apps.admin_dashboard.views import DashboardHomeView
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -81,6 +83,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
 ]
 
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 handler404 = SystemView.as_view(template_name="pages_misc_error.html", status=404)
 handler400 = SystemView.as_view(template_name="pages_misc_error.html", status=400)
 handler500 = SystemView.as_view(template_name="pages_misc_error.html", status=500)
