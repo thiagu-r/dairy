@@ -71,7 +71,7 @@ class ProductSerializer(serializers.ModelSerializer):
 class RouteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Route
-        fields = ('id', 'name', 'description')
+        fields = ('id', 'name', 'code')
 
 # Order Serializers
 class SalesOrderItemSerializer(serializers.ModelSerializer):
