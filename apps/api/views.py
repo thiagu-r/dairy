@@ -565,32 +565,68 @@ class SyncStatusView(APIView):
         serializer = SyncStatusSerializer(data)
         return Response(serializer.data)
 
-@login_required
-def check_purchase_order(request):
-    route_id = request.GET.get('route')
-    delivery_date = request.GET.get('delivery_date')
+# @login_required
+# def check_purchase_order(request):
+#     route_id = request.GET.get('route')
+#     delivery_date = request.GET.get('delivery_date')
 
-    try:
-        purchase_order = PurchaseOrder.objects.filter(
-            route_id=route_id,
-            delivery_date=delivery_date,
-            # status='confirmed'  # Only confirmed purchase orders
-        ).prefetch_related('items__product').first()
+#     try:
+#         purchase_order = PurchaseOrder.objects.filter(
+#             route_id=route_id,
+#             delivery_date=delivery_date,
+#             # status='confirmed'  # Only confirmed purchase orders
+#         ).prefetch_related('items__product').first()
 
-        if purchase_order:
-            items_data = [{
-                'product_name': f"{item.product.code} - {item.product.name}",
-                'total_quantity': str(item.total_quantity),
-                'remaining_quantity': str(item.remaining_quantity)
-            } for item in purchase_order.items.all()]
+#         if purchase_order:
+#             items_data = [{
+#                 'product_name': f"{item.product.code} - {item.product.name}",
+#                 'total_quantity': str(item.total_quantity),
+#                 'remaining_quantity': str(item.remaining_quantity)
+#             } for item in purchase_order.items.all()]
 
-            return JsonResponse({
-                'exists': True,
-                'purchase_order_id': purchase_order.id,
-                'items': items_data
-            })
+#             return JsonResponse({
+#                 'exists': True,
+#                 'purchase_order_id': purchase_order.id,
+#                 'items': items_data
+#             })
 
-        return JsonResponse({'exists': False})
+#         return JsonResponse({'exists': False})
 
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+#     except Exception as e:
+#         return JsonResponse({'error': str(e)}, status=400)
+
+class CheckPurchaseOrderAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        route_id = request.query_params.get('route')
+        delivery_date = request.query_params.get('delivery_date')
+
+        try:
+            # Get first matching purchase order with related items
+            purchase_order = PurchaseOrder.objects.filter(
+                route_id=route_id,
+                delivery_date=delivery_date
+            ).prefetch_related('items__product').first()
+
+            if purchase_order:
+                # Serialize items data
+                items_data = [{
+                    'product_name': f"{item.product.code} - {item.product.name}",
+                    'total_quantity': str(item.total_quantity),
+                    'remaining_quantity': str(item.remaining_quantity)
+                } for item in purchase_order.items.all()]
+
+                return Response({
+                    'exists': True,
+                    'purchase_order_id': purchase_order.id,
+                    'items': items_data
+                })
+
+            return Response({'exists': False})
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
