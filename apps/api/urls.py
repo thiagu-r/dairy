@@ -49,5 +49,6 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    path('loading-orders/check-purchase-order/', views.CheckPurchaseOrderAPIView.as_view(), name='check-purchase-order'),
+    path('loading-orders/check-purchase-order/', views.CheckPurchaseOrderAPIView.as_view(), name='check-purchase-order-api'),
+    path('loading-orders/create/', views.CreateLoadingOrderAPIView.as_view(), name='loading-order-create-api'),
 ]

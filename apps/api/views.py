@@ -630,3 +630,84 @@ class CheckPurchaseOrderAPIView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+
+class CreateLoadingOrderAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        required_fields = [
+            'purchase_order_id', 
+            'route',
+            'loading_date',
+            'loading_time'
+        ]
+        
+        # Validate required fields
+        missing_fields = [field for field in required_fields if field not in request.data]
+        if missing_fields:
+            return Response(
+                {'success': False, 'error': f'Missing fields: {", ".join(missing_fields)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            # Get and validate purchase order
+            purchase_order = PurchaseOrder.objects.get(id=request.data['purchase_order_id'])
+
+            # Check for existing loading order
+            if LoadingOrder.objects.filter(
+                purchase_order=purchase_order,
+                loading_date=request.data['loading_date']
+            ).exists():
+                return Response({
+                    'success': False,
+                    'error': 'Loading order already exists for this date'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Create loading order
+            loading_order = LoadingOrder.objects.create(
+                purchase_order=purchase_order,
+                route_id=request.data['route'],
+                loading_date=request.data['loading_date'],
+                loading_time=request.data['loading_time'],
+                crates_loaded=request.data.get('crates_loaded', 0),
+                notes=request.data.get('notes', ''),
+                status='draft',
+                created_by=request.user,
+                updated_by=request.user
+            )
+
+            # Create loading order items
+            items = []
+            for po_item in purchase_order.items.all():
+                items.append(LoadingOrderItem(
+                    loading_order=loading_order,
+                    product=po_item.product,
+                    purchase_order_quantity=po_item.total_quantity,
+                    loaded_quantity=po_item.total_quantity,
+                    total_quantity=po_item.total_quantity,
+                    remaining_quantity=po_item.total_quantity
+                ))
+            
+            LoadingOrderItem.objects.bulk_create(items)
+            serializer_class = LoadingOrderSerializer(loading_order)
+            return Response({
+                'success': True,
+                'message': 'Loading order created successfully',
+                'order_number': loading_order.order_number,
+                'loading_order_id': loading_order.id,
+                'loading_order': serializer_class.data
+            }, status=status.HTTP_201_CREATED)
+
+        except PurchaseOrder.DoesNotExist:
+            return Response({
+                'success': False,
+                'error': 'Purchase order not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
