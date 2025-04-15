@@ -1,10 +1,13 @@
 from rest_framework import viewsets, generics, status, filters
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.utils import timezone
@@ -15,11 +18,17 @@ from apps.products.models import Product, PricePlan, ProductPrice, Category
 from apps.sales.models import SalesOrder
 from apps.delivery.models import (
     PurchaseOrder,
+    PurchaseOrderItem,
     LoadingOrder,
+    LoadingOrderItem,
     DeliveryOrder,
+    DeliveryOrderItem,
     ReturnedOrder,
+    ReturnedOrderItem,
     BrokenOrder,
+    BrokenOrderItem,
     PublicSale,
+    PublicSaleItem,
     # Payment
 )
 
@@ -33,11 +42,17 @@ from .serializers import (
     ProductPriceSerializer,
     SalesOrderSerializer,
     PurchaseOrderSerializer,
+    PurchaseOrderItemSerializer,
     LoadingOrderSerializer,
+    LoadingOrderItemSerializer,
     DeliveryOrderSerializer,
+    DeliveryOrderItemSerializer,
     ReturnedOrderSerializer,
+    ReturnedOrderItemSerializer,
     BrokenOrderSerializer,
+    BrokenOrderItemSerializer,
     PublicSaleSerializer,
+    PublicSaleItemSerializer,
     # PaymentSerializer,
     SyncDataSerializer,
     SyncStatusSerializer,
@@ -61,27 +76,24 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 @method_decorator(csrf_exempt, name='dispatch')
-class LoginView(ObtainAuthToken):
-    serializer_class = LoginSerializer
+class LoginView(APIView):
+    permission_classes = []
 
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
 
-        username = serializer.validated_data['username']
-        password = serializer.validated_data['password']
+        user = serializer.validated_data['user']
 
-        user = authenticate(username=username, password=password)
+        # Use JWT Authentication
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
 
-        if user:
-            login(request, user)
-            token, created = Token.objects.get_or_create(user=user)
-            return Response({
-                'token': token.key,
-                'user': UserSerializer(user).data
-            })
-
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+            'user': UserSerializer(user).data
+        })
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LogoutView(APIView):
@@ -89,8 +101,9 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            # Delete the token to logout
-            request.user.auth_token.delete()
+            # For JWT tokens, we can't invalidate them on the server side
+            # The client should discard the tokens
+            # We'll just log the user out of the session
             logout(request)
             return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
         except Exception as e:
@@ -160,7 +173,7 @@ class ProductPriceViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ['price_plan', 'product']
     pagination_class = None  # No pagination for master data
 
-class SalesOrderViewSet(viewsets.ReadOnlyModelViewSet):
+class SalesOrderViewSet(viewsets.ModelViewSet):
     queryset = SalesOrder.objects.all()
     serializer_class = SalesOrderSerializer
     permission_classes = [IsAuthenticated]
@@ -170,15 +183,25 @@ class SalesOrderViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['order_date', 'seller__store_name']
     ordering = ['-order_date']
 
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        # Use the default create method, which will call our custom serializer's create method
+        return super().create(request, *args, **kwargs)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        # Use the default update method, which will call our custom serializer's update method
+        return super().update(request, *args, **kwargs)
+
 class PurchaseOrderViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PurchaseOrder.objects.all()
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PurchaseOrderFilter
-    search_fields = ['order_number']
-    ordering_fields = ['order_date']
-    ordering = ['-order_date']
+    search_fields = ['order_number','delivery_date', 'route__name']
+    ordering_fields = ['delivery_date']
+    ordering = ['-delivery_date']
 
 class LoadingOrderViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoadingOrder.objects.all()
@@ -281,6 +304,172 @@ class PublicSaleViewSet(viewsets.ModelViewSet):
 
 #         return super().create(request, *args, **kwargs)
 
+class DeliveryOrderItemViewSet(viewsets.ModelViewSet):
+    queryset = DeliveryOrderItem.objects.all()
+    serializer_class = DeliveryOrderItemSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['delivery_order']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        delivery_order_id = self.request.query_params.get('delivery_order')
+        if delivery_order_id:
+            queryset = queryset.filter(delivery_order_id=delivery_order_id)
+        return queryset
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        # Set sync_status to 'pending' for offline-created records
+        if request.data.get('is_offline', False):
+            request.data['sync_status'] = 'pending'
+        return super().create(request, *args, **kwargs)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        # Set sync_status to 'pending' for offline updates
+        if request.data.get('is_offline', False):
+            request.data['sync_status'] = 'pending'
+        return super().update(request, *args, **kwargs)
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        # Only allow deletion if the delivery order is in draft status
+        if instance.delivery_order.status != 'draft':
+            return Response(
+                {'detail': 'Cannot delete items from a delivery order that is not in draft status.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'])
+    @transaction.atomic
+    def bulk_create(self, request):
+        """Create multiple delivery order items in a single request."""
+        items_data = request.data.get('items', [])
+        if not items_data:
+            return Response({'detail': 'No items provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if all items belong to the same delivery order
+        delivery_order_ids = set(item.get('delivery_order') for item in items_data)
+        if len(delivery_order_ids) != 1:
+            return Response(
+                {'detail': 'All items must belong to the same delivery order'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate delivery order exists
+        delivery_order_id = list(delivery_order_ids)[0]
+        try:
+            delivery_order = DeliveryOrder.objects.get(id=delivery_order_id)
+        except DeliveryOrder.DoesNotExist:
+            return Response(
+                {'detail': f'Delivery order with id {delivery_order_id} does not exist'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Process items
+        created_items = []
+        errors = []
+
+        for index, item_data in enumerate(items_data):
+            # Set sync_status to 'pending' for offline-created records
+            if request.data.get('is_offline', False):
+                item_data['sync_status'] = 'pending'
+
+            serializer = self.get_serializer(data=item_data)
+            if serializer.is_valid():
+                serializer.save()
+                created_items.append(serializer.data)
+            else:
+                errors.append({
+                    'index': index,
+                    'errors': serializer.errors
+                })
+
+        # If there were any errors, rollback and return the errors
+        if errors:
+            return Response({
+                'detail': 'Some items could not be created',
+                'errors': errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Recalculate delivery order totals
+        delivery_order.recalculate_totals()
+
+        return Response({
+            'detail': f'Successfully created {len(created_items)} items',
+            'items': created_items
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['put'])
+    @transaction.atomic
+    def bulk_update(self, request):
+        """Update multiple delivery order items in a single request."""
+        items_data = request.data.get('items', [])
+        if not items_data:
+            return Response({'detail': 'No items provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if all items have IDs
+        missing_ids = [i for i, item in enumerate(items_data) if 'id' not in item]
+        if missing_ids:
+            return Response({
+                'detail': 'All items must have an id',
+                'missing_ids_at_indices': missing_ids
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Process items
+        updated_items = []
+        errors = []
+        delivery_order_ids = set()
+
+        for index, item_data in enumerate(items_data):
+            try:
+                item = DeliveryOrderItem.objects.get(id=item_data['id'])
+                delivery_order_ids.add(item.delivery_order_id)
+
+                # Set sync_status to 'pending' for offline updates
+                if request.data.get('is_offline', False):
+                    item_data['sync_status'] = 'pending'
+
+                serializer = self.get_serializer(item, data=item_data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    updated_items.append(serializer.data)
+                else:
+                    errors.append({
+                        'id': item_data['id'],
+                        'index': index,
+                        'errors': serializer.errors
+                    })
+            except DeliveryOrderItem.DoesNotExist:
+                errors.append({
+                    'id': item_data['id'],
+                    'index': index,
+                    'errors': {'detail': f'Item with id {item_data["id"]} does not exist'}
+                })
+
+        # If there were any errors, rollback and return the errors
+        if errors:
+            return Response({
+                'detail': 'Some items could not be updated',
+                'errors': errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Recalculate delivery order totals for all affected orders
+        for delivery_order_id in delivery_order_ids:
+            try:
+                delivery_order = DeliveryOrder.objects.get(id=delivery_order_id)
+                delivery_order.recalculate_totals()
+            except DeliveryOrder.DoesNotExist:
+                pass  # This shouldn't happen, but just in case
+
+        return Response({
+            'detail': f'Successfully updated {len(updated_items)} items',
+            'items': updated_items
+        })
+
 # Sync Views
 @method_decorator(csrf_exempt, name='dispatch')
 class SyncView(APIView):
@@ -328,13 +517,14 @@ class SyncView(APIView):
                     return Response(sale_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process payments
-        if 'payments' in serializer.validated_data:
-            for payment_data in serializer.validated_data['payments']:
-                payment_serializer = PaymentSerializer(data=payment_data)
-                if payment_serializer.is_valid():
-                    payment_serializer.save(sync_status='synced')
-                else:
-                    return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Commented out until Payment model is implemented
+        # if 'payments' in serializer.validated_data:
+        #     for payment_data in serializer.validated_data['payments']:
+        #         payment_serializer = PaymentSerializer(data=payment_data)
+        #         if payment_serializer.is_valid():
+        #             payment_serializer.save(sync_status='synced')
+        #         else:
+        #             return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Update last sync time for the user
         request.user.profile.last_sync = timezone.now()
@@ -352,7 +542,8 @@ class SyncStatusView(APIView):
         pending_returned = ReturnedOrder.objects.filter(sync_status='pending').count()
         pending_broken = BrokenOrder.objects.filter(sync_status='pending').count()
         pending_sales = PublicSale.objects.filter(sync_status='pending').count()
-        pending_payments = Payment.objects.filter(sync_status='pending').count()
+        # pending_payments = Payment.objects.filter(sync_status='pending').count()
+        pending_payments = 0  # Placeholder until Payment model is implemented
 
         total_pending = pending_delivery + pending_returned + pending_broken + pending_sales + pending_payments
 

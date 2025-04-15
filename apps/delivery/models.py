@@ -401,6 +401,10 @@ class LoadingOrder(models.Model):
             self.order_number = f'LO-{today.strftime("%Y%m%d")}-{new_number}'
 
         super().save(*args, **kwargs)
+        delivery_orders = DeliveryOrder.objects.filter(route=self.route, delivery_date=self.loading_date)
+        for delivery_order in delivery_orders:
+            delivery_order.loading_order = self
+            delivery_order.save()
 
 class LoadingOrderItem(models.Model):
     loading_order = models.ForeignKey(LoadingOrder, related_name='items', on_delete=models.CASCADE)
@@ -443,7 +447,9 @@ class DeliveryOrder(models.Model):
     loading_order = models.ForeignKey(
         LoadingOrder,
         on_delete=models.PROTECT,
-        related_name='delivery_orders'
+        related_name='delivery_orders',
+        null=True,
+        blank=True
     )
     route = models.ForeignKey(
         Route,
@@ -461,7 +467,7 @@ class DeliveryOrder(models.Model):
         related_name='delivery_orders'
     )
     delivery_date = models.DateField(db_index=True)
-    delivery_time = models.TimeField()
+    delivery_time = models.TimeField(blank=True, null=True)
 
     # New fields for pricing and payments
     total_price = models.DecimalField(
@@ -523,12 +529,16 @@ class DeliveryOrder(models.Model):
     created_by = models.ForeignKey(
         CustomUser,
         on_delete=models.PROTECT,
-        related_name='delivery_orders_created'
+        related_name='delivery_orders_created',
+        null=True,
+        blank=True
     )
     updated_by = models.ForeignKey(
         CustomUser,
         on_delete=models.PROTECT,
-        related_name='delivery_orders_updated'
+        related_name='delivery_orders_updated',
+        null=True,
+        blank=True
     )
 
     class Meta:
@@ -537,7 +547,7 @@ class DeliveryOrder(models.Model):
         verbose_name_plural = 'Delivery Orders'
         constraints = [
             models.UniqueConstraint(
-                fields=['loading_order', 'route', 'seller', 'delivery_date'],
+                fields=['route', 'seller', 'delivery_date'],
                 name='unique_lo_route_seller_delivery_date'
             )
         ]

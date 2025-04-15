@@ -33,10 +33,12 @@ class PurchaseOrderFilter(django_filters.FilterSet):
     start_date = django_filters.DateFilter(field_name='order_date', lookup_expr='gte')
     end_date = django_filters.DateFilter(field_name='order_date', lookup_expr='lte')
     status = django_filters.CharFilter(field_name='status')
+    delivery_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='exact')
+    route__name = django_filters.CharFilter(field_name='route__name', lookup_expr='icontains')
     
     class Meta:
         model = PurchaseOrder
-        fields = ['start_date', 'end_date', 'status']
+        fields = ['start_date', 'end_date', 'status', 'delivery_date', 'route__name']
 
 class LoadingOrderFilter(django_filters.FilterSet):
     route = django_filters.NumberFilter(field_name='route__id')

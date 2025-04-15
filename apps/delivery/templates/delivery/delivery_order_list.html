@@ -86,7 +86,7 @@
                                        class="btn btn-icon btn-sm btn-outline-primary">
                                         <i class="bx bx-show"></i>
                                     </a>
-                                    {% if order.status == 'pending' %}
+                                    {% if order.status in 'pending,draft' %}
                                     <button type="button"
                                             class="btn btn-icon btn-sm btn-outline-warning"
                                             onclick="openEditModal({{ order.id }})">
