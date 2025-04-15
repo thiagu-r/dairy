@@ -215,7 +215,7 @@ class LoadingOrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LoadingOrderItem
-        fields = ('id', 'product', 'product_name', 'quantity')
+        fields = ('id', 'product', 'product_name', 'purchase_order_quantity', 'loaded_quantity', 'remaining_quantity','delivered_quantity','total_quantity', 'return_quantity')
 
 class LoadingOrderSerializer(serializers.ModelSerializer):
     items = LoadingOrderItemSerializer(many=True, read_only=True)
