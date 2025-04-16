@@ -226,6 +226,7 @@ class DeliveryOrderViewSet(viewsets.ModelViewSet):
     search_fields = ['order_number', 'seller__store_name', 'route__name']
     ordering_fields = ['delivery_date', 'seller__store_name', 'route__name']
     ordering = ['-delivery_date']
+    pagination_class = None  # Disable pagination for this viewset
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -630,19 +631,19 @@ class CheckPurchaseOrderAPIView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
 
 class CreateLoadingOrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         required_fields = [
-            'purchase_order_id', 
+            'purchase_order_id',
             'route',
             'loading_date',
             'loading_time'
         ]
-        
+
         # Validate required fields
         missing_fields = [field for field in required_fields if field not in request.data]
         if missing_fields:
@@ -689,7 +690,7 @@ class CreateLoadingOrderAPIView(APIView):
                     total_quantity=po_item.total_quantity,
                     remaining_quantity=po_item.total_quantity
                 ))
-            
+
             LoadingOrderItem.objects.bulk_create(items)
             serializer_class = LoadingOrderSerializer(loading_order)
             return Response({
@@ -705,7 +706,7 @@ class CreateLoadingOrderAPIView(APIView):
                 'success': False,
                 'error': 'Purchase order not found'
             }, status=status.HTTP_404_NOT_FOUND)
-            
+
         except Exception as e:
             return Response({
                 'success': False,
