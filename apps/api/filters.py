@@ -57,10 +57,11 @@ class DeliveryOrderFilter(django_filters.FilterSet):
     end_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='lte')
     status = django_filters.CharFilter(field_name='status')
     sync_status = django_filters.CharFilter(field_name='sync_status')
+    delivery_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='exact')
     
     class Meta:
         model = DeliveryOrder
-        fields = ['seller', 'route', 'start_date', 'end_date', 'status', 'sync_status']
+        fields = ['seller', 'route', 'start_date', 'end_date', 'status', 'sync_status','delivery_date']
 
 class ReturnedOrderFilter(django_filters.FilterSet):
     route = django_filters.NumberFilter(field_name='route__id')

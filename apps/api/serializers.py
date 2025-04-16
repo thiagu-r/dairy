@@ -223,7 +223,7 @@ class LoadingOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = LoadingOrder
-        fields = ('id', 'order_number', 'route', 'route_name', 'loading_date', 'status', 'items')
+        fields = ('id', 'order_number', 'route', 'route_name', 'loading_date', 'status', 'items', 'crates_loaded', 'loading_time')
 
 # Delivery Operation Serializers
 class DeliveryOrderItemSerializer(serializers.ModelSerializer):
