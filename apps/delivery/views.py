@@ -237,11 +237,18 @@ def create_purchase_order(request):
                     'error': 'No items to process'
                 }, status=400)
 
+            # Keep track of products in purchase order for later use
+            purchase_order_products = []
+
             print(f"Processing {len(items_data)} items")
             for item in items_data:
                 sales_qty = Decimal(item['sales_quantity'])
                 extra_qty = Decimal(item['extra_quantity'])
                 remaining_qty = Decimal(item['remaining_quantity'])
+                product_id = int(item['product_id'])
+
+                # Add to our list of products
+                purchase_order_products.append(product_id)
 
                 # Validate quantities
                 if (sales_qty + extra_qty - remaining_qty) < sales_qty:
@@ -249,11 +256,52 @@ def create_purchase_order(request):
 
                 PurchaseOrderItem.objects.create(
                     purchase_order=purchase_order,
-                    product_id=item['product_id'],
+                    product_id=product_id,
                     sales_order_quantity=sales_qty,
                     extra_quantity=extra_qty,
                     remaining_quantity=remaining_qty
                 )
+
+            # Now update all delivery orders for this route and date
+            from apps.products.models import Product
+            from apps.sales.utils import get_product_price
+
+            # Get all delivery orders for this route and date
+            delivery_orders = DeliveryOrder.objects.filter(
+                route_id=route_id,
+                delivery_date=delivery_date
+            )
+
+            print(f"Found {delivery_orders.count()} delivery orders to update")
+
+            # For each delivery order, check if it has all the products from the purchase order
+            for delivery_order in delivery_orders:
+                # Get existing products in this delivery order
+                existing_products = set(DeliveryOrderItem.objects.filter(
+                    delivery_order=delivery_order
+                ).values_list('product_id', flat=True))
+
+                # For each product in the purchase order that's not in the delivery order,
+                # add it with ordered_quantity=0
+                for product_id in purchase_order_products:
+                    if product_id not in existing_products:
+                        # Get the product
+                        product = Product.objects.get(id=product_id)
+
+                        # Get the appropriate unit price for this seller and date
+                        unit_price = get_product_price(product, delivery_order.seller, delivery_date)
+
+                        # Create the delivery order item
+                        DeliveryOrderItem.objects.create(
+                            delivery_order=delivery_order,
+                            product=product,
+                            ordered_quantity=Decimal('0'),
+                            delivered_quantity=Decimal('0'),
+                            extra_quantity=Decimal('0'),
+                            unit_price=unit_price,
+                            total_price=Decimal('0')
+                        )
+                        print(f"Added product {product.name} to delivery order {delivery_order.order_number}")
 
             return JsonResponse({'success': True})
 
@@ -313,6 +361,50 @@ class PurchaseOrderEditView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
                         if remaining_qty_key in data:
                             item.remaining_quantity = Decimal(str(data[remaining_qty_key]))
                         item.save()
+
+                    # Now update all delivery orders for this route and date
+                    from apps.products.models import Product
+                    from apps.sales.utils import get_product_price
+
+                    # Get all products in the purchase order
+                    purchase_order_products = list(purchase_order.items.values_list('product_id', flat=True))
+
+                    # Get all delivery orders for this route and date
+                    delivery_orders = DeliveryOrder.objects.filter(
+                        route_id=purchase_order.route_id,
+                        delivery_date=purchase_order.delivery_date
+                    )
+
+                    print(f"Found {delivery_orders.count()} delivery orders to update")
+
+                    # For each delivery order, check if it has all the products from the purchase order
+                    for delivery_order in delivery_orders:
+                        # Get existing products in this delivery order
+                        existing_products = set(DeliveryOrderItem.objects.filter(
+                            delivery_order=delivery_order
+                        ).values_list('product_id', flat=True))
+
+                        # For each product in the purchase order that's not in the delivery order,
+                        # add it with ordered_quantity=0
+                        for product_id in purchase_order_products:
+                            if product_id not in existing_products:
+                                # Get the product
+                                product = Product.objects.get(id=product_id)
+
+                                # Get the appropriate unit price for this seller and date
+                                unit_price = get_product_price(product, delivery_order.seller, purchase_order.delivery_date)
+
+                                # Create the delivery order item
+                                DeliveryOrderItem.objects.create(
+                                    delivery_order=delivery_order,
+                                    product=product,
+                                    ordered_quantity=Decimal('0'),
+                                    delivered_quantity=Decimal('0'),
+                                    extra_quantity=Decimal('0'),
+                                    unit_price=unit_price,
+                                    total_price=Decimal('0')
+                                )
+                                print(f"Added product {product.name} to delivery order {delivery_order.order_number}")
 
                     # Fetch updated data
                     purchase_orders = PurchaseOrder.objects.select_related(
@@ -1499,30 +1591,38 @@ def get_available_products(request, route_id):
 def get_all_products(request):
     """API endpoint to fetch all active products"""
     from apps.products.models import Product, PricePlan, ProductPrice
-    from django.db.models import F, Value, DecimalField
+    from django.db.models import F, Value, DecimalField, Subquery, OuterRef
 
     try:
+        # Get all active products first
+        products = Product.objects.filter(is_active=True)
+
         # Get the general price plan
         general_price_plan = PricePlan.objects.filter(is_general=True, is_active=True).first()
 
         if general_price_plan:
-            # Get products with prices from the general price plan
-            products = Product.objects.filter(is_active=True).annotate(
-                price=F('prices__price')
-            ).filter(
-                prices__price_plan=general_price_plan
-            ).values(
-                'id', 'name', 'code', 'category__name', 'price'
-            ).order_by('category__name', 'name')
+            # Create a subquery to get the price for each product
+            price_subquery = ProductPrice.objects.filter(
+                product_id=OuterRef('id'),
+                price_plan=general_price_plan
+            ).values('price')[:1]
+
+            # Annotate products with their prices
+            products = products.annotate(
+                price=Subquery(price_subquery)
+            )
         else:
             # If no general price plan, use a default price of 0
-            products = Product.objects.filter(is_active=True).annotate(
+            products = products.annotate(
                 price=Value(0, output_field=DecimalField(max_digits=10, decimal_places=2))
-            ).values(
-                'id', 'name', 'code', 'category__name', 'price'
-            ).order_by('category__name', 'name')
+            )
 
-        print(f"Found {len(products)} active products")
+        # Get the values we need
+        product_values = products.values(
+            'id', 'name', 'code', 'category__name', 'price'
+        ).order_by('category__name', 'name')
+
+        print(f"Found {len(product_values)} active products")
         return JsonResponse({
             'products': [{
                 'id': str(product['id']),
@@ -1530,7 +1630,7 @@ def get_all_products(request):
                 'code': product['code'],
                 'category': product['category__name'],
                 'price': str(product['price']) if product['price'] is not None else '0.00'
-            } for product in products]
+            } for product in product_values]
         })
     except Exception as e:
         print(f"Error fetching products: {str(e)}")
