@@ -258,6 +258,11 @@ class LoadingOrderSerializer(serializers.ModelSerializer):
 # Delivery Operation Serializers
 class DeliveryOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    ordered_quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
+    extra_quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
+    delivered_quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
+    unit_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         model = DeliveryOrderItem

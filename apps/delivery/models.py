@@ -650,18 +650,18 @@ class DeliveryOrderItem(models.Model):
     )
     ordered_quantity = models.DecimalField(
         max_digits=10,
-        decimal_places=3,
+        decimal_places=2,
         help_text='Quantity from sales order'
     )
     extra_quantity = models.DecimalField(
         max_digits=10,
-        decimal_places=3,
+        decimal_places=2,
         default=0,
         help_text='Additional quantity beyond ordered quantity'
     )
     delivered_quantity = models.DecimalField(
         max_digits=10,
-        decimal_places=3,
+        decimal_places=2,
         help_text='Actually delivered quantity'
     )
     unit_price = models.DecimalField(
@@ -716,13 +716,12 @@ class DeliveryOrderItem(models.Model):
         if not self.unit_price:
             self.unit_price = self.get_cached_price()
 
-        # Ensure delivered_quantity is at least 0.001
-        if self.delivered_quantity <= 0:
-            print(f"WARNING: DeliveryOrderItem.save() - Forcing delivered_quantity from {self.delivered_quantity} to 0.001")
-            self.delivered_quantity = Decimal('0.001')
+        # Calculate total price - only if delivered_quantity > 0
+        if self.delivered_quantity > 0:
+            self.total_price = self.delivered_quantity * self.unit_price
+        else:
+            self.total_price = Decimal('0.00')
 
-        # Calculate total price
-        self.total_price = self.delivered_quantity * self.unit_price
         super().save(*args, **kwargs)
 
     def get_cached_price(self):

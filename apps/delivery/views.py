@@ -295,11 +295,11 @@ def create_purchase_order(request):
                         DeliveryOrderItem.objects.create(
                             delivery_order=delivery_order,
                             product=product,
-                            ordered_quantity=Decimal('0'),
-                            delivered_quantity=Decimal('0'),
-                            extra_quantity=Decimal('0'),
+                            ordered_quantity=Decimal('0.00'),
+                            delivered_quantity=Decimal('0.00'),
+                            extra_quantity=Decimal('0.00'),
                             unit_price=unit_price,
-                            total_price=Decimal('0')
+                            total_price=Decimal('0.00')
                         )
                         print(f"Added product {product.name} to delivery order {delivery_order.order_number}")
 
@@ -398,11 +398,11 @@ class PurchaseOrderEditView(LoginRequiredMixin,DeliveryTeamRequiredMixin, View):
                                 DeliveryOrderItem.objects.create(
                                     delivery_order=delivery_order,
                                     product=product,
-                                    ordered_quantity=Decimal('0'),
-                                    delivered_quantity=Decimal('0'),
-                                    extra_quantity=Decimal('0'),
+                                    ordered_quantity=Decimal('0.00'),
+                                    delivered_quantity=Decimal('0.00'),
+                                    extra_quantity=Decimal('0.00'),
                                     unit_price=unit_price,
-                                    total_price=Decimal('0')
+                                    total_price=Decimal('0.00')
                                 )
                                 print(f"Added product {product.name} to delivery order {delivery_order.order_number}")
 
