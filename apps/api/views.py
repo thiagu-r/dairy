@@ -631,6 +631,33 @@ class CheckPurchaseOrderAPIView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+class CheckLoadingOrderAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        route_id = request.query_params.get('route')
+        delivery_date = request.query_params.get('delivery_date')
+
+        try:
+            # Get first matching purchase order with related items
+            loading_order = LoadingOrder.objects.filter(
+                route_id=route_id,
+                loading_date=delivery_date
+            ).prefetch_related('items__product').first()
+
+            if loading_order:
+                data = LoadingOrderSerializer(loading_order)
+                return Response(data.data)
+                
+
+            return Response({'exists': False})
+
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class CreateLoadingOrderAPIView(APIView):

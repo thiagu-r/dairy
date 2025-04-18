@@ -212,10 +212,40 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
 
 class LoadingOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    unit_price = serializers.SerializerMethodField()
 
     class Meta:
         model = LoadingOrderItem
-        fields = ('id', 'product', 'product_name', 'purchase_order_quantity', 'loaded_quantity', 'remaining_quantity','delivered_quantity','total_quantity', 'return_quantity')
+        fields = ('id', 'product', 'product_name', 'purchase_order_quantity', 'loaded_quantity', 'remaining_quantity','delivered_quantity','total_quantity', 'return_quantity', 'unit_price')
+
+    def get_unit_price(self, obj):
+        """Get the unit price from the general price plan"""
+        from apps.products.models import PricePlan, ProductPrice
+        from decimal import Decimal
+
+        # Get the loading date from the loading order
+        loading_date = obj.loading_order.loading_date
+
+        # Find the active general price plan for this date
+        general_price_plan = PricePlan.objects.filter(
+            is_general=True,
+            is_active=True,
+            valid_from__lte=loading_date,
+            valid_to__gte=loading_date
+        ).first()
+
+        if general_price_plan:
+            # Get the price for this product from the general price plan
+            product_price = ProductPrice.objects.filter(
+                price_plan=general_price_plan,
+                product=obj.product
+            ).first()
+
+            if product_price:
+                return str(product_price.price)
+
+        # Default to 0 if no price found
+        return str(Decimal('0.00'))
 
 class LoadingOrderSerializer(serializers.ModelSerializer):
     items = LoadingOrderItemSerializer(many=True, read_only=True)
