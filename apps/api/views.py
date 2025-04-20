@@ -700,7 +700,28 @@ class SyncView(APIView):
                         # Update the order directly using model instance
                         for key, value in order_data_copy.items():
                             if key != 'items' and hasattr(existing_order, key):
-                                setattr(existing_order, key, value)
+                                # Handle foreign key fields
+                                if key == 'route' and isinstance(value, int):
+                                    try:
+                                        route = Route.objects.get(id=value)
+                                        setattr(existing_order, key, route)
+                                    except Route.DoesNotExist:
+                                        print(f"Route with id {value} does not exist")
+                                elif key == 'seller' and isinstance(value, int):
+                                    try:
+                                        seller = Seller.objects.get(id=value)
+                                        setattr(existing_order, key, seller)
+                                    except Seller.DoesNotExist:
+                                        print(f"Seller with id {value} does not exist")
+                                elif key == 'sales_order' and isinstance(value, int):
+                                    try:
+                                        sales_order = SalesOrder.objects.get(id=value)
+                                        setattr(existing_order, key, sales_order)
+                                    except SalesOrder.DoesNotExist:
+                                        print(f"SalesOrder with id {value} does not exist")
+                                else:
+                                    # For non-foreign key fields
+                                    setattr(existing_order, key, value)
 
                         existing_order.sync_status = 'synced'
                         existing_order.updated_by = user
@@ -724,10 +745,26 @@ class SyncView(APIView):
                                         existing_item.save()
                                     else:
                                         # Create new item
-                                        DeliveryOrderItem.objects.create(
-                                            delivery_order=existing_order,
-                                            **item_data
-                                        )
+                                        try:
+                                            # Get the product instance
+                                            product = Product.objects.get(id=item_data['product'])
+
+                                            # Create new item with product instance
+                                            new_item = DeliveryOrderItem(
+                                                delivery_order=existing_order,
+                                                product=product
+                                            )
+
+                                            # Set other fields
+                                            for key, value in item_data.items():
+                                                if key != 'product' and hasattr(new_item, key):
+                                                    setattr(new_item, key, value)
+
+                                            new_item.save()
+                                        except Product.DoesNotExist:
+                                            print(f"Product with id {item_data['product']} does not exist")
+                                        except Exception as e:
+                                            print(f"Error creating delivery order item: {e}")
 
                         # Add to valid orders
                         valid_delivery_orders.append(existing_order)
@@ -748,7 +785,28 @@ class SyncView(APIView):
                         # Set fields from order_data
                         for key, value in order_data.items():
                             if key != 'items' and hasattr(new_order, key):
-                                setattr(new_order, key, value)
+                                # Handle foreign key fields
+                                if key == 'route' and isinstance(value, int):
+                                    try:
+                                        route = Route.objects.get(id=value)
+                                        setattr(new_order, key, route)
+                                    except Route.DoesNotExist:
+                                        print(f"Route with id {value} does not exist")
+                                elif key == 'seller' and isinstance(value, int):
+                                    try:
+                                        seller = Seller.objects.get(id=value)
+                                        setattr(new_order, key, seller)
+                                    except Seller.DoesNotExist:
+                                        print(f"Seller with id {value} does not exist")
+                                elif key == 'sales_order' and isinstance(value, int):
+                                    try:
+                                        sales_order = SalesOrder.objects.get(id=value)
+                                        setattr(new_order, key, sales_order)
+                                    except SalesOrder.DoesNotExist:
+                                        print(f"SalesOrder with id {value} does not exist")
+                                else:
+                                    # For non-foreign key fields
+                                    setattr(new_order, key, value)
 
                         # Save the new order
                         new_order.save()
@@ -756,10 +814,27 @@ class SyncView(APIView):
                         # Process items
                         if 'items' in order_data and order_data['items']:
                             for item_data in order_data['items']:
-                                DeliveryOrderItem.objects.create(
-                                    delivery_order=new_order,
-                                    **item_data
-                                )
+                                if 'product' in item_data:
+                                    try:
+                                        # Get the product instance
+                                        product = Product.objects.get(id=item_data['product'])
+
+                                        # Create new item with product instance
+                                        new_item = DeliveryOrderItem(
+                                            delivery_order=new_order,
+                                            product=product
+                                        )
+
+                                        # Set other fields
+                                        for key, value in item_data.items():
+                                            if key != 'product' and hasattr(new_item, key):
+                                                setattr(new_item, key, value)
+
+                                        new_item.save()
+                                    except Product.DoesNotExist:
+                                        print(f"Product with id {item_data['product']} does not exist")
+                                    except Exception as e:
+                                        print(f"Error creating delivery order item: {e}")
 
                         # Add to valid orders
                         valid_delivery_orders.append(new_order)
