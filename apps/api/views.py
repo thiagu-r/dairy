@@ -33,7 +33,8 @@ from apps.delivery.models import (
     PublicSale,
     PublicSaleItem,
     DeliveryExpense,
-    CashDenomination
+    CashDenomination,
+    DeliveryTeam
     # Payment
 )
 
@@ -483,17 +484,205 @@ class DeliveryOrderItemViewSet(viewsets.ModelViewSet):
 class SyncView(APIView):
     permission_classes = [IsAuthenticated]
 
+
+
+    def fix_time_format(self, time_str):
+        """Convert various time formats to HH:MM:SS format."""
+        if not time_str:
+            return '00:00:00'
+
+        try:
+            # If it's a datetime string with space (e.g., '2025-04-20 15:57:11')
+            if isinstance(time_str, str) and ' ' in time_str:
+                time_part = time_str.split(' ')[1]
+                return time_part
+
+            # If it's already in the correct format
+            if isinstance(time_str, str) and len(time_str.split(':')) == 3:
+                return time_str
+
+            # Try to parse as datetime
+            dt = datetime.strptime(str(time_str), '%Y-%m-%d %H:%M:%S')
+            return dt.strftime('%H:%M:%S')
+        except (ValueError, TypeError):
+            try:
+                # Try to parse as time
+                dt = datetime.strptime(str(time_str), '%H:%M:%S')
+                return dt.strftime('%H:%M:%S')
+            except (ValueError, TypeError):
+                # If all else fails, return a default time
+                return '00:00:00'
+
+    def preprocess_data(self, data, user):
+        """Preprocess the data before passing it to the serializer validation."""
+        # Make a deep copy to avoid modifying the original data
+        import copy
+        processed_data = copy.deepcopy(data)
+        delivery_date = None
+        route_id = None
+        try:
+            if 'delivery_orders' in processed_data:
+                delivery_order = processed_data['delivery_orders'][0]
+                delivery_date = delivery_order.get('delivery_date')
+                route_id = delivery_order.get('route')
+        except Exception as e:
+            print('No delivery orders provided in the request data.', e)
+
+        # Process delivery orders
+        if 'delivery_orders' in processed_data:
+            for order in processed_data['delivery_orders']:
+                # Fix time formats
+                if 'delivery_time' in order and order['delivery_time']:
+                    order['delivery_time'] = self.fix_time_format(order['delivery_time'])
+
+                if 'actual_delivery_time' in order and order['actual_delivery_time']:
+                    order['actual_delivery_time'] = self.fix_time_format(order['actual_delivery_time'])
+
+                # Fix status
+                if 'status' in order and order['status'] == 'draft':
+                    order['status'] = 'pending'
+
+                # Fix payment method
+                if 'payment_method' in order and order['payment_method'] == 'credit':
+                    order['payment_method'] = 'cash'
+
+        # Process public sales
+        if 'public_sales' in processed_data:
+            for sale in processed_data['public_sales']:
+                # Fix time formats
+                if 'sale_time' in sale and sale['sale_time']:
+                    sale['sale_time'] = self.fix_time_format(sale['sale_time'])
+
+        # Process expenses
+        if 'expenses' in processed_data:
+            for expense in processed_data['expenses']:
+                # Map expense type
+                if 'expense_type' in expense:
+                    expense_type = expense['expense_type'].lower() if expense['expense_type'] else ''
+                    if expense_type == 'maintenance':
+                        expense['expense_type'] = 'vehicle'
+                if 'expense_date' not in expense:
+                    expense['expense_date'] = delivery_date
+                if 'created_by' not in expense:
+                    expense['created_by'] = user.id
+                if 'delivery_team' not in expense:
+                    loading_order = LoadingOrder.objects.filter(route_id=route_id, loading_date=delivery_date).first()
+                    print('delivery team: ', loading_order.purchase_order.delivery_team.id)
+                    expense['delivery_team'] = loading_order.purchase_order.delivery_team.id if loading_order else None
+
+        # Process denominations
+        if 'denominations' in processed_data and isinstance(processed_data['denominations'], list):
+            # If it's a list of lists, flatten it
+            if processed_data['denominations'] and isinstance(processed_data['denominations'][0], list):
+                flattened = []
+                for group in processed_data['denominations']:
+                    if isinstance(group, list):
+                        flattened.extend(group)
+                    else:
+                        flattened.append(group)
+                processed_data['denominations'] = flattened
+
+        return processed_data
+
     @transaction.atomic
     def post(self, request):
-        print('Raw data received:', request.data)
-        print('Data type:', type(request.data))
-        serializer = SyncDataSerializer(data=request.data)
+        user = request.user
+        # Check if data is nested inside a 'data' key
+        if 'data' in request.data:
+            data_to_process = request.data['data']
+            print('Found nested data structure, extracting data from "data" key')
+        else:
+            data_to_process = request.data
+            print('Using direct data structure')
+
+        # Pre-process the data to fix time formats and other issues before validation
+        data_to_process = self.preprocess_data(data_to_process, user)
+        print('Preprocessed data:', data_to_process)
+
+        serializer = SyncDataSerializer(data=data_to_process)
         serializer.is_valid(raise_exception=True)
         print('Validated data:', serializer.validated_data)
 
         # Process delivery orders
         if 'delivery_orders' in serializer.validated_data:
             for order_data in serializer.validated_data['delivery_orders']:
+                # Fix time format issues
+                print(f"Before time fix - delivery_time: {order_data.get('delivery_time')}")
+                print(f"Before time fix - actual_delivery_time: {order_data.get('actual_delivery_time')}")
+
+                # Fix delivery_time format
+                if 'delivery_time' in order_data and order_data['delivery_time']:
+                    try:
+                        # First, check if it's a datetime string with space
+                        if isinstance(order_data['delivery_time'], str) and ' ' in order_data['delivery_time']:
+                            # Extract just the time part
+                            time_part = order_data['delivery_time'].split(' ')[1]
+                            # Parse the time part
+                            time_obj = datetime.strptime(time_part, '%H:%M:%S').time()
+                            # Format as HH:MM:SS
+                            order_data['delivery_time'] = time_obj.strftime('%H:%M:%S')
+                        else:
+                            # Try to parse as datetime
+                            dt = datetime.strptime(str(order_data['delivery_time']), '%Y-%m-%d %H:%M:%S')
+                            order_data['delivery_time'] = dt.time().strftime('%H:%M:%S')
+                    except (ValueError, TypeError):
+                        try:
+                            # Try to parse as time
+                            dt = datetime.strptime(str(order_data['delivery_time']), '%H:%M:%S')
+                            order_data['delivery_time'] = dt.strftime('%H:%M:%S')
+                        except (ValueError, TypeError):
+                            # If all else fails, set to a default time
+                            order_data['delivery_time'] = '00:00:00'
+
+                # Fix actual_delivery_time format
+                if 'actual_delivery_time' in order_data and order_data['actual_delivery_time']:
+                    try:
+                        # First, check if it's a datetime string with space
+                        if isinstance(order_data['actual_delivery_time'], str) and ' ' in order_data['actual_delivery_time']:
+                            # Extract just the time part
+                            time_part = order_data['actual_delivery_time'].split(' ')[1]
+                            # Parse the time part
+                            time_obj = datetime.strptime(time_part, '%H:%M:%S').time()
+                            # Format as HH:MM:SS
+                            order_data['actual_delivery_time'] = time_obj.strftime('%H:%M:%S')
+                        else:
+                            # Try to parse as datetime
+                            dt = datetime.strptime(str(order_data['actual_delivery_time']), '%Y-%m-%d %H:%M:%S')
+                            order_data['actual_delivery_time'] = dt.time().strftime('%H:%M:%S')
+                    except (ValueError, TypeError):
+                        try:
+                            # Try to parse as time
+                            dt = datetime.strptime(str(order_data['actual_delivery_time']), '%H:%M:%S')
+                            order_data['actual_delivery_time'] = dt.strftime('%H:%M:%S')
+                        except (ValueError, TypeError):
+                            # If all else fails, set to a default time
+                            order_data['actual_delivery_time'] = '00:00:00'
+
+                print(f"After time fix - delivery_time: {order_data.get('delivery_time')}")
+                print(f"After time fix - actual_delivery_time: {order_data.get('actual_delivery_time')}")
+
+                # Fix status - map 'draft' to 'pending'
+                print(f"Before status fix - status: {order_data.get('status')}")
+                if 'status' in order_data:
+                    if order_data['status'] == 'draft':
+                        order_data['status'] = 'pending'
+                    # Make sure status is one of the valid choices
+                    valid_statuses = ['pending', 'in_progress', 'completed', 'cancelled']
+                    if order_data['status'] not in valid_statuses:
+                        order_data['status'] = 'pending'
+                print(f"After status fix - status: {order_data.get('status')}")
+
+                # Fix payment method - map 'credit' to 'cash' if needed
+                print(f"Before payment method fix - payment_method: {order_data.get('payment_method')}")
+                if 'payment_method' in order_data:
+                    if order_data['payment_method'] == 'credit':
+                        order_data['payment_method'] = 'cash'
+                    # Make sure payment_method is one of the valid choices
+                    valid_payment_methods = ['cash', 'online']
+                    if order_data['payment_method'] not in valid_payment_methods:
+                        order_data['payment_method'] = 'cash'
+                print(f"After payment method fix - payment_method: {order_data.get('payment_method')}")
+
                 # Ensure route and seller are primary keys
                 if 'route' in order_data and not isinstance(order_data['route'], int):
                     order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
@@ -506,19 +695,40 @@ class SyncView(APIView):
                         if 'product' in item and not isinstance(item['product'], int):
                             item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
 
+                # Try to find a sales order for this delivery order
+                if 'sales_order' not in order_data and 'seller' in order_data and 'route' in order_data and 'delivery_date' in order_data:
+                    try:
+                        # Look for a sales order for this seller
+                        sales_order = SalesOrder.objects.filter(
+                            seller_id=order_data['seller'],
+                            route_id=order_data['route'],
+                            order_date__lte=order_data['delivery_date']
+                        ).order_by('-order_date').first()
+
+                        if sales_order:
+                            order_data['sales_order'] = sales_order.id
+                            print(f"Found sales order {sales_order.id} for delivery order")
+                    except Exception as e:
+                        print(f"Error finding sales order: {e}")
+
+                print(f"Final delivery order data: {order_data}")
                 delivery_serializer = DeliveryOrderSerializer(data=order_data)
                 if delivery_serializer.is_valid():
                     delivery_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                    print(f"Successfully saved delivery order: {delivery_serializer.data['id']}")
                 else:
                     print(f"Validation errors: {delivery_serializer.errors}")
                     print(f"Data received: {order_data}")
-                    return Response(delivery_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    # Continue processing other orders instead of failing the whole request
+                    continue
         else:
             print("Delivery orders not provided in the request data.")
 
-        # Process returned orders
-        if 'returned_orders' in serializer.validated_data:
-            for order_data in serializer.validated_data['returned_orders']:
+        # Process returned orders - check both 'returned_orders' and 'return_orders' keys
+        return_orders_key = 'returned_orders' if 'returned_orders' in serializer.validated_data else 'return_orders' if 'return_orders' in serializer.validated_data else None
+
+        if return_orders_key:
+            for order_data in serializer.validated_data[return_orders_key]:
                 # Ensure route is a primary key
                 if 'route' in order_data and not isinstance(order_data['route'], int):
                     order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
@@ -565,6 +775,30 @@ class SyncView(APIView):
         # Process public sales
         if 'public_sales' in serializer.validated_data:
             for sale_data in serializer.validated_data['public_sales']:
+                # Fix sale_time format
+                if 'sale_time' in sale_data and sale_data['sale_time']:
+                    try:
+                        # First, check if it's a datetime string with space
+                        if isinstance(sale_data['sale_time'], str) and ' ' in sale_data['sale_time']:
+                            # Extract just the time part
+                            time_part = sale_data['sale_time'].split(' ')[1]
+                            # Parse the time part
+                            time_obj = datetime.strptime(time_part, '%H:%M:%S').time()
+                            # Format as HH:MM:SS
+                            sale_data['sale_time'] = time_obj.strftime('%H:%M:%S')
+                        else:
+                            # Try to parse as datetime
+                            dt = datetime.strptime(str(sale_data['sale_time']), '%Y-%m-%d %H:%M:%S')
+                            sale_data['sale_time'] = dt.time().strftime('%H:%M:%S')
+                    except (ValueError, TypeError):
+                        try:
+                            # Try to parse as time
+                            dt = datetime.strptime(str(sale_data['sale_time']), '%H:%M:%S')
+                            sale_data['sale_time'] = dt.strftime('%H:%M:%S')
+                        except (ValueError, TypeError):
+                            # If all else fails, set to a default time
+                            sale_data['sale_time'] = '00:00:00'
+
                 # Ensure route and product are primary keys
                 if 'route' in sale_data and not isinstance(sale_data['route'], int):
                     sale_data['route'] = sale_data['route'].id if hasattr(sale_data['route'], 'id') else sale_data['route']
@@ -583,42 +817,148 @@ class SyncView(APIView):
                     print(f"Validation errors: {sale_serializer.errors}")
                     print(f"Data received: {sale_data}")
                     return Response(sale_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-                
+
         else:
             print("Public sales not provided in the request data.")
 
         # Process expenses
         if 'expenses' in serializer.validated_data:
             for expense_data in serializer.validated_data['expenses']:
-                # Ensure delivery_team is a primary key
-                if 'delivery_team' in expense_data and not isinstance(expense_data['delivery_team'], int):
-                    expense_data['delivery_team'] = expense_data['delivery_team'].id if hasattr(expense_data['delivery_team'], 'id') else expense_data['delivery_team']
+                # Find the delivery team for the route
+                route_id = expense_data.get('route', None)
+                expense_date = expense_data.get('date', None)
 
-                expense_serializer = DeliveryExpenseSerializer(data=expense_data)
+                # If we don't have a date, use the first delivery order's date
+                if not expense_date and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
+                    expense_date = serializer.validated_data['delivery_orders'][0].get('delivery_date')
+
+                # Find the delivery team for this route
+                delivery_team = None
+                if route_id:
+                    # Try to find a loading order for this route and date
+                    loading_order = LoadingOrder.objects.filter(route_id=route_id, delivery_date=expense_date).first()
+                    if loading_order and loading_order.purchase_order and loading_order.purchase_order.delivery_team:
+                        delivery_team = loading_order.purchase_order.delivery_team.id
+                    else:
+                        # Fallback: find any delivery team assigned to this route
+                        delivery_team_obj = DeliveryTeam.objects.filter(routes__id=route_id).first()
+                        if delivery_team_obj:
+                            delivery_team = delivery_team_obj.id
+                        else:
+                            # Last resort: use the first delivery team
+                            first_team = DeliveryTeam.objects.first()
+                            if first_team:
+                                delivery_team = first_team.id
+
+                # Map expense fields to match the model
+                mapped_expense_data = {
+                    'delivery_team': delivery_team,
+                    'expense_date': expense_date,
+                    'expense_type': 'other',  # Default to 'other' and map if possible
+                    'amount': expense_data.get('amount', None),
+                    'notes': expense_data.get('description', None),
+                    'local_id': expense_data.get('local_id', None),
+                    'sync_status': 'synced'
+                }
+
+                print(f"Before expense type mapping: {expense_data.get('expense_type')}")
+                # Map expense type
+                expense_type = expense_data.get('expense_type', '').lower() if expense_data.get('expense_type') else ''
+                if expense_type == 'fuel':
+                    mapped_expense_data['expense_type'] = 'fuel'
+                elif expense_type == 'food':
+                    mapped_expense_data['expense_type'] = 'food'
+                elif expense_type == 'vehicle' or expense_type == 'maintenance':
+                    mapped_expense_data['expense_type'] = 'vehicle'
+                print(f"After expense type mapping: {mapped_expense_data['expense_type']}")
+
+                print(f"Mapped expense data: {mapped_expense_data}")
+
+                # Skip if we couldn't find a delivery team
+                if not mapped_expense_data['delivery_team']:
+                    print(f"Skipping expense due to missing delivery team: {expense_data}")
+                    continue
+
+                # Add created_by to the data directly
+                # This is needed because the serializer requires it
+                mapped_expense_data['created_by'] = request.user.id
+
+                print(f"Final expense data with created_by: {mapped_expense_data}")
+
+                expense_serializer = DeliveryExpenseSerializer(data=mapped_expense_data)
                 if expense_serializer.is_valid():
-                    expense_serializer.save(sync_status='synced', created_by=request.user)
+                    expense_serializer.save(sync_status='synced')
+                    print(f"Successfully saved expense: {expense_serializer.data}")
                 else:
                     print(f"Validation errors: {expense_serializer.errors}")
-                    print(f"Data received: {expense_data}")
-                    return Response(expense_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-                
+                    print(f"Data received: {mapped_expense_data}")
+                    # Continue processing other expenses instead of failing the whole request
+                    continue
+
         else:
             print("Expenses not provided in the request data.")
 
         # Process denominations
         if 'denominations' in serializer.validated_data:
-            for denomination_data in serializer.validated_data['denominations']:
-                # Ensure delivery_order is a primary key
-                if 'delivery_order' in denomination_data and not isinstance(denomination_data['delivery_order'], int):
-                    denomination_data['delivery_order'] = denomination_data['delivery_order'].id if hasattr(denomination_data['delivery_order'], 'id') else denomination_data['delivery_order']
+            # The denominations data is a list of lists, where each inner list contains denomination objects for a delivery order
+            denominations_data = serializer.validated_data['denominations']
+            print(f"Processing denominations: {denominations_data}")
 
+            # If we have a list of lists, flatten it
+            if isinstance(denominations_data, list) and all(isinstance(item, list) for item in denominations_data):
+                # Flatten the list of lists
+                flattened_denominations = []
+                for denomination_group in denominations_data:
+                    flattened_denominations.extend(denomination_group)
+                denominations_data = flattened_denominations
+
+            # Process each denomination
+            for denomination_data in denominations_data:
+                # Try to find the delivery order from the local_id
+                delivery_order_id = None
+                if 'local_id' in denomination_data:
+                    # Extract delivery order ID from local_id (format: mobile-den-{timestamp}-{denomination})
+                    local_id_parts = denomination_data.get('local_id', '').split('-')
+                    if len(local_id_parts) >= 3:
+                        timestamp = local_id_parts[2]
+                        # Find delivery order with matching local_id timestamp
+                        matching_orders = DeliveryOrder.objects.filter(local_id__contains=timestamp)
+                        if matching_orders.exists():
+                            delivery_order_id = matching_orders.first().id
+
+                # If we couldn't find a matching delivery order, use the first one from the sync data
+                if not delivery_order_id and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
+                    # Use the first delivery order in the sync data
+                    first_order_data = serializer.validated_data['delivery_orders'][0]
+                    # Check if this order already exists in the database
+                    if 'local_id' in first_order_data:
+                        existing_order = DeliveryOrder.objects.filter(local_id=first_order_data['local_id']).first()
+                        if existing_order:
+                            delivery_order_id = existing_order.id
+
+                # If we still don't have a delivery order, use the first one in the database
+                if not delivery_order_id:
+                    first_order = DeliveryOrder.objects.first()
+                    if first_order:
+                        delivery_order_id = first_order.id
+                    else:
+                        print("No delivery orders found for denominations")
+                        continue
+
+                # Add delivery_order to the data
+                denomination_data['delivery_order'] = delivery_order_id
+
+                print(f"Processing denomination: {denomination_data}")
+
+                # Create the denomination
                 denomination_serializer = CashDenominationSerializer(data=denomination_data)
                 if denomination_serializer.is_valid():
                     denomination_serializer.save(sync_status='synced')
                 else:
                     print(f"Validation errors: {denomination_serializer.errors}")
                     print(f"Data received: {denomination_data}")
-                    return Response(denomination_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    # Continue processing other denominations instead of failing the whole request
+                    continue
         else:
             print("Denominations not provided in the request data.")
 

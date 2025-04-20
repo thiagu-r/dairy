@@ -464,7 +464,9 @@ class DeliveryOrder(models.Model):
     sales_order = models.ForeignKey(
         SalesOrder,
         on_delete=models.PROTECT,
-        related_name='delivery_orders'
+        related_name='delivery_orders',
+        null=True,
+        blank=True
     )
     delivery_date = models.DateField(db_index=True)
     delivery_time = models.TimeField(blank=True, null=True)
@@ -557,7 +559,10 @@ class DeliveryOrder(models.Model):
         ]
 
     def __str__(self):
-        return f"DO {self.order_number} - {self.sales_order.seller.store_name}"
+        if self.sales_order:
+            return f"DO {self.order_number} - {self.sales_order.seller.store_name}"
+        else:
+            return f"DO {self.order_number} - {self.seller.store_name}"
 
     # def save(self, *args, **kwargs):
     #     if not self.pk and not self.opening_balance:  # Only for new orders
@@ -1128,8 +1133,18 @@ class CashDenomination(models.Model):
     delivery_order = models.ForeignKey(
         DeliveryOrder,
         on_delete=models.PROTECT,
-        related_name='cash_denominations'
+        related_name='cash_denominations',
+        blank=True,
+        null=True
     )
+    route = models.ForeignKey(
+        Route,
+        on_delete=models.PROTECT,
+        related_name='cash_denominations',
+        blank=True,
+        null=True
+    )
+    delivery_date  = models.DateField(blank=True, null=True)
     denomination = models.PositiveIntegerField(
         help_text='Value of the note (500, 200, etc.)'
     )

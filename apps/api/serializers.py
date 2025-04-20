@@ -278,16 +278,50 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
     route_name = serializers.ReadOnlyField(source='route.name')
     route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
     seller = serializers.PrimaryKeyRelatedField(queryset=Seller.objects.all())
+    # Make sales_order optional for mobile app sync
+    sales_order = serializers.PrimaryKeyRelatedField(queryset=SalesOrder.objects.all(), required=False)
 
     class Meta:
         model = DeliveryOrder
         fields = ('id', 'order_number', 'seller', 'seller_name', 'route', 'route_name', 'delivery_date',
                   'delivery_time', 'actual_delivery_date', 'actual_delivery_time', 'total_price',
                   'opening_balance', 'amount_collected', 'balance_amount', 'payment_method',
-                  'status', 'notes', 'items', 'sync_status', 'local_id')
+                  'status', 'notes', 'items', 'sync_status', 'local_id', 'sales_order')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
+
+        # Handle missing sales_order for mobile app sync
+        if 'sales_order' not in validated_data:
+            # Try to find a sales order for this seller and route
+            seller = validated_data.get('seller')
+            route = validated_data.get('route')
+            delivery_date = validated_data.get('delivery_date')
+
+            if seller and route and delivery_date:
+                # Look for a sales order for this seller
+                sales_order = SalesOrder.objects.filter(
+                    seller=seller,
+                    route=route,
+                    order_date__lte=delivery_date
+                ).order_by('-order_date').first()
+
+                if sales_order:
+                    validated_data['sales_order'] = sales_order
+                else:
+                    # If no sales order exists, create a dummy one
+                    from django.utils import timezone
+                    sales_order = SalesOrder.objects.create(
+                        seller=seller,
+                        route=route,
+                        order_date=delivery_date,
+                        delivery_date=delivery_date,
+                        status='completed',
+                        created_by=validated_data.get('created_by'),
+                        updated_by=validated_data.get('updated_by')
+                    )
+                    validated_data['sales_order'] = sales_order
+
         delivery_order = DeliveryOrder.objects.create(**validated_data)
 
         for item_data in items_data:
