@@ -32,6 +32,8 @@ from apps.delivery.models import (
     BrokenOrderItem,
     PublicSale,
     PublicSaleItem,
+    DeliveryExpense,
+    CashDenomination
     # Payment
 )
 
@@ -56,6 +58,8 @@ from .serializers import (
     BrokenOrderItemSerializer,
     PublicSaleSerializer,
     PublicSaleItemSerializer,
+    DeliveryExpenseSerializer,
+    CashDenominationSerializer,
     # PaymentSerializer,
     SyncDataSerializer,
     SyncStatusSerializer,
@@ -489,7 +493,7 @@ class SyncView(APIView):
             for order_data in serializer.validated_data['delivery_orders']:
                 delivery_serializer = DeliveryOrderSerializer(data=order_data)
                 if delivery_serializer.is_valid():
-                    delivery_serializer.save(sync_status='synced')
+                    delivery_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
                     return Response(delivery_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -498,7 +502,7 @@ class SyncView(APIView):
             for order_data in serializer.validated_data['returned_orders']:
                 returned_serializer = ReturnedOrderSerializer(data=order_data)
                 if returned_serializer.is_valid():
-                    returned_serializer.save(sync_status='synced')
+                    returned_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
                     return Response(returned_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -507,7 +511,7 @@ class SyncView(APIView):
             for order_data in serializer.validated_data['broken_orders']:
                 broken_serializer = BrokenOrderSerializer(data=order_data)
                 if broken_serializer.is_valid():
-                    broken_serializer.save(sync_status='synced')
+                    broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
                     return Response(broken_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -516,9 +520,27 @@ class SyncView(APIView):
             for sale_data in serializer.validated_data['public_sales']:
                 sale_serializer = PublicSaleSerializer(data=sale_data)
                 if sale_serializer.is_valid():
-                    sale_serializer.save(sync_status='synced')
+                    sale_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
                     return Response(sale_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Process expenses
+        if 'expenses' in serializer.validated_data:
+            for expense_data in serializer.validated_data['expenses']:
+                expense_serializer = DeliveryExpenseSerializer(data=expense_data)
+                if expense_serializer.is_valid():
+                    expense_serializer.save(sync_status='synced', created_by=request.user)
+                else:
+                    return Response(expense_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Process denominations
+        if 'denominations' in serializer.validated_data:
+            for denomination_data in serializer.validated_data['denominations']:
+                denomination_serializer = CashDenominationSerializer(data=denomination_data)
+                if denomination_serializer.is_valid():
+                    denomination_serializer.save(sync_status='synced')
+                else:
+                    return Response(denomination_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process payments
         # Commented out until Payment model is implemented
@@ -546,10 +568,12 @@ class SyncStatusView(APIView):
         pending_returned = ReturnedOrder.objects.filter(sync_status='pending').count()
         pending_broken = BrokenOrder.objects.filter(sync_status='pending').count()
         pending_sales = PublicSale.objects.filter(sync_status='pending').count()
+        pending_expenses = DeliveryExpense.objects.filter(sync_status='pending').count()
+        pending_denominations = CashDenomination.objects.filter(sync_status='pending').count()
         # pending_payments = Payment.objects.filter(sync_status='pending').count()
         pending_payments = 0  # Placeholder until Payment model is implemented
 
-        total_pending = pending_delivery + pending_returned + pending_broken + pending_sales + pending_payments
+        total_pending = pending_delivery + pending_returned + pending_broken + pending_sales + pending_expenses + pending_denominations + pending_payments
 
         # Get last sync time
         last_sync = request.user.profile.last_sync if hasattr(request.user, 'profile') else None
@@ -559,7 +583,16 @@ class SyncStatusView(APIView):
 
         data = {
             'last_sync': last_sync,
-            'pending_sync_count': total_pending,
+            'pending_count': {
+                'delivery_orders': pending_delivery,
+                'returned_orders': pending_returned,
+                'broken_orders': pending_broken,
+                'public_sales': pending_sales,
+                'expenses': pending_expenses,
+                'denominations': pending_denominations,
+                'payments': pending_payments,
+                'total': total_pending
+            },
             'sync_status': sync_status
         }
 
@@ -631,7 +664,7 @@ class CheckPurchaseOrderAPIView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
 class CheckLoadingOrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -649,7 +682,7 @@ class CheckLoadingOrderAPIView(APIView):
             if loading_order:
                 data = LoadingOrderSerializer(loading_order)
                 return Response(data.data)
-                
+
 
             return Response({'exists': False})
 

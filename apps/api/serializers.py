@@ -17,6 +17,8 @@ from apps.delivery.models import (
     BrokenOrderItem,
     PublicSale,
     PublicSaleItem,
+    DeliveryExpense,
+    CashDenomination
     # Payment
 )
 # Authentication Serializers
@@ -276,8 +278,9 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeliveryOrder
         fields = ('id', 'order_number', 'seller', 'seller_name', 'route', 'route_name', 'delivery_date',
-                  'delivery_time', 'total_price', 'opening_balance', 'amount_collected', 'balance_amount',
-                  'payment_method', 'status', 'notes', 'items', 'sync_status')
+                  'delivery_time', 'actual_delivery_date', 'actual_delivery_time', 'total_price',
+                  'opening_balance', 'amount_collected', 'balance_amount', 'payment_method',
+                  'status', 'notes', 'items', 'sync_status', 'local_id')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
@@ -360,12 +363,26 @@ class PublicSaleSerializer(serializers.ModelSerializer):
 
         return public_sale
 
-# class PaymentSerializer(serializers.ModelSerializer):
-#     seller_name = serializers.ReadOnlyField(source='seller.store_name')
+class DeliveryExpenseSerializer(serializers.ModelSerializer):
+    delivery_team_name = serializers.ReadOnlyField(source='delivery_team.name')
 
-#     class Meta:
-#         model = Payment
-#         fields = ('id', 'payment_number', 'seller', 'seller_name', 'payment_date', 'amount', 'payment_method', 'reference_number', 'notes', 'sync_status')
+    class Meta:
+        model = DeliveryExpense
+        fields = ('id', 'delivery_team', 'delivery_team_name', 'expense_date', 'expense_type',
+                  'amount', 'notes', 'created_by', 'sync_status', 'local_id')
+
+    def create(self, validated_data):
+        expense = DeliveryExpense.objects.create(**validated_data)
+        return expense
+
+class CashDenominationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CashDenomination
+        fields = ('id', 'delivery_order', 'denomination', 'count', 'total_amount', 'sync_status', 'local_id')
+
+    def create(self, validated_data):
+        denomination = CashDenomination.objects.create(**validated_data)
+        return denomination
 
 # Sync Serializers
 class SyncDataSerializer(serializers.Serializer):
@@ -373,9 +390,20 @@ class SyncDataSerializer(serializers.Serializer):
     returned_orders = ReturnedOrderSerializer(many=True, required=False)
     broken_orders = BrokenOrderSerializer(many=True, required=False)
     public_sales = PublicSaleSerializer(many=True, required=False)
-    # payments = PaymentSerializer(many=True, required=False)
+    expenses = DeliveryExpenseSerializer(many=True, required=False)
+    denominations = CashDenominationSerializer(many=True, required=False)
+
+class PendingCountSerializer(serializers.Serializer):
+    delivery_orders = serializers.IntegerField()
+    returned_orders = serializers.IntegerField()
+    broken_orders = serializers.IntegerField()
+    public_sales = serializers.IntegerField()
+    expenses = serializers.IntegerField()
+    denominations = serializers.IntegerField()
+    payments = serializers.IntegerField()
+    total = serializers.IntegerField()
 
 class SyncStatusSerializer(serializers.Serializer):
     last_sync = serializers.DateTimeField()
-    pending_sync_count = serializers.IntegerField()
+    pending_count = PendingCountSerializer()
     sync_status = serializers.CharField()

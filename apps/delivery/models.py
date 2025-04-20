@@ -469,6 +469,10 @@ class DeliveryOrder(models.Model):
     delivery_date = models.DateField(db_index=True)
     delivery_time = models.TimeField(blank=True, null=True)
 
+    # Actual delivery datetime (when delivery was completed)
+    actual_delivery_date = models.DateField(blank=True, null=True)
+    actual_delivery_time = models.TimeField(blank=True, null=True)
+
     # New fields for pricing and payments
     total_price = models.DecimalField(
         max_digits=10,
@@ -1269,6 +1273,22 @@ class PublicSale(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    # Offline sync fields
+    sync_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('synced', 'Synced'),
+            ('failed', 'Failed'),
+        ],
+        default='pending'
+    )
+    local_id = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True
+    )
+
     def save(self, *args, **kwargs):
         # Generate a unique sale number if not already set
         if not self.sale_number:
@@ -1281,6 +1301,12 @@ class PublicSale(models.Model):
 
     def __str__(self):
         return f"{self.sale_number} - {self.sale_date} - {self.customer_name or 'Public'}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['route', 'sale_date']),
+            models.Index(fields=['sync_status']),
+        ]
 
 
 class PublicSaleItem(models.Model):
