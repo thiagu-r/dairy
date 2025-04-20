@@ -18,7 +18,8 @@ from apps.delivery.models import (
     PublicSale,
     PublicSaleItem,
     DeliveryExpense,
-    CashDenomination
+    CashDenomination,
+    DeliveryTeam
     # Payment
 )
 # Authentication Serializers
@@ -260,6 +261,7 @@ class LoadingOrderSerializer(serializers.ModelSerializer):
 # Delivery Operation Serializers
 class DeliveryOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     ordered_quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
     extra_quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
     delivered_quantity = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -274,6 +276,8 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
     items = DeliveryOrderItemSerializer(many=True)
     seller_name = serializers.ReadOnlyField(source='seller.store_name')
     route_name = serializers.ReadOnlyField(source='route.name')
+    route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
+    seller = serializers.PrimaryKeyRelatedField(queryset=Seller.objects.all())
 
     class Meta:
         model = DeliveryOrder
@@ -293,6 +297,7 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
 
 class ReturnedOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
 
     class Meta:
         model = ReturnedOrderItem
@@ -301,6 +306,7 @@ class ReturnedOrderItemSerializer(serializers.ModelSerializer):
 class ReturnedOrderSerializer(serializers.ModelSerializer):
     items = ReturnedOrderItemSerializer(many=True)
     route_name = serializers.ReadOnlyField(source='route.name')
+    route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
 
     class Meta:
         model = ReturnedOrder
@@ -317,6 +323,7 @@ class ReturnedOrderSerializer(serializers.ModelSerializer):
 
 class BrokenOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
 
     class Meta:
         model = BrokenOrderItem
@@ -325,6 +332,7 @@ class BrokenOrderItemSerializer(serializers.ModelSerializer):
 class BrokenOrderSerializer(serializers.ModelSerializer):
     items = BrokenOrderItemSerializer(many=True)
     route_name = serializers.ReadOnlyField(source='route.name')
+    route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
 
     class Meta:
         model = BrokenOrder
@@ -341,6 +349,7 @@ class BrokenOrderSerializer(serializers.ModelSerializer):
 
 class PublicSaleItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
 
     class Meta:
         model = PublicSaleItem
@@ -349,10 +358,11 @@ class PublicSaleItemSerializer(serializers.ModelSerializer):
 class PublicSaleSerializer(serializers.ModelSerializer):
     items = PublicSaleItemSerializer(many=True)
     route_name = serializers.ReadOnlyField(source='route.name')
+    route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
 
     class Meta:
         model = PublicSale
-        fields = ('id', 'sale_number', 'route', 'route_name', 'sale_date', 'total_price', 'payment_method', 'status', 'notes', 'items', 'sync_status')
+        fields = ('id', 'sale_number', 'route', 'route_name', 'sale_date', 'sale_time', 'customer_name', 'customer_phone', 'customer_address', 'total_price', 'amount_collected', 'balance_amount', 'payment_method', 'status', 'notes', 'items', 'sync_status', 'local_id')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
@@ -365,6 +375,7 @@ class PublicSaleSerializer(serializers.ModelSerializer):
 
 class DeliveryExpenseSerializer(serializers.ModelSerializer):
     delivery_team_name = serializers.ReadOnlyField(source='delivery_team.name')
+    delivery_team = serializers.PrimaryKeyRelatedField(queryset=DeliveryTeam.objects.all())
 
     class Meta:
         model = DeliveryExpense
@@ -376,6 +387,8 @@ class DeliveryExpenseSerializer(serializers.ModelSerializer):
         return expense
 
 class CashDenominationSerializer(serializers.ModelSerializer):
+    delivery_order = serializers.PrimaryKeyRelatedField(queryset=DeliveryOrder.objects.all())
+
     class Meta:
         model = CashDenomination
         fields = ('id', 'delivery_order', 'denomination', 'count', 'total_amount', 'sync_status', 'local_id')

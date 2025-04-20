@@ -1251,15 +1251,15 @@ class PublicSale(models.Model):
     loading_order = models.ForeignKey('LoadingOrder', on_delete=models.PROTECT, related_name='public_sales', null=True, blank=True)
 
     # Customer information (optional since it's a public sale)
-    customer_name = models.CharField(max_length=100, blank=True)
-    customer_phone = models.CharField(max_length=20, blank=True)
-    customer_address = models.TextField(blank=True)
+    customer_name = models.CharField(max_length=100, blank=True, null=True)
+    customer_phone = models.CharField(max_length=20, blank=True, null=True)
+    customer_address = models.TextField(blank=True, null=True)
 
     # Sale details
     sale_date = models.DateField()
     sale_time = models.TimeField()
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES, default='cash')
-    notes = models.TextField(blank=True)
+    notes = models.TextField(blank=True, null=True)
 
     # Financial information
     total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)

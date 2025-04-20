@@ -485,61 +485,126 @@ class SyncView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        print('Raw data received:', request.data)
+        print('Data type:', type(request.data))
         serializer = SyncDataSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         # Process delivery orders
         if 'delivery_orders' in serializer.validated_data:
             for order_data in serializer.validated_data['delivery_orders']:
+                # Ensure route and seller are primary keys
+                if 'route' in order_data and not isinstance(order_data['route'], int):
+                    order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
+                if 'seller' in order_data and not isinstance(order_data['seller'], int):
+                    order_data['seller'] = order_data['seller'].id if hasattr(order_data['seller'], 'id') else order_data['seller']
+
+                # Process items to ensure product is a primary key
+                if 'items' in order_data:
+                    for item in order_data['items']:
+                        if 'product' in item and not isinstance(item['product'], int):
+                            item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
+
                 delivery_serializer = DeliveryOrderSerializer(data=order_data)
                 if delivery_serializer.is_valid():
                     delivery_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
+                    print(f"Validation errors: {delivery_serializer.errors}")
+                    print(f"Data received: {order_data}")
                     return Response(delivery_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process returned orders
         if 'returned_orders' in serializer.validated_data:
             for order_data in serializer.validated_data['returned_orders']:
+                # Ensure route is a primary key
+                if 'route' in order_data and not isinstance(order_data['route'], int):
+                    order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
+
+                # Process items to ensure product is a primary key
+                if 'items' in order_data:
+                    for item in order_data['items']:
+                        if 'product' in item and not isinstance(item['product'], int):
+                            item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
+
                 returned_serializer = ReturnedOrderSerializer(data=order_data)
                 if returned_serializer.is_valid():
                     returned_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
+                    print(f"Validation errors: {returned_serializer.errors}")
+                    print(f"Data received: {order_data}")
                     return Response(returned_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process broken orders
         if 'broken_orders' in serializer.validated_data:
             for order_data in serializer.validated_data['broken_orders']:
+                # Ensure route is a primary key
+                if 'route' in order_data and not isinstance(order_data['route'], int):
+                    order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
+
+                # Process items to ensure product is a primary key
+                if 'items' in order_data:
+                    for item in order_data['items']:
+                        if 'product' in item and not isinstance(item['product'], int):
+                            item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
+
                 broken_serializer = BrokenOrderSerializer(data=order_data)
                 if broken_serializer.is_valid():
                     broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
+                    print(f"Validation errors: {broken_serializer.errors}")
+                    print(f"Data received: {order_data}")
                     return Response(broken_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process public sales
         if 'public_sales' in serializer.validated_data:
             for sale_data in serializer.validated_data['public_sales']:
+                # Ensure route and product are primary keys
+                if 'route' in sale_data and not isinstance(sale_data['route'], int):
+                    sale_data['route'] = sale_data['route'].id if hasattr(sale_data['route'], 'id') else sale_data['route']
+
+                # Process items to ensure product is a primary key
+                if 'items' in sale_data:
+                    for item in sale_data['items']:
+                        if 'product' in item and not isinstance(item['product'], int):
+                            item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
+
                 sale_serializer = PublicSaleSerializer(data=sale_data)
                 if sale_serializer.is_valid():
                     sale_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                 else:
+                    # Print detailed error information
+                    print(f"Validation errors: {sale_serializer.errors}")
+                    print(f"Data received: {sale_data}")
                     return Response(sale_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process expenses
         if 'expenses' in serializer.validated_data:
             for expense_data in serializer.validated_data['expenses']:
+                # Ensure delivery_team is a primary key
+                if 'delivery_team' in expense_data and not isinstance(expense_data['delivery_team'], int):
+                    expense_data['delivery_team'] = expense_data['delivery_team'].id if hasattr(expense_data['delivery_team'], 'id') else expense_data['delivery_team']
+
                 expense_serializer = DeliveryExpenseSerializer(data=expense_data)
                 if expense_serializer.is_valid():
                     expense_serializer.save(sync_status='synced', created_by=request.user)
                 else:
+                    print(f"Validation errors: {expense_serializer.errors}")
+                    print(f"Data received: {expense_data}")
                     return Response(expense_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process denominations
         if 'denominations' in serializer.validated_data:
             for denomination_data in serializer.validated_data['denominations']:
+                # Ensure delivery_order is a primary key
+                if 'delivery_order' in denomination_data and not isinstance(denomination_data['delivery_order'], int):
+                    denomination_data['delivery_order'] = denomination_data['delivery_order'].id if hasattr(denomination_data['delivery_order'], 'id') else denomination_data['delivery_order']
+
                 denomination_serializer = CashDenominationSerializer(data=denomination_data)
                 if denomination_serializer.is_valid():
                     denomination_serializer.save(sync_status='synced')
                 else:
+                    print(f"Validation errors: {denomination_serializer.errors}")
+                    print(f"Data received: {denomination_data}")
                     return Response(denomination_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         # Process payments
