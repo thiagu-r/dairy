@@ -489,6 +489,7 @@ class SyncView(APIView):
         print('Data type:', type(request.data))
         serializer = SyncDataSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        print('Validated data:', serializer.validated_data)
 
         # Process delivery orders
         if 'delivery_orders' in serializer.validated_data:
@@ -512,6 +513,8 @@ class SyncView(APIView):
                     print(f"Validation errors: {delivery_serializer.errors}")
                     print(f"Data received: {order_data}")
                     return Response(delivery_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print("Delivery orders not provided in the request data.")
 
         # Process returned orders
         if 'returned_orders' in serializer.validated_data:
@@ -533,6 +536,8 @@ class SyncView(APIView):
                     print(f"Validation errors: {returned_serializer.errors}")
                     print(f"Data received: {order_data}")
                     return Response(returned_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print("Returned orders not provided in the request data.")
 
         # Process broken orders
         if 'broken_orders' in serializer.validated_data:
@@ -554,6 +559,8 @@ class SyncView(APIView):
                     print(f"Validation errors: {broken_serializer.errors}")
                     print(f"Data received: {order_data}")
                     return Response(broken_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print("Broken orders not provided in the request data.")
 
         # Process public sales
         if 'public_sales' in serializer.validated_data:
@@ -576,6 +583,9 @@ class SyncView(APIView):
                     print(f"Validation errors: {sale_serializer.errors}")
                     print(f"Data received: {sale_data}")
                     return Response(sale_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        else:
+            print("Public sales not provided in the request data.")
 
         # Process expenses
         if 'expenses' in serializer.validated_data:
@@ -591,6 +601,9 @@ class SyncView(APIView):
                     print(f"Validation errors: {expense_serializer.errors}")
                     print(f"Data received: {expense_data}")
                     return Response(expense_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        else:
+            print("Expenses not provided in the request data.")
 
         # Process denominations
         if 'denominations' in serializer.validated_data:
@@ -606,6 +619,8 @@ class SyncView(APIView):
                     print(f"Validation errors: {denomination_serializer.errors}")
                     print(f"Data received: {denomination_data}")
                     return Response(denomination_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print("Denominations not provided in the request data.")
 
         # Process payments
         # Commented out until Payment model is implemented
