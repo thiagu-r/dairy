@@ -629,33 +629,33 @@ class SyncView(APIView):
 
         return processed_data
 
-    @transaction.atomic
     def post(self, request):
-        user = request.user
-        # Check if data is nested inside a 'data' key
-        if 'data' in request.data:
-            data_to_process = request.data['data']
-            print('Found nested data structure, extracting data from "data" key')
-        else:
-            data_to_process = request.data
-            print('Using direct data structure')
+        try:
+            user = request.user
+            # Check if data is nested inside a 'data' key
+            if 'data' in request.data:
+                data_to_process = request.data['data']
+                print('Found nested data structure, extracting data from "data" key')
+            else:
+                data_to_process = request.data
+                print('Using direct data structure')
 
-        # Pre-process the data to fix time formats and other issues before validation
-        data_to_process = self.preprocess_data(data_to_process, user)
-        print('Preprocessed data:', data_to_process)
+            # Pre-process the data to fix time formats and other issues before validation
+            data_to_process = self.preprocess_data(data_to_process, user)
+            print('Preprocessed data:', data_to_process)
 
-        # Instead of validating all data at once, we'll validate each section separately
-        # This way, if one section fails validation, we can still process the others
-        validated_data = {}
+            # Instead of validating all data at once, we'll validate each section separately
+            # This way, if one section fails validation, we can still process the others
+            validated_data = {}
 
-        # Process delivery orders separately
-        if 'delivery_orders' in data_to_process:
-            print(f"Processing {len(data_to_process['delivery_orders'])} delivery orders")
-            valid_delivery_orders = []
+            # Process delivery orders separately
+            if 'delivery_orders' in data_to_process:
+                print(f"Processing {len(data_to_process['delivery_orders'])} delivery orders")
+                valid_delivery_orders = []
 
-            for order_data in data_to_process['delivery_orders']:
-                # Try to find existing order first
-                existing_order = None
+                for order_data in data_to_process['delivery_orders']:
+                    # Try to find existing order first
+                    existing_order = None
 
                 # First, try to find by local_id
                 if 'local_id' in order_data and order_data['local_id']:
@@ -844,6 +844,11 @@ class SyncView(APIView):
 
             # Add valid delivery orders to validated data
             validated_data['delivery_orders'] = valid_delivery_orders
+        except Exception as e:
+            print(f"Error during sync: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # For other sections, use the serializer as before
         other_sections = ['returned_orders', 'broken_orders', 'public_sales', 'expenses', 'denominations']
@@ -897,7 +902,8 @@ class SyncView(APIView):
                 else:
                     print(f"Validation errors: {returned_serializer.errors}")
                     print(f"Data received: {order_data}")
-                    return Response(returned_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    # Continue processing other orders instead of failing the whole request
+                    continue
         else:
             print("Returned orders not provided in the request data.")
 
@@ -920,7 +926,8 @@ class SyncView(APIView):
                 else:
                     print(f"Validation errors: {broken_serializer.errors}")
                     print(f"Data received: {order_data}")
-                    return Response(broken_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    # Continue processing other orders instead of failing the whole request
+                    continue
         else:
             print("Broken orders not provided in the request data.")
 
@@ -968,7 +975,8 @@ class SyncView(APIView):
                     # Print detailed error information
                     print(f"Validation errors: {sale_serializer.errors}")
                     print(f"Data received: {sale_data}")
-                    return Response(sale_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                    # Continue processing other sales instead of failing the whole request
+                    continue
 
         else:
             print("Public sales not provided in the request data.")
@@ -1180,11 +1188,13 @@ class SyncView(APIView):
         #         else:
         #             return Response(payment_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Update last sync time for the user
-        request.user.profile.last_sync = timezone.now()
-        request.user.profile.save()
+            # Update last sync time for the user
+            request.user.profile.last_sync = timezone.now()
+            request.user.profile.save()
 
-        return Response({'status': 'success', 'message': 'Data synchronized successfully'}, status=status.HTTP_200_OK)
+            return Response({'status': 'success', 'message': 'Data synchronized successfully'}, status=status.HTTP_200_OK)
+
+        
 
 @method_decorator(csrf_exempt, name='dispatch')
 class SyncStatusView(APIView):
