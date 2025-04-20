@@ -796,7 +796,15 @@ class SyncView(APIView):
                                                     # For quantity fields, take the maximum value
                                                     if key in ['ordered_quantity', 'extra_quantity'] and getattr(existing_item, key) is not None:
                                                         current_value = getattr(existing_item, key)
-                                                        setattr(existing_item, key, max(current_value, value))
+                                                        # Convert both values to Decimal for comparison
+                                                        from decimal import Decimal
+                                                        try:
+                                                            current_decimal = Decimal(str(current_value))
+                                                            new_decimal = Decimal(str(value))
+                                                            setattr(existing_item, key, max(current_decimal, new_decimal))
+                                                        except Exception as e:
+                                                            print(f"Error comparing quantities: {e}, using new value")
+                                                            setattr(existing_item, key, value)
                                                     else:
                                                         setattr(existing_item, key, value)
 
@@ -1164,15 +1172,24 @@ class SyncView(APIView):
 
                 # First, check if delivery_order is already set
                 if 'delivery_order' in denomination_data and denomination_data['delivery_order']:
-                    # Verify that the delivery order exists
-                    try:
-                        delivery_order = DeliveryOrder.objects.get(id=denomination_data['delivery_order'])
+                    # Check if delivery_order is an object or an ID
+                    if isinstance(denomination_data['delivery_order'], DeliveryOrder):
+                        # It's a DeliveryOrder object, get its ID
+                        delivery_order = denomination_data['delivery_order']
                         delivery_order_id = delivery_order.id
-                        print(f"Using provided delivery_order: {delivery_order_id}")
-                    except DeliveryOrder.DoesNotExist:
-                        print(f"Provided delivery_order {denomination_data['delivery_order']} does not exist")
-                        # Set to None to avoid validation errors
-                        denomination_data['delivery_order'] = None
+                        # Replace the object with the ID
+                        denomination_data['delivery_order'] = delivery_order_id
+                        print(f"Using provided delivery_order object: {delivery_order_id}")
+                    else:
+                        # It's an ID (or should be), verify it exists
+                        try:
+                            delivery_order = DeliveryOrder.objects.get(id=denomination_data['delivery_order'])
+                            delivery_order_id = delivery_order.id
+                            print(f"Using provided delivery_order ID: {delivery_order_id}")
+                        except (DeliveryOrder.DoesNotExist, ValueError, TypeError):
+                            print(f"Provided delivery_order {denomination_data['delivery_order']} does not exist or is invalid")
+                            # Set to None to avoid validation errors
+                            denomination_data['delivery_order'] = None
 
                 # Check if we have a delivery_order_local_id
                 if not delivery_order_id and 'delivery_order_local_id' in denomination_data:
