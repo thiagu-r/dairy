@@ -544,8 +544,26 @@ class SyncView(APIView):
 
                         # Merge items if both orders have items
                         if 'items' in order and 'items' in unique_orders[key]:
-                            unique_orders[key]['items'].extend(order['items'])
-                            print(f"Merged {len(order['items'])} items into existing order")
+                            # Create a set of product IDs to avoid duplicates
+                            existing_product_ids = set(item['product'] for item in unique_orders[key]['items'] if 'product' in item)
+
+                            # Add only items with products not already in the order
+                            for item in order['items']:
+                                if 'product' in item and item['product'] not in existing_product_ids:
+                                    unique_orders[key]['items'].append(item)
+                                    existing_product_ids.add(item['product'])
+                                    print(f"Added new product {item['product']} to merged order")
+                                elif 'product' in item:
+                                    # Update quantities for existing products
+                                    for existing_item in unique_orders[key]['items']:
+                                        if 'product' in existing_item and existing_item['product'] == item['product']:
+                                            # Update quantities if needed
+                                            if 'extra_quantity' in item and 'extra_quantity' in existing_item:
+                                                existing_item['extra_quantity'] = max(existing_item['extra_quantity'], item['extra_quantity'])
+                                            if 'ordered_quantity' in item and 'ordered_quantity' in existing_item:
+                                                existing_item['ordered_quantity'] = max(existing_item['ordered_quantity'], item['ordered_quantity'])
+                                            print(f"Updated quantities for product {item['product']} in merged order")
+                                            break
                     else:
                         # This is a unique order
                         unique_orders[key] = order
@@ -554,6 +572,30 @@ class SyncView(APIView):
             for i in sorted(duplicate_indices, reverse=True):
                 print(f"Removing duplicate delivery order at index {i}")
                 processed_data['delivery_orders'].pop(i)
+
+            # Now check for existing delivery orders in the database
+            for order in processed_data['delivery_orders']:
+                if 'route' in order and 'seller' in order and 'delivery_date' in order:
+                    try:
+                        # Check if this order already exists in the database
+                        existing_order = DeliveryOrder.objects.filter(
+                            route_id=order['route'],
+                            seller_id=order['seller'],
+                            delivery_date=order['delivery_date']
+                        ).first()
+
+                        if existing_order:
+                            print(f"Found existing delivery order in database: {existing_order.id}")
+                            # Add the existing order ID to the data
+                            order['id'] = existing_order.id
+
+                            # If we have local_id in the data but not in the database, update it
+                            if 'local_id' in order and order['local_id'] and not existing_order.local_id:
+                                print(f"Updating local_id for existing order: {order['local_id']}")
+                                existing_order.local_id = order['local_id']
+                                existing_order.save(update_fields=['local_id'])
+                    except Exception as e:
+                        print(f"Error checking for existing delivery order: {e}")
 
             # Now process each order
             for order in processed_data['delivery_orders']:
@@ -657,101 +699,204 @@ class SyncView(APIView):
                     # Try to find existing order first
                     existing_order = None
 
-                # First, try to find by local_id
-                if 'local_id' in order_data and order_data['local_id']:
-                    print(f"Searching for existing order by local_id: {order_data['local_id']}")
-                    existing_order = DeliveryOrder.objects.filter(local_id=order_data['local_id']).first()
-                    if existing_order:
-                        print(f"Found existing delivery order by local_id: {existing_order.id}")
+                    # First, check if we have an ID in the order data (added during preprocessing)
+                    if 'id' in order_data:
+                        print(f"Searching for existing order by ID: {order_data['id']}")
+                        try:
+                            existing_order = DeliveryOrder.objects.get(id=order_data['id'])
+                            print(f"Found existing delivery order by ID: {existing_order.id}")
+                        except DeliveryOrder.DoesNotExist:
+                            print(f"No existing order found with ID: {order_data['id']}")
 
-                # If not found by local_id, try to find by unique constraint fields
-                if not existing_order and 'route' in order_data and 'seller' in order_data and 'delivery_date' in order_data:
-                    print(f"Searching for existing order by constraint fields:")
-                    print(f"  - route: {order_data['route']}")
-                    print(f"  - seller: {order_data['seller']}")
-                    print(f"  - delivery_date: {order_data['delivery_date']}")
-
-                    try:
-                        existing_order = DeliveryOrder.objects.filter(
-                            route_id=order_data['route'],
-                            seller_id=order_data['seller'],
-                            delivery_date=order_data['delivery_date']
-                        ).first()
+                    # If not found by ID, try to find by local_id
+                    if not existing_order and 'local_id' in order_data and order_data['local_id']:
+                        print(f"Searching for existing order by local_id: {order_data['local_id']}")
+                        existing_order = DeliveryOrder.objects.filter(local_id=order_data['local_id']).first()
                         if existing_order:
-                            print(f"Found existing delivery order by constraint fields: {existing_order.id}")
-                    except Exception as e:
-                        print(f"Error finding existing delivery order: {e}")
+                            print(f"Found existing delivery order by local_id: {existing_order.id}")
 
-                if existing_order:
-                    # Update existing order
-                    print(f"Updating existing delivery order: {existing_order.id}")
+                    # If not found by local_id, try to find by unique constraint fields
+                    if not existing_order and 'route' in order_data and 'seller' in order_data and 'delivery_date' in order_data:
+                        print(f"Searching for existing order by constraint fields:")
+                        print(f"  - route: {order_data['route']}")
+                        print(f"  - seller: {order_data['seller']}")
+                        print(f"  - delivery_date: {order_data['delivery_date']}")
 
-                    # Check if there are any items in the order data
-                    if 'items' not in order_data or not order_data['items']:
-                        print("No items in order data, removing items field to avoid validation errors")
-                        # Remove items field to avoid validation errors
-                        order_data_copy = order_data.copy()
-                        if 'items' in order_data_copy:
-                            del order_data_copy['items']
-                    else:
-                        order_data_copy = order_data
+                        try:
+                            existing_order = DeliveryOrder.objects.filter(
+                                route_id=order_data['route'],
+                                seller_id=order_data['seller'],
+                                delivery_date=order_data['delivery_date']
+                            ).first()
+                            if existing_order:
+                                print(f"Found existing delivery order by constraint fields: {existing_order.id}")
+                                # Add the ID to the order data for future reference
+                                order_data['id'] = existing_order.id
+                        except Exception as e:
+                            print(f"Error finding existing delivery order: {e}")
 
-                    try:
-                        # Update the order directly using model instance
-                        for key, value in order_data_copy.items():
-                            if key != 'items' and hasattr(existing_order, key):
-                                # Handle foreign key fields
-                                if key == 'route' and isinstance(value, int):
-                                    try:
-                                        route = Route.objects.get(id=value)
-                                        setattr(existing_order, key, route)
-                                    except Route.DoesNotExist:
-                                        print(f"Route with id {value} does not exist")
-                                elif key == 'seller' and isinstance(value, int):
-                                    try:
-                                        seller = Seller.objects.get(id=value)
-                                        setattr(existing_order, key, seller)
-                                    except Seller.DoesNotExist:
-                                        print(f"Seller with id {value} does not exist")
-                                elif key == 'sales_order' and isinstance(value, int):
-                                    try:
-                                        sales_order = SalesOrder.objects.get(id=value)
-                                        setattr(existing_order, key, sales_order)
-                                    except SalesOrder.DoesNotExist:
-                                        print(f"SalesOrder with id {value} does not exist")
-                                else:
-                                    # For non-foreign key fields
-                                    setattr(existing_order, key, value)
+                    if existing_order:
+                        # Update existing order
+                        print(f"Updating existing delivery order: {existing_order.id}")
 
-                        existing_order.sync_status = 'synced'
-                        existing_order.updated_by = user
-                        existing_order.save()
+                        # Check if there are any items in the order data
+                        if 'items' not in order_data or not order_data['items']:
+                            print("No items in order data, removing items field to avoid validation errors")
+                            # Remove items field to avoid validation errors
+                            order_data_copy = order_data.copy()
+                            if 'items' in order_data_copy:
+                                del order_data_copy['items']
+                        else:
+                            order_data_copy = order_data
 
-                        # Process items separately
-                        if 'items' in order_data and order_data['items']:
-                            for item_data in order_data['items']:
-                                if 'product' in item_data:
-                                    # Try to find existing item
-                                    existing_item = DeliveryOrderItem.objects.filter(
-                                        delivery_order=existing_order,
-                                        product_id=item_data['product']
-                                    ).first()
+                        try:
+                            # Update the order directly using model instance
+                            for key, value in order_data_copy.items():
+                                # Skip id, route, seller, and delivery_date fields to maintain the unique constraint
+                                if key in ['id', 'route', 'seller', 'delivery_date']:
+                                    continue
 
-                                    if existing_item:
-                                        # Update existing item
-                                        for key, value in item_data.items():
-                                            if key != 'product' and hasattr(existing_item, key):
-                                                setattr(existing_item, key, value)
-                                        existing_item.save()
+                                if key != 'items' and hasattr(existing_order, key):
+                                    # Handle foreign key fields
+                                    if key == 'sales_order' and isinstance(value, int):
+                                        try:
+                                            sales_order = SalesOrder.objects.get(id=value)
+                                            setattr(existing_order, key, sales_order)
+                                        except SalesOrder.DoesNotExist:
+                                            print(f"SalesOrder with id {value} does not exist")
                                     else:
-                                        # Create new item
+                                        # For non-foreign key fields
+                                        setattr(existing_order, key, value)
+
+                            existing_order.sync_status = 'synced'
+                            existing_order.updated_by = user
+                            existing_order.save()
+
+                            # Process items separately
+                            if 'items' in order_data and order_data['items']:
+                                print(f"Processing {len(order_data['items'])} items for delivery order {existing_order.id}")
+
+                                # Get all existing items for this delivery order
+                                existing_items = {item.product_id: item for item in DeliveryOrderItem.objects.filter(delivery_order=existing_order)}
+                                print(f"Found {len(existing_items)} existing items in the database")
+
+                                for item_data in order_data['items']:
+                                    if 'product' in item_data:
+                                        product_id = item_data['product']
+
+                                        # Check if this product already exists in the delivery order
+                                        if product_id in existing_items:
+                                            # Update existing item
+                                            existing_item = existing_items[product_id]
+                                            print(f"Updating existing item for product {product_id}")
+
+                                            # Update fields
+                                            for key, value in item_data.items():
+                                                if key != 'product' and hasattr(existing_item, key):
+                                                    # For quantity fields, take the maximum value
+                                                    if key in ['ordered_quantity', 'extra_quantity'] and getattr(existing_item, key) is not None:
+                                                        current_value = getattr(existing_item, key)
+                                                        setattr(existing_item, key, max(current_value, value))
+                                                    else:
+                                                        setattr(existing_item, key, value)
+
+                                            existing_item.save()
+                                        else:
+                                            # Create new item
+                                            try:
+                                                # Get the product instance
+                                                product = Product.objects.get(id=product_id)
+                                                print(f"Creating new item for product {product_id}")
+
+                                                # Create new item with product instance
+                                                new_item = DeliveryOrderItem(
+                                                    delivery_order=existing_order,
+                                                    product=product
+                                                )
+
+                                                # Set other fields
+                                                for key, value in item_data.items():
+                                                    if key != 'product' and hasattr(new_item, key):
+                                                        setattr(new_item, key, value)
+
+                                                new_item.save()
+
+                                                # Add to existing items dict to avoid duplicates
+                                                existing_items[product_id] = new_item
+                                            except Product.DoesNotExist:
+                                                print(f"Product with id {product_id} does not exist")
+                                            except Exception as e:
+                                                print(f"Error creating delivery order item: {e}")
+
+                            # Add to valid orders
+                            valid_delivery_orders.append(existing_order)
+                            print(f"Successfully updated delivery order: {existing_order.id}")
+                        except Exception as e:
+                            print(f"Error updating delivery order: {e}")
+                    else:
+                        # Create new order
+                        print("Creating new delivery order")
+                        try:
+                            # Create the order directly using model
+                            new_order = DeliveryOrder(
+                                sync_status='synced',
+                                created_by=user,
+                                updated_by=user
+                            )
+
+                            # Set fields from order_data
+                            for key, value in order_data.items():
+                                if key != 'items' and hasattr(new_order, key):
+                                    # Handle foreign key fields
+                                    if key == 'route' and isinstance(value, int):
+                                        try:
+                                            route = Route.objects.get(id=value)
+                                            setattr(new_order, key, route)
+                                        except Route.DoesNotExist:
+                                            print(f"Route with id {value} does not exist")
+                                    elif key == 'seller' and isinstance(value, int):
+                                        try:
+                                            seller = Seller.objects.get(id=value)
+                                            setattr(new_order, key, seller)
+                                        except Seller.DoesNotExist:
+                                            print(f"Seller with id {value} does not exist")
+                                    elif key == 'sales_order' and isinstance(value, int):
+                                        try:
+                                            sales_order = SalesOrder.objects.get(id=value)
+                                            setattr(new_order, key, sales_order)
+                                        except SalesOrder.DoesNotExist:
+                                            print(f"SalesOrder with id {value} does not exist")
+                                    else:
+                                        # For non-foreign key fields
+                                        setattr(new_order, key, value)
+
+                            # Save the new order
+                            new_order.save()
+
+                            # Process items
+                            if 'items' in order_data and order_data['items']:
+                                print(f"Processing {len(order_data['items'])} items for new delivery order {new_order.id}")
+
+                                # Keep track of products we've already added
+                                added_products = set()
+
+                                for item_data in order_data['items']:
+                                    if 'product' in item_data:
+                                        product_id = item_data['product']
+
+                                        # Skip if we've already added this product
+                                        if product_id in added_products:
+                                            print(f"Skipping duplicate product {product_id}")
+                                            continue
+
                                         try:
                                             # Get the product instance
-                                            product = Product.objects.get(id=item_data['product'])
+                                            product = Product.objects.get(id=product_id)
+                                            print(f"Creating item for product {product_id}")
 
                                             # Create new item with product instance
                                             new_item = DeliveryOrderItem(
-                                                delivery_order=existing_order,
+                                                delivery_order=new_order,
                                                 product=product
                                             )
 
@@ -761,86 +906,19 @@ class SyncView(APIView):
                                                     setattr(new_item, key, value)
 
                                             new_item.save()
+
+                                            # Mark this product as added
+                                            added_products.add(product_id)
                                         except Product.DoesNotExist:
-                                            print(f"Product with id {item_data['product']} does not exist")
+                                            print(f"Product with id {product_id} does not exist")
                                         except Exception as e:
                                             print(f"Error creating delivery order item: {e}")
 
-                        # Add to valid orders
-                        valid_delivery_orders.append(existing_order)
-                        print(f"Successfully updated delivery order: {existing_order.id}")
-                    except Exception as e:
-                        print(f"Error updating delivery order: {e}")
-                else:
-                    # Create new order
-                    print("Creating new delivery order")
-                    try:
-                        # Create the order directly using model
-                        new_order = DeliveryOrder(
-                            sync_status='synced',
-                            created_by=user,
-                            updated_by=user
-                        )
-
-                        # Set fields from order_data
-                        for key, value in order_data.items():
-                            if key != 'items' and hasattr(new_order, key):
-                                # Handle foreign key fields
-                                if key == 'route' and isinstance(value, int):
-                                    try:
-                                        route = Route.objects.get(id=value)
-                                        setattr(new_order, key, route)
-                                    except Route.DoesNotExist:
-                                        print(f"Route with id {value} does not exist")
-                                elif key == 'seller' and isinstance(value, int):
-                                    try:
-                                        seller = Seller.objects.get(id=value)
-                                        setattr(new_order, key, seller)
-                                    except Seller.DoesNotExist:
-                                        print(f"Seller with id {value} does not exist")
-                                elif key == 'sales_order' and isinstance(value, int):
-                                    try:
-                                        sales_order = SalesOrder.objects.get(id=value)
-                                        setattr(new_order, key, sales_order)
-                                    except SalesOrder.DoesNotExist:
-                                        print(f"SalesOrder with id {value} does not exist")
-                                else:
-                                    # For non-foreign key fields
-                                    setattr(new_order, key, value)
-
-                        # Save the new order
-                        new_order.save()
-
-                        # Process items
-                        if 'items' in order_data and order_data['items']:
-                            for item_data in order_data['items']:
-                                if 'product' in item_data:
-                                    try:
-                                        # Get the product instance
-                                        product = Product.objects.get(id=item_data['product'])
-
-                                        # Create new item with product instance
-                                        new_item = DeliveryOrderItem(
-                                            delivery_order=new_order,
-                                            product=product
-                                        )
-
-                                        # Set other fields
-                                        for key, value in item_data.items():
-                                            if key != 'product' and hasattr(new_item, key):
-                                                setattr(new_item, key, value)
-
-                                        new_item.save()
-                                    except Product.DoesNotExist:
-                                        print(f"Product with id {item_data['product']} does not exist")
-                                    except Exception as e:
-                                        print(f"Error creating delivery order item: {e}")
-
-                        # Add to valid orders
-                        valid_delivery_orders.append(new_order)
-                        print(f"Successfully created delivery order: {new_order.id}")
-                    except Exception as e:
-                        print(f"Error creating delivery order: {e}")
+                            # Add to valid orders
+                            valid_delivery_orders.append(new_order)
+                            print(f"Successfully created delivery order: {new_order.id}")
+                        except Exception as e:
+                            print(f"Error creating delivery order: {e}")
 
             # Add valid delivery orders to validated data
             validated_data['delivery_orders'] = valid_delivery_orders
@@ -1194,7 +1272,7 @@ class SyncView(APIView):
 
             return Response({'status': 'success', 'message': 'Data synchronized successfully'}, status=status.HTTP_200_OK)
 
-        
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class SyncStatusView(APIView):
