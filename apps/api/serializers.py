@@ -273,7 +273,7 @@ class DeliveryOrderItemSerializer(serializers.ModelSerializer):
         fields = ('id', 'product', 'product_name', 'ordered_quantity', 'extra_quantity', 'delivered_quantity', 'unit_price', 'total_price')
 
 class DeliveryOrderSerializer(serializers.ModelSerializer):
-    items = DeliveryOrderItemSerializer(many=True)
+    items = DeliveryOrderItemSerializer(many=True, required=False)
     seller_name = serializers.ReadOnlyField(source='seller.store_name')
     route_name = serializers.ReadOnlyField(source='route.name')
     route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
@@ -328,6 +328,39 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
             DeliveryOrderItem.objects.create(delivery_order=delivery_order, **item_data)
 
         return delivery_order
+
+    def update(self, instance, validated_data):
+        # Handle items separately
+        items_data = validated_data.pop('items', [])
+
+        # Update the delivery order fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # If items are provided, update them
+        if items_data:
+            # Clear existing items if we're replacing them
+            # instance.items.all().delete()
+
+            # Create new items
+            for item_data in items_data:
+                # Try to find existing item by product
+                if 'product' in item_data:
+                    existing_item = instance.items.filter(product=item_data['product']).first()
+                    if existing_item:
+                        # Update existing item
+                        for attr, value in item_data.items():
+                            setattr(existing_item, attr, value)
+                        existing_item.save()
+                    else:
+                        # Create new item
+                        DeliveryOrderItem.objects.create(delivery_order=instance, **item_data)
+                else:
+                    # Create new item if no product to match on
+                    DeliveryOrderItem.objects.create(delivery_order=instance, **item_data)
+
+        return instance
 
 class ReturnedOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
@@ -421,11 +454,13 @@ class DeliveryExpenseSerializer(serializers.ModelSerializer):
         return expense
 
 class CashDenominationSerializer(serializers.ModelSerializer):
-    delivery_order = serializers.PrimaryKeyRelatedField(queryset=DeliveryOrder.objects.all())
+    delivery_order = serializers.PrimaryKeyRelatedField(queryset=DeliveryOrder.objects.all(), required=False, allow_null=True)
+    route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all(), required=False, allow_null=True)
+    delivery_date = serializers.DateField(required=False, allow_null=True)
 
     class Meta:
         model = CashDenomination
-        fields = ('id', 'delivery_order', 'denomination', 'count', 'total_amount', 'sync_status', 'local_id')
+        fields = ('id', 'delivery_order', 'route', 'delivery_date', 'denomination', 'count', 'total_amount', 'sync_status', 'local_id')
 
     def create(self, validated_data):
         denomination = CashDenomination.objects.create(**validated_data)

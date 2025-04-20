@@ -530,6 +530,32 @@ class SyncView(APIView):
 
         # Process delivery orders
         if 'delivery_orders' in processed_data:
+            # First, check for duplicate delivery orders (same route, seller, delivery_date)
+            unique_orders = {}
+            duplicate_indices = []
+
+            for i, order in enumerate(processed_data['delivery_orders']):
+                if 'route' in order and 'seller' in order and 'delivery_date' in order:
+                    key = f"{order['route']}-{order['seller']}-{order['delivery_date']}"
+                    if key in unique_orders:
+                        # This is a duplicate, mark it for removal
+                        duplicate_indices.append(i)
+                        print(f"Found duplicate delivery order at index {i}: {key}")
+
+                        # Merge items if both orders have items
+                        if 'items' in order and 'items' in unique_orders[key]:
+                            unique_orders[key]['items'].extend(order['items'])
+                            print(f"Merged {len(order['items'])} items into existing order")
+                    else:
+                        # This is a unique order
+                        unique_orders[key] = order
+
+            # Remove duplicates (in reverse order to avoid index shifting)
+            for i in sorted(duplicate_indices, reverse=True):
+                print(f"Removing duplicate delivery order at index {i}")
+                processed_data['delivery_orders'].pop(i)
+
+            # Now process each order
             for order in processed_data['delivery_orders']:
                 # Fix time formats
                 if 'delivery_time' in order and order['delivery_time']:
@@ -582,6 +608,25 @@ class SyncView(APIView):
                         flattened.append(group)
                 processed_data['denominations'] = flattened
 
+            # Make sure each denomination has a delivery_order
+            if 'delivery_orders' in processed_data and processed_data['delivery_orders']:
+                # Find the first delivery order with an ID or local_id
+                delivery_order_ref = None
+                for order in processed_data['delivery_orders']:
+                    if 'id' in order or 'local_id' in order:
+                        delivery_order_ref = order
+                        break
+
+                # Set delivery_order for denominations that don't have one
+                if delivery_order_ref:
+                    for denomination in processed_data['denominations']:
+                        if 'delivery_order' not in denomination or not denomination['delivery_order']:
+                            if 'id' in delivery_order_ref:
+                                denomination['delivery_order'] = delivery_order_ref['id']
+                            elif 'local_id' in delivery_order_ref:
+                                # We'll use the local_id to find the delivery order later
+                                denomination['delivery_order_local_id'] = delivery_order_ref['local_id']
+
         return processed_data
 
     @transaction.atomic
@@ -599,130 +644,162 @@ class SyncView(APIView):
         data_to_process = self.preprocess_data(data_to_process, user)
         print('Preprocessed data:', data_to_process)
 
-        serializer = SyncDataSerializer(data=data_to_process)
-        serializer.is_valid(raise_exception=True)
-        print('Validated data:', serializer.validated_data)
+        # Instead of validating all data at once, we'll validate each section separately
+        # This way, if one section fails validation, we can still process the others
+        validated_data = {}
 
-        # Process delivery orders
-        if 'delivery_orders' in serializer.validated_data:
-            for order_data in serializer.validated_data['delivery_orders']:
-                # Fix time format issues
-                print(f"Before time fix - delivery_time: {order_data.get('delivery_time')}")
-                print(f"Before time fix - actual_delivery_time: {order_data.get('actual_delivery_time')}")
+        # Process delivery orders separately
+        if 'delivery_orders' in data_to_process:
+            print(f"Processing {len(data_to_process['delivery_orders'])} delivery orders")
+            valid_delivery_orders = []
 
-                # Fix delivery_time format
-                if 'delivery_time' in order_data and order_data['delivery_time']:
+            for order_data in data_to_process['delivery_orders']:
+                # Try to find existing order first
+                existing_order = None
+
+                # First, try to find by local_id
+                if 'local_id' in order_data and order_data['local_id']:
+                    print(f"Searching for existing order by local_id: {order_data['local_id']}")
+                    existing_order = DeliveryOrder.objects.filter(local_id=order_data['local_id']).first()
+                    if existing_order:
+                        print(f"Found existing delivery order by local_id: {existing_order.id}")
+
+                # If not found by local_id, try to find by unique constraint fields
+                if not existing_order and 'route' in order_data and 'seller' in order_data and 'delivery_date' in order_data:
+                    print(f"Searching for existing order by constraint fields:")
+                    print(f"  - route: {order_data['route']}")
+                    print(f"  - seller: {order_data['seller']}")
+                    print(f"  - delivery_date: {order_data['delivery_date']}")
+
                     try:
-                        # First, check if it's a datetime string with space
-                        if isinstance(order_data['delivery_time'], str) and ' ' in order_data['delivery_time']:
-                            # Extract just the time part
-                            time_part = order_data['delivery_time'].split(' ')[1]
-                            # Parse the time part
-                            time_obj = datetime.strptime(time_part, '%H:%M:%S').time()
-                            # Format as HH:MM:SS
-                            order_data['delivery_time'] = time_obj.strftime('%H:%M:%S')
-                        else:
-                            # Try to parse as datetime
-                            dt = datetime.strptime(str(order_data['delivery_time']), '%Y-%m-%d %H:%M:%S')
-                            order_data['delivery_time'] = dt.time().strftime('%H:%M:%S')
-                    except (ValueError, TypeError):
-                        try:
-                            # Try to parse as time
-                            dt = datetime.strptime(str(order_data['delivery_time']), '%H:%M:%S')
-                            order_data['delivery_time'] = dt.strftime('%H:%M:%S')
-                        except (ValueError, TypeError):
-                            # If all else fails, set to a default time
-                            order_data['delivery_time'] = '00:00:00'
-
-                # Fix actual_delivery_time format
-                if 'actual_delivery_time' in order_data and order_data['actual_delivery_time']:
-                    try:
-                        # First, check if it's a datetime string with space
-                        if isinstance(order_data['actual_delivery_time'], str) and ' ' in order_data['actual_delivery_time']:
-                            # Extract just the time part
-                            time_part = order_data['actual_delivery_time'].split(' ')[1]
-                            # Parse the time part
-                            time_obj = datetime.strptime(time_part, '%H:%M:%S').time()
-                            # Format as HH:MM:SS
-                            order_data['actual_delivery_time'] = time_obj.strftime('%H:%M:%S')
-                        else:
-                            # Try to parse as datetime
-                            dt = datetime.strptime(str(order_data['actual_delivery_time']), '%Y-%m-%d %H:%M:%S')
-                            order_data['actual_delivery_time'] = dt.time().strftime('%H:%M:%S')
-                    except (ValueError, TypeError):
-                        try:
-                            # Try to parse as time
-                            dt = datetime.strptime(str(order_data['actual_delivery_time']), '%H:%M:%S')
-                            order_data['actual_delivery_time'] = dt.strftime('%H:%M:%S')
-                        except (ValueError, TypeError):
-                            # If all else fails, set to a default time
-                            order_data['actual_delivery_time'] = '00:00:00'
-
-                print(f"After time fix - delivery_time: {order_data.get('delivery_time')}")
-                print(f"After time fix - actual_delivery_time: {order_data.get('actual_delivery_time')}")
-
-                # Fix status - map 'draft' to 'pending'
-                print(f"Before status fix - status: {order_data.get('status')}")
-                if 'status' in order_data:
-                    if order_data['status'] == 'draft':
-                        order_data['status'] = 'pending'
-                    # Make sure status is one of the valid choices
-                    valid_statuses = ['pending', 'in_progress', 'completed', 'cancelled']
-                    if order_data['status'] not in valid_statuses:
-                        order_data['status'] = 'pending'
-                print(f"After status fix - status: {order_data.get('status')}")
-
-                # Fix payment method - map 'credit' to 'cash' if needed
-                print(f"Before payment method fix - payment_method: {order_data.get('payment_method')}")
-                if 'payment_method' in order_data:
-                    if order_data['payment_method'] == 'credit':
-                        order_data['payment_method'] = 'cash'
-                    # Make sure payment_method is one of the valid choices
-                    valid_payment_methods = ['cash', 'online']
-                    if order_data['payment_method'] not in valid_payment_methods:
-                        order_data['payment_method'] = 'cash'
-                print(f"After payment method fix - payment_method: {order_data.get('payment_method')}")
-
-                # Ensure route and seller are primary keys
-                if 'route' in order_data and not isinstance(order_data['route'], int):
-                    order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
-                if 'seller' in order_data and not isinstance(order_data['seller'], int):
-                    order_data['seller'] = order_data['seller'].id if hasattr(order_data['seller'], 'id') else order_data['seller']
-
-                # Process items to ensure product is a primary key
-                if 'items' in order_data:
-                    for item in order_data['items']:
-                        if 'product' in item and not isinstance(item['product'], int):
-                            item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
-
-                # Try to find a sales order for this delivery order
-                if 'sales_order' not in order_data and 'seller' in order_data and 'route' in order_data and 'delivery_date' in order_data:
-                    try:
-                        # Look for a sales order for this seller
-                        sales_order = SalesOrder.objects.filter(
-                            seller_id=order_data['seller'],
+                        existing_order = DeliveryOrder.objects.filter(
                             route_id=order_data['route'],
-                            order_date__lte=order_data['delivery_date']
-                        ).order_by('-order_date').first()
-
-                        if sales_order:
-                            order_data['sales_order'] = sales_order.id
-                            print(f"Found sales order {sales_order.id} for delivery order")
+                            seller_id=order_data['seller'],
+                            delivery_date=order_data['delivery_date']
+                        ).first()
+                        if existing_order:
+                            print(f"Found existing delivery order by constraint fields: {existing_order.id}")
                     except Exception as e:
-                        print(f"Error finding sales order: {e}")
+                        print(f"Error finding existing delivery order: {e}")
 
-                print(f"Final delivery order data: {order_data}")
-                delivery_serializer = DeliveryOrderSerializer(data=order_data)
-                if delivery_serializer.is_valid():
-                    delivery_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
-                    print(f"Successfully saved delivery order: {delivery_serializer.data['id']}")
+                if existing_order:
+                    # Update existing order
+                    print(f"Updating existing delivery order: {existing_order.id}")
+
+                    # Check if there are any items in the order data
+                    if 'items' not in order_data or not order_data['items']:
+                        print("No items in order data, removing items field to avoid validation errors")
+                        # Remove items field to avoid validation errors
+                        order_data_copy = order_data.copy()
+                        if 'items' in order_data_copy:
+                            del order_data_copy['items']
+                    else:
+                        order_data_copy = order_data
+
+                    try:
+                        # Update the order directly using model instance
+                        for key, value in order_data_copy.items():
+                            if key != 'items' and hasattr(existing_order, key):
+                                setattr(existing_order, key, value)
+
+                        existing_order.sync_status = 'synced'
+                        existing_order.updated_by = user
+                        existing_order.save()
+
+                        # Process items separately
+                        if 'items' in order_data and order_data['items']:
+                            for item_data in order_data['items']:
+                                if 'product' in item_data:
+                                    # Try to find existing item
+                                    existing_item = DeliveryOrderItem.objects.filter(
+                                        delivery_order=existing_order,
+                                        product_id=item_data['product']
+                                    ).first()
+
+                                    if existing_item:
+                                        # Update existing item
+                                        for key, value in item_data.items():
+                                            if key != 'product' and hasattr(existing_item, key):
+                                                setattr(existing_item, key, value)
+                                        existing_item.save()
+                                    else:
+                                        # Create new item
+                                        DeliveryOrderItem.objects.create(
+                                            delivery_order=existing_order,
+                                            **item_data
+                                        )
+
+                        # Add to valid orders
+                        valid_delivery_orders.append(existing_order)
+                        print(f"Successfully updated delivery order: {existing_order.id}")
+                    except Exception as e:
+                        print(f"Error updating delivery order: {e}")
                 else:
-                    print(f"Validation errors: {delivery_serializer.errors}")
-                    print(f"Data received: {order_data}")
-                    # Continue processing other orders instead of failing the whole request
-                    continue
-        else:
-            print("Delivery orders not provided in the request data.")
+                    # Create new order
+                    print("Creating new delivery order")
+                    try:
+                        # Create the order directly using model
+                        new_order = DeliveryOrder(
+                            sync_status='synced',
+                            created_by=user,
+                            updated_by=user
+                        )
+
+                        # Set fields from order_data
+                        for key, value in order_data.items():
+                            if key != 'items' and hasattr(new_order, key):
+                                setattr(new_order, key, value)
+
+                        # Save the new order
+                        new_order.save()
+
+                        # Process items
+                        if 'items' in order_data and order_data['items']:
+                            for item_data in order_data['items']:
+                                DeliveryOrderItem.objects.create(
+                                    delivery_order=new_order,
+                                    **item_data
+                                )
+
+                        # Add to valid orders
+                        valid_delivery_orders.append(new_order)
+                        print(f"Successfully created delivery order: {new_order.id}")
+                    except Exception as e:
+                        print(f"Error creating delivery order: {e}")
+
+            # Add valid delivery orders to validated data
+            validated_data['delivery_orders'] = valid_delivery_orders
+
+        # For other sections, use the serializer as before
+        other_sections = ['returned_orders', 'broken_orders', 'public_sales', 'expenses', 'denominations']
+        for section in other_sections:
+            if section in data_to_process:
+                section_serializer = None
+                if section == 'returned_orders':
+                    section_serializer = ReturnedOrderSerializer(data=data_to_process[section], many=True)
+                elif section == 'broken_orders':
+                    section_serializer = BrokenOrderSerializer(data=data_to_process[section], many=True)
+                elif section == 'public_sales':
+                    section_serializer = PublicSaleSerializer(data=data_to_process[section], many=True)
+                elif section == 'expenses':
+                    section_serializer = DeliveryExpenseSerializer(data=data_to_process[section], many=True)
+                elif section == 'denominations':
+                    section_serializer = CashDenominationSerializer(data=data_to_process[section], many=True)
+
+                if section_serializer and section_serializer.is_valid():
+                    validated_data[section] = section_serializer.validated_data
+                else:
+                    print(f"Validation errors in {section}: {section_serializer.errors if section_serializer else 'No serializer'}")
+
+        # Create a dummy serializer for compatibility with the rest of the code
+        class DummySerializer:
+            def __init__(self, validated_data):
+                self.validated_data = validated_data
+
+        serializer = DummySerializer(validated_data)
+
+        # We've already processed delivery orders above, so we can skip this section
+        # Process other sections
 
         # Process returned orders - check both 'returned_orders' and 'return_orders' keys
         return_orders_key = 'returned_orders' if 'returned_orders' in serializer.validated_data else 'return_orders' if 'return_orders' in serializer.validated_data else None
@@ -912,11 +989,42 @@ class SyncView(APIView):
                     flattened_denominations.extend(denomination_group)
                 denominations_data = flattened_denominations
 
+            # Store successfully processed delivery orders for later use
+            processed_delivery_orders = []
+            if 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
+                for order in serializer.validated_data['delivery_orders']:
+                    if hasattr(order, 'id'):
+                        processed_delivery_orders.append(order)
+
             # Process each denomination
             for denomination_data in denominations_data:
                 # Try to find the delivery order from the local_id
                 delivery_order_id = None
-                if 'local_id' in denomination_data:
+
+                # First, check if delivery_order is already set
+                if 'delivery_order' in denomination_data and denomination_data['delivery_order']:
+                    # Verify that the delivery order exists
+                    try:
+                        delivery_order = DeliveryOrder.objects.get(id=denomination_data['delivery_order'])
+                        delivery_order_id = delivery_order.id
+                        print(f"Using provided delivery_order: {delivery_order_id}")
+                    except DeliveryOrder.DoesNotExist:
+                        print(f"Provided delivery_order {denomination_data['delivery_order']} does not exist")
+                        # Set to None to avoid validation errors
+                        denomination_data['delivery_order'] = None
+
+                # Check if we have a delivery_order_local_id
+                if not delivery_order_id and 'delivery_order_local_id' in denomination_data:
+                    # Find the delivery order with this local_id
+                    matching_order = DeliveryOrder.objects.filter(local_id=denomination_data['delivery_order_local_id']).first()
+                    if matching_order:
+                        delivery_order_id = matching_order.id
+                        print(f"Found delivery order from delivery_order_local_id: {delivery_order_id}")
+                        # Remove the temporary field
+                        del denomination_data['delivery_order_local_id']
+
+                # Try to extract from denomination local_id
+                if not delivery_order_id and 'local_id' in denomination_data:
                     # Extract delivery order ID from local_id (format: mobile-den-{timestamp}-{denomination})
                     local_id_parts = denomination_data.get('local_id', '').split('-')
                     if len(local_id_parts) >= 3:
@@ -925,28 +1033,53 @@ class SyncView(APIView):
                         matching_orders = DeliveryOrder.objects.filter(local_id__contains=timestamp)
                         if matching_orders.exists():
                             delivery_order_id = matching_orders.first().id
+                            print(f"Found delivery order from local_id timestamp: {delivery_order_id}")
 
-                # If we couldn't find a matching delivery order, use the first one from the sync data
-                if not delivery_order_id and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
-                    # Use the first delivery order in the sync data
-                    first_order_data = serializer.validated_data['delivery_orders'][0]
-                    # Check if this order already exists in the database
-                    if 'local_id' in first_order_data:
-                        existing_order = DeliveryOrder.objects.filter(local_id=first_order_data['local_id']).first()
-                        if existing_order:
-                            delivery_order_id = existing_order.id
+                # If we couldn't find a matching delivery order, use the first one from the processed delivery orders
+                if not delivery_order_id and processed_delivery_orders:
+                    delivery_order_id = processed_delivery_orders[0].id
+                    print(f"Using first processed delivery order: {delivery_order_id}")
 
-                # If we still don't have a delivery order, use the first one in the database
+                # If we still don't have a delivery order, try to find one in the database
                 if not delivery_order_id:
-                    first_order = DeliveryOrder.objects.first()
-                    if first_order:
-                        delivery_order_id = first_order.id
+                    # Try to find any delivery order for the current date
+                    today = timezone.now().date()
+                    recent_order = DeliveryOrder.objects.filter(delivery_date=today).order_by('-created_at').first()
+                    if recent_order:
+                        delivery_order_id = recent_order.id
+                        print(f"Using recent delivery order: {delivery_order_id}")
                     else:
-                        print("No delivery orders found for denominations")
-                        continue
+                        # Last resort: use any delivery order
+                        first_order = DeliveryOrder.objects.order_by('-created_at').first()
+                        if first_order:
+                            delivery_order_id = first_order.id
+                            print(f"Using first available delivery order: {delivery_order_id}")
+                        else:
+                            print("No delivery orders found for denominations")
+                            # Set to None and add route and delivery_date instead
+                            denomination_data['delivery_order'] = None
+                            # Try to get route and date from the first delivery order in the payload
+                            if 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
+                                first_order_data = serializer.validated_data['delivery_orders'][0]
+                                if 'route' in first_order_data:
+                                    denomination_data['route'] = first_order_data['route']
+                                if 'delivery_date' in first_order_data:
+                                    denomination_data['delivery_date'] = first_order_data['delivery_date']
+                            continue
 
-                # Add delivery_order to the data
-                denomination_data['delivery_order'] = delivery_order_id
+                # Add delivery_order to the data if we found one
+                if delivery_order_id:
+                    denomination_data['delivery_order'] = delivery_order_id
+                else:
+                    # Set to None to avoid validation errors
+                    denomination_data['delivery_order'] = None
+                    # Try to get route and date from the first delivery order in the payload
+                    if 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
+                        first_order_data = serializer.validated_data['delivery_orders'][0]
+                        if 'route' in first_order_data:
+                            denomination_data['route'] = first_order_data['route']
+                        if 'delivery_date' in first_order_data:
+                            denomination_data['delivery_date'] = first_order_data['delivery_date']
 
                 print(f"Processing denomination: {denomination_data}")
 
