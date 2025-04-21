@@ -982,14 +982,35 @@ class SyncView(APIView):
                         if 'product' in item and not isinstance(item['product'], int):
                             item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
 
-                returned_serializer = ReturnedOrderSerializer(data=order_data)
-                if returned_serializer.is_valid():
-                    returned_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                # Check if this returned order already exists by local_id
+                existing_order = None
+                if 'local_id' in order_data and order_data['local_id']:
+                    existing_order = ReturnedOrder.objects.filter(local_id=order_data['local_id']).first()
+                    if existing_order:
+                        print(f"Found existing returned order by local_id: {existing_order.id}")
+
+                if existing_order:
+                    # Update existing order
+                    returned_serializer = ReturnedOrderSerializer(existing_order, data=order_data, partial=True)
+                    if returned_serializer.is_valid():
+                        returned_serializer.save(sync_status='synced', updated_by=request.user)
+                        print(f"Successfully updated returned order: {existing_order.id}")
+                    else:
+                        print(f"Validation errors updating returned order: {returned_serializer.errors}")
+                        print(f"Data received: {order_data}")
+                        # Continue processing other orders instead of failing the whole request
+                        continue
                 else:
-                    print(f"Validation errors: {returned_serializer.errors}")
-                    print(f"Data received: {order_data}")
-                    # Continue processing other orders instead of failing the whole request
-                    continue
+                    # Create new order
+                    returned_serializer = ReturnedOrderSerializer(data=order_data)
+                    if returned_serializer.is_valid():
+                        returned_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                        print(f"Successfully created returned order")
+                    else:
+                        print(f"Validation errors creating returned order: {returned_serializer.errors}")
+                        print(f"Data received: {order_data}")
+                        # Continue processing other orders instead of failing the whole request
+                        continue
         else:
             print("Returned orders not provided in the request data.")
 
@@ -1006,14 +1027,35 @@ class SyncView(APIView):
                         if 'product' in item and not isinstance(item['product'], int):
                             item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
 
-                broken_serializer = BrokenOrderSerializer(data=order_data)
-                if broken_serializer.is_valid():
-                    broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                # Check if this broken order already exists by local_id
+                existing_order = None
+                if 'local_id' in order_data and order_data['local_id']:
+                    existing_order = BrokenOrder.objects.filter(local_id=order_data['local_id']).first()
+                    if existing_order:
+                        print(f"Found existing broken order by local_id: {existing_order.id}")
+
+                if existing_order:
+                    # Update existing order
+                    broken_serializer = BrokenOrderSerializer(existing_order, data=order_data, partial=True)
+                    if broken_serializer.is_valid():
+                        broken_serializer.save(sync_status='synced', updated_by=request.user)
+                        print(f"Successfully updated broken order: {existing_order.id}")
+                    else:
+                        print(f"Validation errors updating broken order: {broken_serializer.errors}")
+                        print(f"Data received: {order_data}")
+                        # Continue processing other orders instead of failing the whole request
+                        continue
                 else:
-                    print(f"Validation errors: {broken_serializer.errors}")
-                    print(f"Data received: {order_data}")
-                    # Continue processing other orders instead of failing the whole request
-                    continue
+                    # Create new order
+                    broken_serializer = BrokenOrderSerializer(data=order_data)
+                    if broken_serializer.is_valid():
+                        broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                        print(f"Successfully created broken order")
+                    else:
+                        print(f"Validation errors creating broken order: {broken_serializer.errors}")
+                        print(f"Data received: {order_data}")
+                        # Continue processing other orders instead of failing the whole request
+                        continue
         else:
             print("Broken orders not provided in the request data.")
 
@@ -1054,15 +1096,37 @@ class SyncView(APIView):
                         if 'product' in item and not isinstance(item['product'], int):
                             item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
 
-                sale_serializer = PublicSaleSerializer(data=sale_data)
-                if sale_serializer.is_valid():
-                    sale_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                # Check if this public sale already exists by local_id
+                existing_sale = None
+                if 'local_id' in sale_data and sale_data['local_id']:
+                    existing_sale = PublicSale.objects.filter(local_id=sale_data['local_id']).first()
+                    if existing_sale:
+                        print(f"Found existing public sale by local_id: {existing_sale.id}")
+
+                if existing_sale:
+                    # Update existing sale
+                    sale_serializer = PublicSaleSerializer(existing_sale, data=sale_data, partial=True)
+                    if sale_serializer.is_valid():
+                        sale_serializer.save(sync_status='synced', updated_by=request.user)
+                        print(f"Successfully updated public sale: {existing_sale.id}")
+                    else:
+                        # Print detailed error information
+                        print(f"Validation errors updating public sale: {sale_serializer.errors}")
+                        print(f"Data received: {sale_data}")
+                        # Continue processing other sales instead of failing the whole request
+                        continue
                 else:
-                    # Print detailed error information
-                    print(f"Validation errors: {sale_serializer.errors}")
-                    print(f"Data received: {sale_data}")
-                    # Continue processing other sales instead of failing the whole request
-                    continue
+                    # Create new sale
+                    sale_serializer = PublicSaleSerializer(data=sale_data)
+                    if sale_serializer.is_valid():
+                        sale_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                        print(f"Successfully created public sale")
+                    else:
+                        # Print detailed error information
+                        print(f"Validation errors creating public sale: {sale_serializer.errors}")
+                        print(f"Data received: {sale_data}")
+                        # Continue processing other sales instead of failing the whole request
+                        continue
 
         else:
             print("Public sales not provided in the request data.")
@@ -1131,15 +1195,35 @@ class SyncView(APIView):
 
                 print(f"Final expense data with created_by: {mapped_expense_data}")
 
-                expense_serializer = DeliveryExpenseSerializer(data=mapped_expense_data)
-                if expense_serializer.is_valid():
-                    expense_serializer.save(sync_status='synced')
-                    print(f"Successfully saved expense: {expense_serializer.data}")
+                # Check if this expense already exists by local_id
+                existing_expense = None
+                if 'local_id' in mapped_expense_data and mapped_expense_data['local_id']:
+                    existing_expense = DeliveryExpense.objects.filter(local_id=mapped_expense_data['local_id']).first()
+                    if existing_expense:
+                        print(f"Found existing expense by local_id: {existing_expense.id}")
+
+                if existing_expense:
+                    # Update existing expense
+                    expense_serializer = DeliveryExpenseSerializer(existing_expense, data=mapped_expense_data, partial=True)
+                    if expense_serializer.is_valid():
+                        expense_serializer.save(sync_status='synced')
+                        print(f"Successfully updated expense: {existing_expense.id}")
+                    else:
+                        print(f"Validation errors updating expense: {expense_serializer.errors}")
+                        print(f"Data received: {mapped_expense_data}")
+                        # Continue processing other expenses instead of failing the whole request
+                        continue
                 else:
-                    print(f"Validation errors: {expense_serializer.errors}")
-                    print(f"Data received: {mapped_expense_data}")
-                    # Continue processing other expenses instead of failing the whole request
-                    continue
+                    # Create new expense
+                    expense_serializer = DeliveryExpenseSerializer(data=mapped_expense_data)
+                    if expense_serializer.is_valid():
+                        expense_serializer.save(sync_status='synced')
+                        print(f"Successfully created expense: {expense_serializer.data}")
+                    else:
+                        print(f"Validation errors creating expense: {expense_serializer.errors}")
+                        print(f"Data received: {mapped_expense_data}")
+                        # Continue processing other expenses instead of failing the whole request
+                        continue
 
         else:
             print("Expenses not provided in the request data.")
@@ -1261,15 +1345,35 @@ class SyncView(APIView):
 
                 print(f"Processing denomination: {denomination_data}")
 
-                # Create the denomination
-                denomination_serializer = CashDenominationSerializer(data=denomination_data)
-                if denomination_serializer.is_valid():
-                    denomination_serializer.save(sync_status='synced')
+                # Check if this denomination already exists by local_id
+                existing_denomination = None
+                if 'local_id' in denomination_data and denomination_data['local_id']:
+                    existing_denomination = CashDenomination.objects.filter(local_id=denomination_data['local_id']).first()
+                    if existing_denomination:
+                        print(f"Found existing denomination by local_id: {existing_denomination.id}")
+
+                if existing_denomination:
+                    # Update existing denomination
+                    denomination_serializer = CashDenominationSerializer(existing_denomination, data=denomination_data, partial=True)
+                    if denomination_serializer.is_valid():
+                        denomination_serializer.save(sync_status='synced')
+                        print(f"Successfully updated denomination: {existing_denomination.id}")
+                    else:
+                        print(f"Validation errors updating denomination: {denomination_serializer.errors}")
+                        print(f"Data received: {denomination_data}")
+                        # Continue processing other denominations instead of failing the whole request
+                        continue
                 else:
-                    print(f"Validation errors: {denomination_serializer.errors}")
-                    print(f"Data received: {denomination_data}")
-                    # Continue processing other denominations instead of failing the whole request
-                    continue
+                    # Create new denomination
+                    denomination_serializer = CashDenominationSerializer(data=denomination_data)
+                    if denomination_serializer.is_valid():
+                        denomination_serializer.save(sync_status='synced')
+                        print(f"Successfully created denomination")
+                    else:
+                        print(f"Validation errors creating denomination: {denomination_serializer.errors}")
+                        print(f"Data received: {denomination_data}")
+                        # Continue processing other denominations instead of failing the whole request
+                        continue
         else:
             print("Denominations not provided in the request data.")
 
