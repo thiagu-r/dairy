@@ -391,19 +391,32 @@ class ReturnedOrderSerializer(serializers.ModelSerializer):
 class BrokenOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
+    # Make reason optional for mobile app sync
+    reason = serializers.CharField(required=False, allow_blank=True, default='')
+    # Rename broken_quantity to quantity if needed
+    broken_quantity = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, source='quantity')
 
     class Meta:
         model = BrokenOrderItem
-        fields = ('id', 'product', 'product_name', 'quantity', 'reason')
+        fields = ('id', 'product', 'product_name', 'quantity', 'broken_quantity', 'reason')
 
 class BrokenOrderSerializer(serializers.ModelSerializer):
     items = BrokenOrderItemSerializer(many=True)
     route_name = serializers.ReadOnlyField(source='route.name')
     route = serializers.PrimaryKeyRelatedField(queryset=Route.objects.all())
+    # Use report_date instead of broken_date to match the model
+    # Also make loading_order optional for mobile app sync
+    loading_order = serializers.PrimaryKeyRelatedField(queryset=LoadingOrder.objects.all(), required=False, allow_null=True)
+    # Add status field with default value
+    status = serializers.CharField(default='pending', required=False)
+    # Add sync_status field with default value
+    sync_status = serializers.CharField(default='pending', required=False)
+    # Add local_id field
+    local_id = serializers.CharField(required=False, allow_null=True)
 
     class Meta:
         model = BrokenOrder
-        fields = ('id', 'order_number', 'route', 'route_name', 'broken_date', 'status', 'notes', 'items', 'sync_status')
+        fields = ('id', 'order_number', 'route', 'route_name', 'report_date', 'report_time', 'loading_order', 'status', 'notes', 'items', 'sync_status', 'local_id')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')

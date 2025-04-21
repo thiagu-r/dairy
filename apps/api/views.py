@@ -1045,28 +1045,49 @@ class SyncView(APIView):
                         order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
                         print(f"Used object id for route: {order_data['route']}")
 
+                # Map date field if needed
+                if 'date' in order_data and not 'report_date' in order_data:
+                    order_data['report_date'] = order_data['date']
+                    print(f"Mapped date {order_data['date']} to report_date field")
+
                 # Process items to ensure product is a primary key
                 if 'items' in order_data:
+                    processed_items = []
                     for item in order_data['items']:
+                        # Create a new item dictionary to avoid modifying the original
+                        processed_item = {}
+
                         # Handle different field names in the payload
                         if 'product_id' in item and not 'product' in item:
                             # Map product_id to product
-                            item['product'] = item['product_id']
+                            processed_item['product'] = item['product_id']
                             print(f"Mapped product_id {item['product_id']} to product field")
+                        elif 'product' in item:
+                            processed_item['product'] = item['product']
 
                         # Ensure product is an integer
-                        if 'product' in item and not isinstance(item['product'], int):
+                        if 'product' in processed_item and not isinstance(processed_item['product'], int):
                             try:
-                                item['product'] = int(item['product'])
-                                print(f"Converted product {item['product']} to integer")
+                                processed_item['product'] = int(processed_item['product'])
+                                print(f"Converted product {processed_item['product']} to integer")
                             except (ValueError, TypeError):
-                                item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
-                                print(f"Used object id for product: {item['product']}")
+                                processed_item['product'] = processed_item['product'].id if hasattr(processed_item['product'], 'id') else processed_item['product']
+                                print(f"Used object id for product: {processed_item['product']}")
 
                         # Map quantity field if needed
-                        if 'quantity' in item and not 'broken_quantity' in item:
-                            item['broken_quantity'] = item['quantity']
-                            print(f"Mapped quantity {item['quantity']} to broken_quantity field")
+                        if 'quantity' in item:
+                            processed_item['quantity'] = item['quantity']
+                            print(f"Set quantity to {item['quantity']}")
+
+                        # Add product_name for reference
+                        if 'product_name' in item:
+                            processed_item['product_name'] = item['product_name']
+
+                        # Add the processed item to the list
+                        processed_items.append(processed_item)
+
+                    # Replace the original items with the processed ones
+                    order_data['items'] = processed_items
 
                 # Check if this broken order already exists by id or local_id
                 existing_order = None
@@ -1087,6 +1108,12 @@ class SyncView(APIView):
                     # Update existing order
                     broken_serializer = BrokenOrderSerializer(existing_order, data=order_data, partial=True)
                     if broken_serializer.is_valid():
+                        # Set the local_id if it's not already set
+                        if 'id' in order_data and order_data['id'] and not existing_order.local_id:
+                            existing_order.local_id = str(order_data['id'])
+                            existing_order.save(update_fields=['local_id'])
+                            print(f"Updated local_id for existing broken order: {existing_order.id}")
+
                         broken_serializer.save(sync_status='synced', updated_by=request.user)
                         print(f"Successfully updated broken order: {existing_order.id}")
                     else:
@@ -1096,10 +1123,37 @@ class SyncView(APIView):
                         continue
                 else:
                     # Create new order
+                    # Set the local_id from the id field if available
+                    if 'id' in order_data and order_data['id']:
+                        order_data['local_id'] = str(order_data['id'])
+                        print(f"Set local_id from id: {order_data['local_id']}")
+
+                    # Generate a unique order number if not provided
+                    if not 'order_number' in order_data or not order_data['order_number']:
+                        # Generate a unique order number
+                        today = datetime.now().strftime('%Y%m%d')
+                        count = BrokenOrder.objects.filter(order_number__contains=f"BO-{today}").count() + 1
+                        order_data['order_number'] = f"BO-{today}-{count:04d}"
+                        print(f"Generated order number: {order_data['order_number']}")
+
                     broken_serializer = BrokenOrderSerializer(data=order_data)
                     if broken_serializer.is_valid():
-                        broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
-                        print(f"Successfully created broken order")
+                        # Set created_by and updated_by to the request user
+                        try:
+                            broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                            print(f"Successfully created broken order")
+                        except Exception as e:
+                            print(f"Error creating broken order: {e}")
+                            # Try with partial=True as a fallback
+                            try:
+                                broken_serializer = BrokenOrderSerializer(data=order_data, partial=True)
+                                if broken_serializer.is_valid():
+                                    broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                                    print(f"Successfully created broken order with partial=True")
+                                else:
+                                    print(f"Validation errors creating broken order with partial=True: {broken_serializer.errors}")
+                            except Exception as e2:
+                                print(f"Error creating broken order with partial=True: {e2}")
                     else:
                         print(f"Validation errors creating broken order: {broken_serializer.errors}")
                         print(f"Data received: {order_data}")

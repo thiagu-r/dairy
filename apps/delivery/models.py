@@ -767,7 +767,9 @@ class BrokenOrder(models.Model):
     loading_order = models.ForeignKey(
         LoadingOrder,
         on_delete=models.PROTECT,
-        related_name='broken_orders'
+        related_name='broken_orders',
+        null=True,  # Make optional for mobile app sync
+        blank=True
     )
     route = models.ForeignKey(
         Route,
@@ -775,19 +777,50 @@ class BrokenOrder(models.Model):
         related_name='broken_orders'
     )
     report_date = models.DateField(db_index=True)
-    report_time = models.TimeField()
+    report_time = models.TimeField(null=True, blank=True)  # Make optional for mobile app sync
     notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
         CustomUser,
         on_delete=models.PROTECT,
-        related_name='broken_orders_created'
+        related_name='broken_orders_created',
+        null=True,  # Make optional for mobile app sync
+        blank=True
     )
     updated_by = models.ForeignKey(
         CustomUser,
         on_delete=models.PROTECT,
-        related_name='broken_orders_updated'
+        related_name='broken_orders_updated',
+        null=True,  # Make optional for mobile app sync
+        blank=True
+    )
+
+    # Add status field for mobile app sync
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('completed', 'Completed'),
+            ('cancelled', 'Cancelled'),
+        ],
+        default='pending'
+    )
+
+    # Add sync fields for mobile app
+    sync_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('pending', 'Pending'),
+            ('synced', 'Synced'),
+            ('failed', 'Failed'),
+        ],
+        default='pending'
+    )
+    local_id = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True
     )
 
     class Meta:
