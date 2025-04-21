@@ -794,16 +794,30 @@ class SyncView(APIView):
                                             for key, value in item_data.items():
                                                 if key != 'product' and hasattr(existing_item, key):
                                                     # For quantity fields, take the maximum value
-                                                    if key in ['ordered_quantity', 'extra_quantity'] and getattr(existing_item, key) is not None:
+                                                    if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity'] and getattr(existing_item, key) is not None:
                                                         current_value = getattr(existing_item, key)
-                                                        # Convert both values to Decimal for comparison
-                                                        from decimal import Decimal
+                                                        # Convert both values to float for comparison
                                                         try:
-                                                            current_decimal = Decimal(str(current_value))
-                                                            new_decimal = Decimal(str(value))
-                                                            setattr(existing_item, key, max(current_decimal, new_decimal))
+                                                            # Handle various types by converting to string first, then to float
+                                                            if current_value is None or current_value == '':
+                                                                current_float = 0.0
+                                                            else:
+                                                                current_float = float(str(current_value).replace(',', ''))
+
+                                                            if value is None or value == '':
+                                                                new_float = 0.0
+                                                            else:
+                                                                new_float = float(str(value).replace(',', ''))
+
+                                                            # Use the maximum value
+                                                            max_value = max(current_float, new_float)
+
+                                                            # Format as string with 2 decimal places for consistency
+                                                            formatted_value = f"{max_value:.2f}"
+                                                            setattr(existing_item, key, formatted_value)
+                                                            print(f"Updated {key} from {current_value} to {formatted_value}")
                                                         except Exception as e:
-                                                            print(f"Error comparing quantities: {e}, using new value")
+                                                            print(f"Error comparing quantities for {key}: {e}, using new value")
                                                             setattr(existing_item, key, value)
                                                     else:
                                                         setattr(existing_item, key, value)
@@ -1017,19 +1031,54 @@ class SyncView(APIView):
         # Process broken orders
         if 'broken_orders' in serializer.validated_data:
             for order_data in serializer.validated_data['broken_orders']:
+                # Handle route_id vs route field
+                if 'route_id' in order_data and not 'route' in order_data:
+                    order_data['route'] = order_data['route_id']
+                    print(f"Mapped route_id {order_data['route_id']} to route field")
+
                 # Ensure route is a primary key
                 if 'route' in order_data and not isinstance(order_data['route'], int):
-                    order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
+                    try:
+                        order_data['route'] = int(order_data['route'])
+                        print(f"Converted route {order_data['route']} to integer")
+                    except (ValueError, TypeError):
+                        order_data['route'] = order_data['route'].id if hasattr(order_data['route'], 'id') else order_data['route']
+                        print(f"Used object id for route: {order_data['route']}")
 
                 # Process items to ensure product is a primary key
                 if 'items' in order_data:
                     for item in order_data['items']:
-                        if 'product' in item and not isinstance(item['product'], int):
-                            item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
+                        # Handle different field names in the payload
+                        if 'product_id' in item and not 'product' in item:
+                            # Map product_id to product
+                            item['product'] = item['product_id']
+                            print(f"Mapped product_id {item['product_id']} to product field")
 
-                # Check if this broken order already exists by local_id
+                        # Ensure product is an integer
+                        if 'product' in item and not isinstance(item['product'], int):
+                            try:
+                                item['product'] = int(item['product'])
+                                print(f"Converted product {item['product']} to integer")
+                            except (ValueError, TypeError):
+                                item['product'] = item['product'].id if hasattr(item['product'], 'id') else item['product']
+                                print(f"Used object id for product: {item['product']}")
+
+                        # Map quantity field if needed
+                        if 'quantity' in item and not 'broken_quantity' in item:
+                            item['broken_quantity'] = item['quantity']
+                            print(f"Mapped quantity {item['quantity']} to broken_quantity field")
+
+                # Check if this broken order already exists by id or local_id
                 existing_order = None
-                if 'local_id' in order_data and order_data['local_id']:
+
+                # First check by id field (which might be used as local_id in the mobile app)
+                if 'id' in order_data and order_data['id']:
+                    existing_order = BrokenOrder.objects.filter(local_id=str(order_data['id'])).first()
+                    if existing_order:
+                        print(f"Found existing broken order by id as local_id: {existing_order.id}")
+
+                # Then check by local_id if not found
+                if not existing_order and 'local_id' in order_data and order_data['local_id']:
                     existing_order = BrokenOrder.objects.filter(local_id=order_data['local_id']).first()
                     if existing_order:
                         print(f"Found existing broken order by local_id: {existing_order.id}")
@@ -1178,7 +1227,7 @@ class SyncView(APIView):
                     mapped_expense_data['expense_type'] = 'fuel'
                 elif expense_type == 'food':
                     mapped_expense_data['expense_type'] = 'food'
-                elif expense_type == 'vehicle' or expense_type == 'maintenance':
+                elif expense_type in ['vehicle', 'maintenance', 'repairs']:
                     mapped_expense_data['expense_type'] = 'vehicle'
                 print(f"After expense type mapping: {mapped_expense_data['expense_type']}")
 
