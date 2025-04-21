@@ -793,35 +793,23 @@ class SyncView(APIView):
                                             # Update fields
                                             for key, value in item_data.items():
                                                 if key != 'product' and hasattr(existing_item, key):
-                                                    # For quantity fields, take the maximum value
-                                                    if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity'] and getattr(existing_item, key) is not None:
-                                                        current_value = getattr(existing_item, key)
-                                                        # Convert both values to float for comparison
+                                                    # For quantity fields, just set the value directly to avoid comparison issues
+                                                    if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity']:
                                                         try:
-                                                            # Handle various types by converting to string first, then to float
-                                                            if current_value is None or current_value == '':
-                                                                current_float = 0.0
-                                                            else:
-                                                                # Make sure we're working with a string
-                                                                current_str = str(current_value).replace(',', '')
-                                                                current_float = float(current_str)
-
+                                                            # Convert to string with 2 decimal places for consistency
                                                             if value is None or value == '':
-                                                                new_float = 0.0
+                                                                formatted_value = '0.00'
                                                             else:
                                                                 # Make sure we're working with a string
-                                                                new_str = str(value).replace(',', '')
-                                                                new_float = float(new_str)
+                                                                value_str = str(value).replace(',', '')
+                                                                value_float = float(value_str)
+                                                                formatted_value = f"{value_float:.2f}"
 
-                                                            # Use the maximum value
-                                                            max_value = max(current_float, new_float)
-
-                                                            # Format as string with 2 decimal places for consistency
-                                                            formatted_value = f"{max_value:.2f}"
+                                                            current_value = getattr(existing_item, key)
                                                             setattr(existing_item, key, formatted_value)
-                                                            print(f"Updated {key} from {current_value} to {formatted_value}")
+                                                            print(f"Set {key} from {current_value} to {formatted_value}")
                                                         except Exception as e:
-                                                            print(f"Error comparing quantities for {key}: {e}, using new value")
+                                                            print(f"Error formatting quantity for {key}: {e}, using string value")
                                                             # Convert value to string to avoid type issues
                                                             if value is not None:
                                                                 try:
@@ -832,8 +820,9 @@ class SyncView(APIView):
                                                                     print(f"Error converting value to string: {e2}, using original value")
                                                                     setattr(existing_item, key, value)
                                                             else:
-                                                                setattr(existing_item, key, value)
+                                                                setattr(existing_item, key, '0.00')
                                                     else:
+                                                        # For non-quantity fields, just set the value directly
                                                         setattr(existing_item, key, value)
 
                                             existing_item.save()
@@ -1310,12 +1299,21 @@ class SyncView(APIView):
                 print(f"Before expense type mapping: {expense_data.get('expense_type')}")
                 # Map expense type
                 expense_type = expense_data.get('expense_type', '').lower() if expense_data.get('expense_type') else ''
+                # Map expense types to valid choices in the model
                 if expense_type == 'fuel':
                     mapped_expense_data['expense_type'] = 'fuel'
                 elif expense_type == 'food':
                     mapped_expense_data['expense_type'] = 'food'
-                elif expense_type in ['vehicle', 'maintenance', 'repairs']:
+                elif expense_type in ['vehicle', 'maintenance', 'repairs', 'repair']:
+                    # Map all vehicle-related expenses to 'vehicle'
                     mapped_expense_data['expense_type'] = 'vehicle'
+                else:
+                    # Default to 'other' for any unrecognized expense types
+                    mapped_expense_data['expense_type'] = 'other'
+                    print(f"Mapped unknown expense type '{expense_type}' to 'other'")
+
+                print(f"Mapped expense type from '{expense_type}' to '{mapped_expense_data['expense_type']}'")
+
                 print(f"After expense type mapping: {mapped_expense_data['expense_type']}")
 
                 print(f"Mapped expense data: {mapped_expense_data}")
