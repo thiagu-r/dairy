@@ -4,6 +4,7 @@ from apps.authentication.models import CustomUser as User
 from apps.seller.models import Seller, Route
 from apps.products.models import Product, PricePlan, ProductPrice, Category
 from apps.sales.models import SalesOrder, OrderItem as SalesOrderItem
+from datetime import datetime
 from apps.delivery.models import (
     PurchaseOrder,
     PurchaseOrderItem,
@@ -413,10 +414,33 @@ class BrokenOrderSerializer(serializers.ModelSerializer):
     sync_status = serializers.CharField(default='pending', required=False)
     # Add local_id field
     local_id = serializers.CharField(required=False, allow_null=True)
+    # Make report_time optional
+    report_time = serializers.TimeField(required=False)
+    # Make report_date optional with a default value
+    report_date = serializers.DateField(required=False, default=datetime.now().date)
+    # Make order_number optional
+    order_number = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = BrokenOrder
         fields = ('id', 'order_number', 'route', 'route_name', 'report_date', 'report_time', 'loading_order', 'status', 'notes', 'items', 'sync_status', 'local_id')
+
+    def validate(self, data):
+        # If report_date is not provided, use today's date
+        if 'report_date' not in data or data['report_date'] is None:
+            data['report_date'] = datetime.now().date()
+
+        # If report_time is not provided, use current time
+        if 'report_time' not in data or data['report_time'] is None:
+            data['report_time'] = datetime.now().time()
+
+        # If order_number is not provided, generate one
+        if 'order_number' not in data or not data['order_number']:
+            today = datetime.now().strftime('%Y%m%d')
+            count = BrokenOrder.objects.filter(order_number__contains=f"BO-{today}").count() + 1
+            data['order_number'] = f"BO-{today}-{count:04d}"
+
+        return data
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')

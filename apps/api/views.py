@@ -802,12 +802,16 @@ class SyncView(APIView):
                                                             if current_value is None or current_value == '':
                                                                 current_float = 0.0
                                                             else:
-                                                                current_float = float(str(current_value).replace(',', ''))
+                                                                # Make sure we're working with a string
+                                                                current_str = str(current_value).replace(',', '')
+                                                                current_float = float(current_str)
 
                                                             if value is None or value == '':
                                                                 new_float = 0.0
                                                             else:
-                                                                new_float = float(str(value).replace(',', ''))
+                                                                # Make sure we're working with a string
+                                                                new_str = str(value).replace(',', '')
+                                                                new_float = float(new_str)
 
                                                             # Use the maximum value
                                                             max_value = max(current_float, new_float)
@@ -818,7 +822,17 @@ class SyncView(APIView):
                                                             print(f"Updated {key} from {current_value} to {formatted_value}")
                                                         except Exception as e:
                                                             print(f"Error comparing quantities for {key}: {e}, using new value")
-                                                            setattr(existing_item, key, value)
+                                                            # Convert value to string to avoid type issues
+                                                            if value is not None:
+                                                                try:
+                                                                    value_str = str(value)
+                                                                    setattr(existing_item, key, value_str)
+                                                                    print(f"Converted {value} to string: {value_str}")
+                                                                except Exception as e2:
+                                                                    print(f"Error converting value to string: {e2}, using original value")
+                                                                    setattr(existing_item, key, value)
+                                                            else:
+                                                                setattr(existing_item, key, value)
                                                     else:
                                                         setattr(existing_item, key, value)
 
@@ -1050,6 +1064,16 @@ class SyncView(APIView):
                     order_data['report_date'] = order_data['date']
                     print(f"Mapped date {order_data['date']} to report_date field")
 
+                # Set report_time if not provided
+                if not 'report_time' in order_data:
+                    order_data['report_time'] = datetime.now().strftime('%H:%M:%S')
+                    print(f"Set default report_time: {order_data['report_time']}")
+
+                # Ensure route_id is mapped to route
+                if 'route_id' in order_data and not 'route' in order_data:
+                    order_data['route'] = order_data['route_id']
+                    print(f"Mapped route_id {order_data['route_id']} to route field")
+
                 # Process items to ensure product is a primary key
                 if 'items' in order_data:
                     processed_items = []
@@ -1064,6 +1088,15 @@ class SyncView(APIView):
                             print(f"Mapped product_id {item['product_id']} to product field")
                         elif 'product' in item:
                             processed_item['product'] = item['product']
+                        else:
+                            # If neither product nor product_id is present, log an error
+                            print(f"Error: No product or product_id found in item: {item}")
+                            # Try to find any field that might contain the product ID
+                            for key, value in item.items():
+                                if 'product' in key.lower() and isinstance(value, (int, str)):
+                                    processed_item['product'] = value
+                                    print(f"Found potential product ID in field {key}: {value}")
+                                    break
 
                         # Ensure product is an integer
                         if 'product' in processed_item and not isinstance(processed_item['product'], int):
