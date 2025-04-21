@@ -790,40 +790,25 @@ class SyncView(APIView):
                                             existing_item = existing_items[product_id]
                                             print(f"Updating existing item for product {product_id}")
 
-                                            # Update fields
+                                            # Update fields - completely avoid any comparison or complex logic
+                                            # Just set the fields directly with minimal processing
                                             for key, value in item_data.items():
                                                 if key != 'product' and hasattr(existing_item, key):
-                                                    # For quantity fields, just set the value directly to avoid comparison issues
-                                                    if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity']:
-                                                        try:
-                                                            # Convert to string with 2 decimal places for consistency
+                                                    try:
+                                                        # For quantity fields, convert to string with 2 decimal places
+                                                        if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity']:
+                                                            # Always convert to string to avoid type issues
                                                             if value is None or value == '':
-                                                                formatted_value = '0.00'
-                                                            else:
-                                                                # Make sure we're working with a string
-                                                                value_str = str(value).replace(',', '')
-                                                                value_float = float(value_str)
-                                                                formatted_value = f"{value_float:.2f}"
-
-                                                            current_value = getattr(existing_item, key)
-                                                            setattr(existing_item, key, formatted_value)
-                                                            print(f"Set {key} from {current_value} to {formatted_value}")
-                                                        except Exception as e:
-                                                            print(f"Error formatting quantity for {key}: {e}, using string value")
-                                                            # Convert value to string to avoid type issues
-                                                            if value is not None:
-                                                                try:
-                                                                    value_str = str(value)
-                                                                    setattr(existing_item, key, value_str)
-                                                                    print(f"Converted {value} to string: {value_str}")
-                                                                except Exception as e2:
-                                                                    print(f"Error converting value to string: {e2}, using original value")
-                                                                    setattr(existing_item, key, value)
-                                                            else:
                                                                 setattr(existing_item, key, '0.00')
-                                                    else:
-                                                        # For non-quantity fields, just set the value directly
-                                                        setattr(existing_item, key, value)
+                                                            else:
+                                                                # Simple string conversion
+                                                                setattr(existing_item, key, str(value))
+                                                        else:
+                                                            # For non-quantity fields, set directly
+                                                            setattr(existing_item, key, value)
+                                                    except Exception as e:
+                                                        print(f"Error setting {key}: {e}, skipping")
+                                                        continue
 
                                             existing_item.save()
                                         else:
@@ -839,10 +824,24 @@ class SyncView(APIView):
                                                     product=product
                                                 )
 
-                                                # Set other fields
+                                                # Set other fields - use the same simplified approach as for updating
                                                 for key, value in item_data.items():
                                                     if key != 'product' and hasattr(new_item, key):
-                                                        setattr(new_item, key, value)
+                                                        try:
+                                                            # For quantity fields, convert to string with 2 decimal places
+                                                            if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity']:
+                                                                # Always convert to string to avoid type issues
+                                                                if value is None or value == '':
+                                                                    setattr(new_item, key, '0.00')
+                                                                else:
+                                                                    # Simple string conversion
+                                                                    setattr(new_item, key, str(value))
+                                                            else:
+                                                                # For non-quantity fields, set directly
+                                                                setattr(new_item, key, value)
+                                                        except Exception as e:
+                                                            print(f"Error setting {key}: {e}, skipping")
+                                                            continue
 
                                                 new_item.save()
 
@@ -925,10 +924,24 @@ class SyncView(APIView):
                                                 product=product
                                             )
 
-                                            # Set other fields
+                                            # Set other fields - use the same simplified approach as for updating
                                             for key, value in item_data.items():
                                                 if key != 'product' and hasattr(new_item, key):
-                                                    setattr(new_item, key, value)
+                                                    try:
+                                                        # For quantity fields, convert to string with 2 decimal places
+                                                        if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity']:
+                                                            # Always convert to string to avoid type issues
+                                                            if value is None or value == '':
+                                                                setattr(new_item, key, '0.00')
+                                                            else:
+                                                                # Simple string conversion
+                                                                setattr(new_item, key, str(value))
+                                                        else:
+                                                            # For non-quantity fields, set directly
+                                                            setattr(new_item, key, value)
+                                                    except Exception as e:
+                                                        print(f"Error setting {key}: {e}, skipping")
+                                                        continue
 
                                             new_item.save()
 
