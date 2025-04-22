@@ -1,0 +1,20 @@
+[
+  {
+    "id": null,
+    "denomination": 500,
+    "count": 5,
+    "total_amount": 2500.00,
+    "local_id": "mobile-den-1745243359463-500",
+    "delivery_date": "2025-04-21",
+    "route": 1
+  },
+  {
+    "id": null,
+    "denomination": 200,
+    "count": 4,
+    "total_amount": 800.00,
+    "local_id": "mobile-den-1745243359463-200",
+    "delivery_date": "2025-04-21",
+    "route": 1
+  }
+]

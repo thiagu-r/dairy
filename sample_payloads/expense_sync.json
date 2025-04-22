@@ -1,0 +1,20 @@
+[
+  {
+    "id": null,
+    "expense_date": "2025-04-21",
+    "description": "Fuel expense",
+    "amount": 100.0,
+    "delivery_team": 1,
+    "expense_type": "fuel",
+    "local_id": "mobile-exp-1745243309569"
+  },
+  {
+    "id": null,
+    "expense_date": "2025-04-21",
+    "description": "Vehicle maintenance",
+    "amount": 100.0,
+    "delivery_team": 1,
+    "expense_type": "vehicle",
+    "local_id": "mobile-exp-1745243317872"
+  }
+]

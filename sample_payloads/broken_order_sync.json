@@ -1,0 +1,20 @@
+[
+  {
+    "id": null,
+    "order_number": "BO-20250421-0001",
+    "report_date": "2025-04-21",
+    "route": 1,
+    "route_name": "Pudukkottai",
+    "status": "pending",
+    "sync_status": "pending",
+    "local_id": "1745234721383",
+    "items": [
+      {
+        "product": 4,
+        "product_name": "FM500",
+        "quantity": 1.0,
+        "reason": "Damaged during transport"
+      }
+    ]
+  }
+]

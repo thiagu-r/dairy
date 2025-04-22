@@ -1,6 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from .separate_sync_views import (
+    DeliveryOrderSyncView,
+    BrokenOrderSyncView,
+    ReturnOrderSyncView,
+    PublicSaleSyncView,
+    DeliveryExpenseSyncView,
+    CashDenominationSyncView
+)
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -43,6 +51,14 @@ urlpatterns = [
     # Sync endpoints
     path('sync/', views.SyncView.as_view(), name='sync'),
     path('sync/status/', views.SyncStatusView.as_view(), name='sync-status'),
+
+    # Individual sync endpoints
+    path('sync/delivery-orders/', DeliveryOrderSyncView.as_view(), name='sync-delivery-orders'),
+    path('sync/broken-orders/', BrokenOrderSyncView.as_view(), name='sync-broken-orders'),
+    path('sync/return-orders/', ReturnOrderSyncView.as_view(), name='sync-return-orders'),
+    path('sync/public-sales/', PublicSaleSyncView.as_view(), name='sync-public-sales'),
+    path('sync/expenses/', DeliveryExpenseSyncView.as_view(), name='sync-expenses'),
+    path('sync/denominations/', CashDenominationSyncView.as_view(), name='sync-denominations'),
 
     # Router URLs
     path('', include(router.urls)),

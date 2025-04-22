@@ -1,0 +1,55 @@
+[
+  {
+    "id": null,
+    "order_number": "DO-20250421-0001",
+    "delivery_date": "2025-04-21",
+    "route": 1,
+    "route_name": "Pudukkottai",
+    "seller_name": "Semmi Stores",
+    "status": "pending",
+    "seller": 1,
+    "delivery_time": "19:17:03",
+    "total_price": 1200.00,
+    "opening_balance": 0.00,
+    "amount_collected": 1000.00,
+    "balance_amount": 200.00,
+    "payment_method": "cash",
+    "notes": null,
+    "sync_status": "pending",
+    "actual_delivery_date": "2025-04-21",
+    "actual_delivery_time": "19:17:03",
+    "local_id": "mobile-do-1745243209596",
+    "items": [
+      {
+        "id": null,
+        "product": 3,
+        "product_name": "FM250",
+        "ordered_quantity": 20.00,
+        "extra_quantity": 0.00,
+        "delivered_quantity": 20.00,
+        "unit_price": 20.00,
+        "total_price": 400.00
+      },
+      {
+        "id": null,
+        "product": 4,
+        "product_name": "FM500",
+        "ordered_quantity": 20.00,
+        "extra_quantity": 0.00,
+        "delivered_quantity": 20.00,
+        "unit_price": 40.00,
+        "total_price": 800.00
+      },
+      {
+        "id": null,
+        "product": 2,
+        "product_name": "SM500",
+        "ordered_quantity": 0.00,
+        "extra_quantity": 0.00,
+        "delivered_quantity": 0.00,
+        "unit_price": 50.00,
+        "total_price": 0.00
+      }
+    ]
+  }
+]

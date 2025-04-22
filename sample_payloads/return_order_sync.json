@@ -1,0 +1,26 @@
+[
+  {
+    "id": null,
+    "order_number": "RO-20250421-0001",
+    "return_date": "2025-04-21",
+    "route": 1,
+    "route_name": "Pudukkottai",
+    "status": "pending",
+    "sync_status": "pending",
+    "local_id": "mobile-ro-1745243400000",
+    "items": [
+      {
+        "product": 4,
+        "product_name": "FM500",
+        "quantity": 5.0,
+        "reason": "Unsold product"
+      },
+      {
+        "product": 2,
+        "product_name": "SM500",
+        "quantity": 3.0,
+        "reason": "Unsold product"
+      }
+    ]
+  }
+]

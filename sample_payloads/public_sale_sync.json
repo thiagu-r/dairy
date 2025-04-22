@@ -1,0 +1,28 @@
+[
+  {
+    "id": null,
+    "route": 1,
+    "sale_date": "2025-04-21",
+    "sale_time": "19:17:45",
+    "payment_method": "cash",
+    "customer_name": null,
+    "customer_phone": null,
+    "customer_address": null,
+    "total_price": 80.00,
+    "amount_collected": 80.00,
+    "balance_amount": 0.00,
+    "status": "completed",
+    "notes": null,
+    "local_id": "mobile-ps-1745243265458",
+    "items": [
+      {
+        "id": null,
+        "product": 4,
+        "product_name": "FM500",
+        "quantity": 2.00,
+        "unit_price": 40.00,
+        "total_price": 80.00
+      }
+    ]
+  }
+]

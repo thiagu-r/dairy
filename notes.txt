@@ -1,0 +1,329 @@
+Login is working.
+In this app, only the following actions are allowed:
+1. create load orders
+2. updated load orders
+3. create delivery orders
+4. update delivery orders
+5. create broken orders
+6. update broken orders
+7. create returned orders
+8. update returned orders
+9. create public sales
+10. update public sales
+11. create denominations
+
+Only create and update load orders will be in online mode.
+
+For creating load orders, the following data is required:
+1. route
+2. delivery team
+3. delivery date
+4. notes
+5. items
+The route is a dropdown list of routes.
+The delivery team is a dropdown list of delivery teams.
+The delivery date is a date picker.
+The notes is a text area.
+The items is a table of products and quantities.
+
+
+how can we give input for the augment code which will creat a flutter app for the delivery
+Already, the app is developed with login functionality works.
+Now need to say augment code to add following features to the app
+1. create load orders
+2. updated load orders
+3. create delivery orders
+4. update delivery orders
+5. create broken orders
+6. update broken orders
+7. create returned orders
+8. update returned orders
+9. create public sales
+10. update public sales
+11. create denominations
+
+And also the app will work in online mode only for creating and updating load orders.
+So how to give inputs to augment code for this app?
+
+
+I need to enhance my Flutter delivery management app for a dairy factory. The app already has login functionality working and connects to a Django REST API.
+
+The app needs the following features:
+
+1. Create Load Orders (Online Only)
+   - Select route and date
+   - Add products with quantities
+   - Submit to API endpoint: POST /api/orders/loading/
+   - Must validate product quantities and date
+
+2. Update Load Orders (Online Only)
+   - Fetch existing load order details
+   - Allow editing of products and quantities
+   - Submit updates to API endpoint: PUT /api/orders/loading/{id}/
+   - Must validate changes
+
+3. Create Delivery Orders (Offline Support)
+   - Select seller from route
+   - Add products with quantities based on load order
+   - Record delivery date and time
+   - Store locally if offline, sync when online
+   - API endpoint: POST /api/orders/delivery/
+
+4. Update Delivery Orders (Offline Support)
+   - Edit existing delivery order details
+   - Update product quantities
+   - Store changes locally if offline
+   - API endpoint: PUT /api/orders/delivery/{id}/
+
+5. Create Broken Orders (Offline Support)
+   - Record products broken during delivery
+   - Select from delivery order products
+   - Add reason for breakage
+   - API endpoint: POST /api/orders/broken/
+
+6. Update Broken Orders (Offline Support)
+   - Edit broken order details
+   - Update quantities or reasons
+   - API endpoint: PUT /api/orders/broken/{id}/
+
+7. Create Returned Orders (Offline Support)
+   - Record products returned by sellers
+   - Select from delivery order products
+   - Add return reason
+   - API endpoint: POST /api/orders/return/
+
+8. Update Returned Orders (Offline Support)
+   - Edit returned order details
+   - Update quantities or reasons
+   - API endpoint: PUT /api/orders/return/{id}/
+
+9. Create Public Sales (Offline Support)
+   - Record sales made directly to public
+   - Select products and quantities
+   - Record payment method
+   - API endpoint: POST /api/orders/public_sale/
+
+10. Update Public Sales (Offline Support)
+    - Edit public sale details
+    - Update products, quantities, or payment info
+    - API endpoint: PUT /api/orders/public_sale/{id}/
+
+11. Create Denominations (Offline Support)
+    - Record cash denominations collected
+    - Count of each bill/coin type
+    - Calculate total amount
+    - API endpoint: POST /api/orders/payment/
+
+Technical Requirements:
+- Use bloc for state management
+- Use Hive for offline data storage
+- Implement sync mechanism for offline data
+- Show network status indicator
+- Implement proper error handling
+- Follow Material Design guidelines
+- Include form validation for all inputs
+
+Route Selection Requirements:
+
+1. UI Implementation:
+   - Display routes in a dropdown/picker component
+   - Show route name and optionally route code/ID
+   - Allow searching/filtering if there are many routes
+   - Consider grouping routes by region/area if applicable
+
+2. Data Loading:
+   - Fetch routes from API endpoint: GET /api/routes/
+   - Cache routes locally for offline access
+   - Show loading indicator while fetching routes
+   - Handle empty state (no routes available)
+
+3. Selection Behavior:
+   - Pre-select the most recently used route if available
+   - Validate that a route is selected before form submission
+   - When a route is selected, optionally pre-load related data (like sellers on that route)
+
+The app should work in online mode for load orders, but all other features should work offline with data syncing when connectivity is restored.
+
+
+I need to enhance my Flutter delivery management app for a dairy factory. The app already has login functionality working and connects to a Django REST API.
+this app will work in online mode only for creating and updating load orders.
+
+The app needs the following features:
+0. **User Authentication** (via Django API, no Google OAuth).
+    - Login with username and password
+    - Logout functionality
+    - Remember me option
+    - Password reset functionality
+    - User roles and permissions (e.g., admin, delivery team, sales team)
+
+1. Create Load Orders (Online Only)
+   - Select route and date
+   - Add products with quantities
+   - Submit to API endpoint: POST /api/orders/loading/
+   - Must validate product quantities and date
+
+2. Update Load Orders (Online Only)
+   - Fetch existing load order details
+   - Allow editing of products and quantities
+   - Submit updates to API endpoint: PUT /api/orders/loading/{id}/
+   - Must validate changes
+
+3. Create Delivery Orders (Offline Support)
+   - Select seller from route
+   - Add products with quantities based on load order
+   - Record delivery date and time
+   - Store locally if offline, sync when online
+   - API endpoint: POST /api/orders/delivery/
+
+4. Update Delivery Orders (Offline Support)
+   - Edit existing delivery order details
+   - Update product quantities
+   - Store changes locally if offline
+   - API endpoint: PUT /api/orders/delivery/{id}/
+
+5. Create Broken Orders (Offline Support)
+   - Record products broken during delivery
+   - Select from delivery order products
+   - Add reason for breakage
+   - API endpoint: POST /api/orders/broken/
+
+6. Update Broken Orders (Offline Support)
+   - Edit broken order details
+   - Update quantities or reasons
+   - API endpoint: PUT /api/orders/broken/{id}/
+
+7. Create Returned Orders (Offline Support)
+   - Record products returned by sellers
+   - Select from delivery order products
+   - Add return reason
+   - API endpoint: POST /api/orders/return/
+
+8. Update Returned Orders (Offline Support)
+   - Edit returned order details
+   - Update quantities or reasons
+   - API endpoint: PUT /api/orders/return/{id}/
+
+9. Create Public Sales (Offline Support)
+   - Record sales made directly to public
+   - Select products and quantities
+   - Record payment method
+   - API endpoint: POST /api/orders/public_sale/
+
+10. Update Public Sales (Offline Support)
+    - Edit public sale details
+    - Update products, quantities, or payment info
+    - API endpoint: PUT /api/orders/public_sale/{id}/
+
+11. Create Denominations (Offline Support)
+    - Record cash denominations collected
+    - Count of each bill/coin type
+    - Calculate total amount
+    - API endpoint: POST /api/orders/payment/
+
+Technical Requirements:
+- Use Provider for state management
+- Use Hive for offline data storage
+- Implement sync mechanism for offline data
+- Show network status indicator
+- Implement proper error handling
+- Follow Material Design guidelines
+- Include form validation for all inputs
+
+The app should work in online mode for load orders, but all other features should work offline with data syncing when connectivity is restored.
+Now create a splash screen and login page with username and password fields to login with the server url
+
+
+To make the emulator work with the internet, use the following command: https://chatgpt.com/share/67f9014a-150c-800d-9b02-c428fb719448
+
+emulator -avd Pixel_7 -dns-server 8.8.8.8,8.8.4.4
+export ANDROID_HOME=/home/dyan/Android/Sdk
+flutter pub run build_runner build
+
+flutter clean
+flutter pub get
+
+flutter pub run build_runner clean
+flutter pub run build_runner build --delete-conflicting-outputs
+
+flutter run
+
+rm lib/models/*.g.dart
+rm -rf /data/user/0/your.package.name/app_flutter/*
+flutter pub run build_runner build --delete-conflicting-outputs
+flutter clean
+flutter pub get
+flutter run
+
+Forthe mobile app which will be working in online only for creating and updating load orders.
+1. creating delivery order, updating delivery order will be only in offline mode.
+2. creating broken order, updating broken order will be only in offline mode.
+3. creating returned order, updating returned order will be only in offline mode.
+4. creating public sales, updating public sales will be only in offline mode. These delivery order, broken order, returned order, public sales will be based on the delivery order.
+5. creating denominations will be only in offline mode.
+
+For this we need to give our apis to sync while loading.
+The delivery order for a seller will be from the sales order for the seller on the route.
+
+What will be best for this requirement? can you give me your approach now? we can later add apis
+
+will it be okay to create delivery order with status as draft when creating the sales order?
+so we can save this delivery order while creating loading order which is online. then we can update the delivery order while delivery the product to seller in offline
+
+the available quantity is not updated for saved delivery order
+
+it works now.
+for delivery order, there are some changes which would do better user experience.
+
+1. For now, we have Add New Item in the bottom. we don't need this now since we have added all the loaded products in the delivery order items even if a product is not available in the sales order for a seller, we have added this product with ordered quantity as 0. so we can remove the Add New Item button.
+2. if there is a search option for the order items in the delivery order, it would be better.
+3. No need to display the order item with ordered quantity and delivered quantity as 0. but it will be available in the search. if we added delivered quantity for a product, it will be displayed.
+
+it works now.
+Now focus on the Broken orders
+we have card for broken orders. we need to add functionality to add broken order items
+if we add a product to broken order, the availability of the product will be reduced in the delivery order.
+we need to consider this quantity when calculating the available quantity for the product in the delivery order.
+
+for now we restricted in the delivery order that the delivered quantity should not less than the ordered quantity. we need to remove this restriction if we add broken order items for the product.
+
+we don't need to add the broken quantity in the delivery order. we can add the broken quantity in the broken order.
+there is no need to add the broken quantity in the delivery order. we can add the broken quantity in the broken order.
+there is seperate card available for broken order like loading order, delivery order
+if product is broken, we can add the broken quantity in the broken order
+
+Now can you add the broken order items functionality in the broken order card?
+Now it shows when clicking on the broken order card in the dashboard, the feature is coming soon
+
+now it opens.
+When we add a product item to the broken order, the available quantity of the product in the delivery order should be reduced by the broken quantity.
+But it is not reduced.
+
+we need to new card that is expenses
+In the expences card, we need to add the expenses for the delivery team.
+it may be fuel expences, repair expences, food expences, other expences
+and also daily allowances will be in the expenses
+
+how to add the expenses functionality in the expenses card?
+
+when adding expenses, it asks the route.
+we don't need the route. the route is always the delivery route
+
+we need to write an api to sync the delivery orders, returning orders, expences, broken order and denominations in a single api from the mobile app
+we didn't have models for expenses
+
+we need to show the returned order items in the returned order card. 
+The return order items are the available items with quantity.
+The unsold items are the return order items 
+
+
+we don't need to show the return items in the delivery order
+There is a separate card for Return Order in the dashboard like Loading Order, Delivery Order, Broken Order
+We need to show them in that. we need to create screen for that
+
+The return order details are displayed in the delivery order update screen. we don't need it and remove it
+and also return orders are shown in th delivery order dashboard along with List Delivery Order, Fetch Delivery Order
+
+There is a separate card for Return Order in the dashboard like Loading Order, Delivery Order, Broken Order in the home screen.
+We need to show them in that. we need to create screen for that
+
+when viewing the return order items, there are some print as vertical

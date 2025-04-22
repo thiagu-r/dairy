@@ -1,0 +1,163 @@
+{
+  "data": {
+    "public_sales": [
+      {
+        "id": null,
+        "route": 1,
+        "sale_date": "2025-04-21",
+        "sale_time": "19:17:45",
+        "payment_method": "cash",
+        "customer_name": null,
+        "customer_phone": null,
+        "customer_address": null,
+        "total_price": 80.00,
+        "amount_collected": 80.00,
+        "balance_amount": 0.00,
+        "status": "completed",
+        "notes": null,
+        "local_id": "mobile-ps-1745243265458",
+        "items": [
+          {
+            "id": null,
+            "product": 4,
+            "product_name": "FM500",
+            "quantity": 2.00,
+            "unit_price": 40.00,
+            "total_price": 80.00
+          }
+        ]
+      }
+    ],
+    "delivery_orders": [
+      {
+        "id": null,
+        "order_number": "DO-20250421-0001",
+        "delivery_date": "2025-04-21",
+        "route": 1,
+        "route_name": "Pudukkottai",
+        "seller_name": "Semmi Stores",
+        "status": "pending",
+        "seller": 1,
+        "delivery_time": "19:17:03",
+        "total_price": 1200.00,
+        "opening_balance": 0.00,
+        "amount_collected": 1000.00,
+        "balance_amount": 200.00,
+        "payment_method": "cash",
+        "notes": null,
+        "sync_status": "pending",
+        "actual_delivery_date": "2025-04-21",
+        "actual_delivery_time": "19:17:03",
+        "local_id": "mobile-do-1745243209596",
+        "items": [
+          {
+            "id": null,
+            "product": 3,
+            "product_name": "FM250",
+            "ordered_quantity": 20.00,
+            "extra_quantity": 0.00,
+            "delivered_quantity": 20.00,
+            "unit_price": 20.00,
+            "total_price": 400.00
+          },
+          {
+            "id": null,
+            "product": 4,
+            "product_name": "FM500",
+            "ordered_quantity": 20.00,
+            "extra_quantity": 0.00,
+            "delivered_quantity": 20.00,
+            "unit_price": 40.00,
+            "total_price": 800.00
+          }
+        ]
+      }
+    ],
+    "broken_orders": [
+      {
+        "id": null,
+        "order_number": "BO-20250421-0001",
+        "report_date": "2025-04-21",
+        "route": 1,
+        "route_name": "Pudukkottai",
+        "status": "pending",
+        "sync_status": "pending",
+        "local_id": "1745234721383",
+        "items": [
+          {
+            "product": 4,
+            "product_name": "FM500",
+            "quantity": 1.0,
+            "reason": "Damaged during transport"
+          }
+        ]
+      }
+    ],
+    "return_orders": [
+      {
+        "id": null,
+        "order_number": "RO-20250421-0001",
+        "return_date": "2025-04-21",
+        "route": 1,
+        "route_name": "Pudukkottai",
+        "status": "pending",
+        "sync_status": "pending",
+        "local_id": "mobile-ro-1745243400000",
+        "items": [
+          {
+            "product": 4,
+            "product_name": "FM500",
+            "quantity": 5.0,
+            "reason": "Unsold product"
+          },
+          {
+            "product": 2,
+            "product_name": "SM500",
+            "quantity": 3.0,
+            "reason": "Unsold product"
+          }
+        ]
+      }
+    ],
+    "expenses": [
+      {
+        "id": null,
+        "expense_date": "2025-04-21",
+        "description": "Fuel expense",
+        "amount": 100.0,
+        "delivery_team": 1,
+        "expense_type": "fuel",
+        "local_id": "mobile-exp-1745243309569"
+      },
+      {
+        "id": null,
+        "expense_date": "2025-04-21",
+        "description": "Vehicle maintenance",
+        "amount": 100.0,
+        "delivery_team": 1,
+        "expense_type": "vehicle",
+        "local_id": "mobile-exp-1745243317872"
+      }
+    ],
+    "denominations": [
+      {
+        "id": null,
+        "denomination": 500,
+        "count": 5,
+        "total_amount": 2500.00,
+        "local_id": "mobile-den-1745243359463-500",
+        "delivery_date": "2025-04-21",
+        "route": 1
+      },
+      {
+        "id": null,
+        "denomination": 200,
+        "count": 4,
+        "total_amount": 800.00,
+        "local_id": "mobile-den-1745243359463-200",
+        "delivery_date": "2025-04-21",
+        "route": 1
+      }
+    ]
+  }
+}
