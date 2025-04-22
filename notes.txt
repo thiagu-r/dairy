@@ -327,3 +327,22 @@ There is a separate card for Return Order in the dashboard like Loading Order, D
 We need to show them in that. we need to create screen for that
 
 when viewing the return order items, there are some print as vertical
+
+I've reverted all the code and clone the code from repo.
+Can you create separate sync apis for delivery orders, broken orders, return orders, public sales, expenses, denominations?
+and also i need the sample payload for these apis
+
+from apps.delivery.models import DeliveryOrder, PurchaseOrder, ReturnedOrder, BrokenOrder, PublicSale, DeliveryExpense, CashDenomination
+
+loading_orders: 0 items
+broken_orders: 17 items
+ First item sample:
+ {"id":"1745234721383","order_number":"BO-LO-20250421-0001","date":"2025-04-21","route_id":"1","route_name":"Pudukkottai","items":[{"product_id":"4","product_name":"FM500","quantity":1.0}],"sync_status":"pending"}
+ return_orders: 0 items
+
+ and also, you didn't provide the full payload. it is required to debug the issues. but you didn't provide the full payload.
+ just print the full payload and wait for complete it. then call the api
+
+ also, look into there are no loading orders and return orders in the payload. 
+ and broken order count seems incorrect.
+ these issues are already there. but you haven't given the solutions for it
