@@ -526,3 +526,212 @@ class SyncStatusSerializer(serializers.Serializer):
     last_sync = serializers.DateTimeField()
     pending_count = PendingCountSerializer()
     sync_status = serializers.CharField()
+
+# New V2 Serializers for simplified payload
+class PublicSaleItemV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = PublicSaleItem
+        fields = ('product', 'quantity', 'unit_price', 'total_price')
+
+class PublicSaleV2Serializer(serializers.ModelSerializer):
+    items = PublicSaleItemV2Serializer(many=True)
+    
+    class Meta:
+        model = PublicSale
+        fields = ('payment_method', 'customer_name', 'customer_phone', 'customer_address',
+                 'total_price', 'amount_collected', 'balance_amount', 'status', 'notes',
+                 'local_id', 'items')
+
+class DeliveryOrderItemV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryOrderItem
+        fields = ('id', 'product', 'product_name', 'ordered_quantity', 'extra_quantity',
+                 'delivered_quantity', 'unit_price', 'total_price')
+
+class DeliveryOrderV2Serializer(serializers.ModelSerializer):
+    items = DeliveryOrderItemV2Serializer(many=True)
+    
+    class Meta:
+        model = DeliveryOrder
+        fields = ('id', 'order_number', 'delivery_date', 'route', 'route_name',
+                 'seller_name', 'status', 'seller', 'delivery_time', 'total_price',
+                 'opening_balance', 'amount_collected', 'balance_amount', 'payment_method',
+                 'notes', 'sync_status', 'actual_delivery_date', 'actual_delivery_time',
+                 'local_id', 'items')
+
+class BrokenOrderItemV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = BrokenOrderItem
+        fields = ('product', 'quantity')
+
+class BrokenOrderV2Serializer(serializers.ModelSerializer):
+    items = BrokenOrderItemV2Serializer(many=True)
+    
+    class Meta:
+        model = BrokenOrder
+        fields = ('status', 'sync_status', 'local_id', 'items')
+
+class ReturnOrderItemV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReturnedOrderItem
+        fields = ('product', 'quantity')
+
+class ReturnOrderV2Serializer(serializers.ModelSerializer):
+    items = ReturnOrderItemV2Serializer(many=True)
+    
+    class Meta:
+        model = ReturnedOrder
+        fields = ('sync_status', 'local_id', 'items')
+
+class ExpenseV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryExpense
+        fields = ('description', 'amount', 'expense_type', 'local_id')
+
+class DenominationV2Serializer(serializers.ModelSerializer):
+    class Meta:
+        model = CashDenomination
+        fields = ('denomination', 'count', 'total_amount', 'local_id')
+
+class LoadingOrderReferenceSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+
+class SyncDataV2Serializer(serializers.Serializer):
+    public_sales = PublicSaleV2Serializer(many=True, required=False)
+    delivery_orders = DeliveryOrderV2Serializer(many=True, required=False)
+    broken_orders = BrokenOrderV2Serializer(many=True, required=False)
+    return_orders = ReturnOrderV2Serializer(many=True, required=False)
+    expenses = ExpenseV2Serializer(many=True, required=False)
+    denominations = DenominationV2Serializer(many=True, required=False)
+    loading_order = LoadingOrderReferenceSerializer(required=True)
+
+    def create(self, validated_data):
+        loading_order = LoadingOrder.objects.get(id=validated_data['loading_order']['id'])
+        delivery_order = validated_data.get('delivery_orders', [{}])[0]
+        route = delivery_order.get('route')
+        delivery_date = delivery_order.get('delivery_date')
+        delivery_team = loading_order.purchase_order.delivery_team
+
+        # Process delivery orders first to get reference data
+        for order_data in validated_data.get('delivery_orders', []):
+            if 'id' in order_data:
+                try:
+                    delivery_order = DeliveryOrder.objects.get(id=order_data['id'])
+                    # Update existing delivery order
+                    for attr, value in order_data.items():
+                        if attr != 'items':
+                            setattr(delivery_order, attr, value)
+                    delivery_order.save()
+
+                    # Update items
+                    delivery_order.items.all().delete()
+                    for item_data in order_data.get('items', []):
+                        DeliveryOrderItem.objects.create(delivery_order=delivery_order, **item_data)
+                except DeliveryOrder.DoesNotExist:
+                    continue
+
+        # Process public sales
+        for sale_data in validated_data.get('public_sales', []):
+            local_id = sale_data.get('local_id')
+            sale_data['route'] = route
+            sale_data['sale_date'] = delivery_date
+
+            existing_sale = PublicSale.objects.filter(local_id=local_id).first()
+            if existing_sale:
+                # Update existing sale
+                items_data = sale_data.pop('items', [])
+                for attr, value in sale_data.items():
+                    setattr(existing_sale, attr, value)
+                existing_sale.save()
+
+                # Update items
+                existing_sale.items.all().delete()
+                for item_data in items_data:
+                    PublicSaleItem.objects.create(public_sale=existing_sale, **item_data)
+            else:
+                # Create new sale
+                items_data = sale_data.pop('items', [])
+                new_sale = PublicSale.objects.create(**sale_data)
+                for item_data in items_data:
+                    PublicSaleItem.objects.create(public_sale=new_sale, **item_data)
+
+        # Process broken orders
+        for order_data in validated_data.get('broken_orders', []):
+            local_id = order_data.get('local_id')
+            order_data['route'] = route
+            order_data['report_date'] = delivery_date
+
+            existing_order = BrokenOrder.objects.filter(local_id=local_id).first()
+            if existing_order:
+                # Update existing order
+                items_data = order_data.pop('items', [])
+                for attr, value in order_data.items():
+                    setattr(existing_order, attr, value)
+                existing_order.save()
+
+                # Update items
+                existing_order.items.all().delete()
+                for item_data in items_data:
+                    BrokenOrderItem.objects.create(broken_order=existing_order, **item_data)
+            else:
+                # Create new order
+                items_data = order_data.pop('items', [])
+                new_order = BrokenOrder.objects.create(**order_data)
+                for item_data in items_data:
+                    BrokenOrderItem.objects.create(broken_order=new_order, **item_data)
+
+        # Process return orders
+        for order_data in validated_data.get('return_orders', []):
+            local_id = order_data.get('local_id')
+            order_data['route'] = route
+            order_data['return_date'] = delivery_date
+
+            existing_order = ReturnedOrder.objects.filter(local_id=local_id).first()
+            if existing_order:
+                # Update existing order
+                items_data = order_data.pop('items', [])
+                for attr, value in order_data.items():
+                    setattr(existing_order, attr, value)
+                existing_order.save()
+
+                # Update items
+                existing_order.items.all().delete()
+                for item_data in items_data:
+                    ReturnedOrderItem.objects.create(returned_order=existing_order, **item_data)
+            else:
+                # Create new order
+                items_data = order_data.pop('items', [])
+                new_order = ReturnedOrder.objects.create(**order_data)
+                for item_data in items_data:
+                    ReturnedOrderItem.objects.create(returned_order=new_order, **item_data)
+
+        # Process expenses
+        for expense_data in validated_data.get('expenses', []):
+            local_id = expense_data.get('local_id')
+            expense_data['route'] = route
+            expense_data['expense_date'] = delivery_date
+            expense_data['delivery_team'] = delivery_team
+
+            existing_expense = DeliveryExpense.objects.filter(local_id=local_id).first()
+            if existing_expense:
+                for attr, value in expense_data.items():
+                    setattr(existing_expense, attr, value)
+                existing_expense.save()
+            else:
+                DeliveryExpense.objects.create(**expense_data)
+
+        # Process denominations
+        for denom_data in validated_data.get('denominations', []):
+            local_id = denom_data.get('local_id')
+            denom_data['route'] = route
+            denom_data['delivery_date'] = delivery_date
+
+            existing_denom = CashDenomination.objects.filter(local_id=local_id).first()
+            if existing_denom:
+                for attr, value in denom_data.items():
+                    setattr(existing_denom, attr, value)
+                existing_denom.save()
+            else:
+                CashDenomination.objects.create(**denom_data)
+
+        return validated_data

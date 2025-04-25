@@ -30,7 +30,7 @@
     ],
     "delivery_orders": [
       {
-        "id": null,
+        "id": 23,
         "order_number": "DO-20250421-0001",
         "delivery_date": "2025-04-21",
         "route": 1,
@@ -51,7 +51,7 @@
         "local_id": "mobile-do-1745243209596",
         "items": [
           {
-            "id": null,
+            "id": 32,
             "product": 3,
             "product_name": "FM250",
             "ordered_quantity": 20.00,
@@ -61,7 +61,7 @@
             "total_price": 400.00
           },
           {
-            "id": null,
+            "id": 43,
             "product": 4,
             "product_name": "FM500",
             "ordered_quantity": 20.00,
@@ -158,6 +158,7 @@
         "delivery_date": "2025-04-21",
         "route": 1
       }
-    ]
+    ],
+    "loading_order_id" : 4 
   }
 }

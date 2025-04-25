@@ -346,3 +346,563 @@ broken_orders: 17 items
  also, look into there are no loading orders and return orders in the payload. 
  and broken order count seems incorrect.
  these issues are already there. but you haven't given the solutions for it
+
+
+ {
+   "data": {
+     "public_sales": [
+       {
+         "id": null,
+         "route": 1,
+         "sale_date": "2025-04-22",
+         "sale_time": "15:06:17",
+         "payment_method": "cash",
+         "customer_name": null,
+         "customer_phone": null,
+         "customer_address": null,
+         "total_price": "25.00",
+         "amount_collected": "25",
+         "balance_amount": "0.00",
+         "status": "completed",
+         "notes": null,
+         "local_id": "mobile-ps-1745314577898",
+         "items": [
+           {
+             "id": null,
+             "product": 1,
+             "product_name": "SM250",
+             "quantity": "1",
+             "unit_price": "25.00",
+             "total_price": "25.00"
+           }
+         ]
+       },
+       {
+         "id": null,
+         "route": 1,
+         "sale_date": "2025-04-22",
+         "sale_time": "15:06:34",
+         "payment_method": "cash",
+         "customer_name": null,
+         "customer_phone": null,
+         "customer_address": null,
+         "total_price" : "50.00",
+         "amount_collected": "50",
+         "balance_amount": "0.00",
+         "status": "completed",
+         "notes": null,
+         "local_id": "mobile-ps-1745314594907",
+         "items": [
+           {
+             "id": null,
+             "product": 2,
+             "product_name": "SM500",
+             "quantity": "1",
+             "unit_price": "50.00",
+             "total_price": "50.00"
+           }
+         ]
+       }
+     ],
+     "delivery_orders": [],
+     "broken_orders": [
+       {
+         "id": "1745234721383",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745236386518",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+      
+    "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 2.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745237847479",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745238563568",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745241848646",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745243060846",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+     
+     "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 2.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745243294944",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 2.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745245058778",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+    
+        {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745245065966",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745245496588",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+          
+    "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745246777233",
+         "order_number": "BO-LO-20250421-0001",
+         "date": "2025-04-21",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745297045748",
+         "order_number": "BO-LO-20250422-0002",
+         "date": "2025-04-22",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745297925883",
+         "order_number": "BO-LO-20250422-0002",
+         "date": "2025-04-22",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745298816738",
+         "order_number": "BO-LO-20250422-0002",
+         "date": "2025-04-22",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "1",
+             "product_name": "SM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745299746535",
+         "order_number": "BO-LO-20250422-0002",
+         "date": "2025-04-22",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "1",
+             "product_name": "SM250",
+   
+           "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745307175977",
+         "order_number": "BO-LO-20250422-0001",
+         "date": "2025-04-22",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "3",
+             "product_name": "FM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "1",
+             "product_name": "SM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745313493445",
+         "order_number": "BO-LO-20250422-0001",
+         "date": "2025-04-22",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "1",
+             "product_name": "SM250",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       },
+       {
+         "id": "1745314608904",
+         "order_number": "BO-LO-20250422-0001",
+         "date": "2025-04-22",
+         "route_id": "1",
+         "route_name": "Pudukkottai",
+         "items": [
+           {
+             "product_id": "4",
+             "product_name": "FM500",
+             "quantity": 1.0
+           },
+           {
+             "product_id": "1",
+             "product_name": "SM250",
+             "quantity": 1.0
+           },
+     
+       {
+             "product_id": "2",
+             "product_name": "SM500",
+             "quantity": 1.0
+           }
+         ],
+         "sync_status": "pending"
+       }
+     ],
+     "return_orders": [],
+     "expenses": [
+       {
+         "id": "1745314629025",
+         "date": "2025-04-22",
+         "description": null,
+         "amount": 10.0,
+         "route": 1,
+         "expense_type": "maintenance",
+         "local_id": "mobile-exp-1745314629025"
+       },
+       {
+         "id": "1745314636020",
+         "date": "2025-04-22",
+         "description": null,
+         "amount": 10.0,
+         "route": 1,
+         "expense_type": "maintenance",
+         "local_id": "mobile-exp-1745314636020"
+       }
+     ],
+     "denominations": [
+       [
+         {
+           "id": null,
+           "denomination": 500,
+           "count": 3,
+           "total_amount": "1500.00",
+           "local_id": "mobile-den-1745314666664-500"
+         },
+         {
+           "id": null,
+           "denomination": 200,
+           "count": 2,
+           "total_amount": "400.00",
+           "local_id": "mobile-den-1745314666664-200"
+         }
+       ]
+     ]
+   }
+ }
+
+now it prints the full payload
+
+Payload Summary:
+ public_sales: 2 items
+ delivery_orders: 0 items
+ broken_orders: 18 items
+ return_orders: 0 items
+ expenses: 2 items
+ denominations: 1 items
+ Error during sync: Exception: Payload validation failed: Missing required section: loading_orders
+
+ can you please ensure to add loading order and return order to the payloads?
+ these are the pending issues for long
+ and also don't remove the printing full payload
+
+ Payload Summary:
+public_sales: 2 items
+delivery_orders: 0 items
+broken_orders: 19 items
+return_orders: 0 items
+expenses: 3 items
+denominations: 1 items
+Error during sync: type 'List<dynamic>' is not a subtype of type 'List<Object>' of 'value'
+
+from yesterday, we are still working on appending loading order in the sync api payload
+i wonder why it is not working
+and also the return order is not added in the payload and broken order has 19 items.
+when looking in the application, there are 3 items only. i don't what happens
+
+[ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: type 'Null' is not a subtype of type 'String' in type cast
+E/flutter (15733): #0      BrokenOrderAdapter.read (package:dairy_delivery/models/broken_order.g.dart:27:25)
+
+saving broken order: {id: 1745317871145, order_number: BO-LO-20250422-0001, route_id: 1, route_name: Pudukkottai, date: 2025-04-22, items: [{product_id: 4, product_name: FM500, quantity: 1.0}, {product_id: 1, product_name: SM250, quantity: 1.0}, {product_id: 2, product_name: SM500, quantity: 1.0}], sync_status: pending, status: pending}
+ Error saving broken items: type 'Null' is not a subtype of type 'String' in type cast
+ Stack trace: #0      BrokenOrderAdapter.read (package:dairy_delivery/models/broken_order.g.dart:27:25)
+ #1      BinaryReaderImpl.read (package:hive/src/binary/binary_reader_impl.dart:328:33)
+ #2      BinaryReaderImpl.readFrame (package:hive/src/binary/binary_reader_impl.dart:276:26)
+ #3      FrameHelper.framesFromBytes (package:hive/src/binary/frame_helper.dart:21:26)
+ #4      FrameIoHelper.framesFromFile (package:hive/src/io/frame_io_helper.dart:42:12)
+ <asynchronous suspension>
+ #5      StorageBackendVm.initialize (package:hive/src/backend/vm/storage_backend_vm.dart:86:11)
+ <asynchronous suspension>
+ #6      HiveImpl._openBox (package:hive/src/hive_impl.dart:111:9)
+ <asynchronous suspension>
+ #7      HiveImpl.openBox (package:hive/src/hive_impl.dart:142:12)
+ <asynchronous suspension>
+ #8      OfflineStorageService._getBrokenOrdersBox (package:dairy_delivery/services/offline_storage_service.dart:192:14)
+ <asynchronous suspension>
+ #9      OfflineStorageService.saveBrokenOrder (package:dairy_delivery/services/offline_stor
+[ERROR:flutter/runtime/dart_vm_initializer.cc(40)] Unhandled Exception: type 'Null' is not a subtype of type 'String' in type cast
+#0      BrokenOrderAdapter.read (package:dairy_delivery/models/broken_order.g.dart:27:25)
+#1      BinaryReaderImpl.read (package:hive/src/binary/binary_reader_impl.dart:328:33)
+#2      BinaryReaderImpl.readFrame (package:hive/src/binary/binary_reader_impl.dart:276:26)
+#3      FrameHelper.framesFromBytes (package:hive/src/binary/frame_helper.dart:21:26)
+#4      FrameIoHelper.framesFromFile (package:hive/src/io/frame_io_helper.dart:42:12)
+<asynchronous suspension>

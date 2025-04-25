@@ -481,6 +481,70 @@ class DeliveryOrderItemViewSet(viewsets.ModelViewSet):
 
 # Sync Views
 @method_decorator(csrf_exempt, name='dispatch')
+class SyncView1(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def fix_time_format(self, time_str):
+        """Convert various time formats to HH:MM:SS format."""
+        if not time_str:
+            return '00:00:00'
+
+        try:
+            # If it's a datetime string with space (e.g., '2025-04-20 15:57:11')
+            if isinstance(time_str, str) and ' ' in time_str:
+                time_part = time_str.split(' ')[1]
+                return time_part
+
+            # If it's already in the correct format
+            if isinstance(time_str, str) and len(time_str.split(':')) == 3:
+                return time_str
+
+            # Try to parse as datetime
+            dt = datetime.strptime(str(time_str), '%Y-%m-%d %H:%M:%S')
+            return dt.strftime('%H:%M:%S')
+        except (ValueError, TypeError):
+            try:
+                # Try to parse as time
+                dt = datetime.strptime(str(time_str), '%H:%M:%S')
+                return dt.strftime('%H:%M:%S')
+            except (ValueError, TypeError):
+                # If all else fails, return a default time
+                return '00:00:00'
+            
+    def preprocess_data(self, data, user):
+        """Preprocess the data before passing it to the serializer validation."""
+        import copy
+        processed_data = copy.deepcopy(data)
+        delivery_date = None
+        route_id = None
+        try:
+            if 'delivery_orders' in processed_data:
+                delivery_order = processed_data['delivery_orders'][0]
+                delivery_date = delivery_order.get('delivery_date')
+                route_id = delivery_order.get('route')
+        except Exception as e:
+            print('No delivery orders provided in the request data.', e)
+        
+        try:
+            if 'loading_order' in processed_data:
+                loading_order = processed_data['loading_order']
+                id = loading_order.get('id')
+                if type(id) == int:
+                    loading_order = LoadingOrder.objects.get(id=id)
+                    loading_order = LoadingOrderSerializer(loading_order).data
+                    processed_data['loading_order'] = loading_order
+                else:
+                    loading_order = LoadingOrder.objects.get(order_number=id)
+                    loading_order = LoadingOrderSerializer(loading_order).data
+                    processed_data['loading_order'] = loading_order
+        except Exception as e:
+            print('No loading order provided in the request data.', e)
+
+        # if 'delivery_orders' in processed_data:
+
+
+
+@method_decorator(csrf_exempt, name='dispatch')
 class SyncView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -527,6 +591,21 @@ class SyncView(APIView):
                 route_id = delivery_order.get('route')
         except Exception as e:
             print('No delivery orders provided in the request data.', e)
+
+        try:
+            if 'loading_order' in processed_data:
+                loading_order = processed_data['loading_order']
+                id = loading_order.get('id')
+                if type(id) == int:
+                    loading_order = LoadingOrder.objects.get(id=id)
+                    loading_order = LoadingOrderSerializer(loading_order).data
+                    processed_data['loading_order'] = loading_order
+                else:
+                    loading_order = LoadingOrder.objects.get(order_number=id)
+                    loading_order = LoadingOrderSerializer(loading_order).data
+                    processed_data['loading_order'] = loading_order
+        except Exception as e:
+            print('No loading order provided in the request data.', e)
 
         # Process delivery orders
         if 'delivery_orders' in processed_data:
@@ -608,11 +687,11 @@ class SyncView(APIView):
 
                 # Fix status
                 if 'status' in order and order['status'] == 'draft':
-                    order['status'] = 'pending'
+                    order['status'] = 'completed'
 
                 # Fix payment method
-                if 'payment_method' in order and order['payment_method'] == 'credit':
-                    order['payment_method'] = 'cash'
+                if 'payment_method' in order and order['payment_method'] !='cash':
+                    order['payment_method'] = 'online'
 
         # Process public sales
         if 'public_sales' in processed_data:
@@ -972,14 +1051,24 @@ class SyncView(APIView):
             if section in data_to_process:
                 section_serializer = None
                 if section == 'returned_orders':
+                    returned_orders = ReturnedOrder.objects.filter(route=data_to_process['route'], return_date=data_to_process['delivery_date'])
+                    returned_orders.delete()                    
                     section_serializer = ReturnedOrderSerializer(data=data_to_process[section], many=True)
                 elif section == 'broken_orders':
+                    broken_orders = BrokenOrder.objects.filter(route=data_to_process['route'], broken_date=data_to_process['delivery_date'])
+                    broken_orders.delete()
                     section_serializer = BrokenOrderSerializer(data=data_to_process[section], many=True)
                 elif section == 'public_sales':
+                    public_sales = PublicSale.objects.filter(route=data_to_process['route'], sale_date=data_to_process['delivery_date'])
+                    public_sales.delete()
                     section_serializer = PublicSaleSerializer(data=data_to_process[section], many=True)
                 elif section == 'expenses':
+                    expenses = DeliveryExpense.objects.filter(route=data_to_process['route'], expense_date=data_to_process['delivery_date'])
+                    expenses.delete()
                     section_serializer = DeliveryExpenseSerializer(data=data_to_process[section], many=True)
                 elif section == 'denominations':
+                    denominations = CashDenomination.objects.fitler(route=data_to_process['route'], delivery_date=data_to_process['delivery_date'])
+                    denominations.delete()
                     section_serializer = CashDenominationSerializer(data=data_to_process[section], many=True)
 
                 if section_serializer and section_serializer.is_valid():

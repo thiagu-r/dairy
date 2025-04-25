@@ -164,8 +164,45 @@
 {% block page_js %}
 <script>
     function syncMobileData() {
-        // This will be implemented later for mobile app integration
-        alert('Mobile data synchronization will be implemented in the future.');
+        // Show confirmation dialog
+        if (confirm('Are you sure you want to sync mobile data? This action cannot be undone.')) {
+            // Show loading spinner
+            const syncButton = document.querySelector('.sync-card');
+            const originalContent = syncButton.innerHTML;
+            syncButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+            syncButton.disabled = true;
+
+            // Make API call
+            fetch('/api/sync/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                },
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Show success message
+                toastr.success('Data synchronized successfully');
+                // Reload the page to show updated data
+                window.location.reload();
+            })
+            .catch(error => {
+                // Show error message
+                toastr.error('Failed to sync data. Please try again.');
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                // Restore button state
+                syncButton.innerHTML = originalContent;
+                syncButton.disabled = false;
+            });
+        }
     }
 
     function openEditModal(orderId) {
