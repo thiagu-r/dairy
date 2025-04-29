@@ -118,7 +118,49 @@ class LogoutView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Master Data Views
-class SellerViewSet(viewsets.ReadOnlyModelViewSet):
+# class SellerViewSet(viewsets.ReadOnlyModelViewSet):
+#     queryset = Seller.objects.all()
+#     serializer_class = SellerSerializer
+#     permission_classes = [IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+#     filterset_class = SellerFilter
+#     search_fields = ['store_name', 'owner_name']
+#     ordering_fields = ['store_name', 'route__name']
+#     ordering = ['store_name']
+#     pagination_class = None  # No pagination for master data
+
+# class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+#     queryset = Category.objects.all()
+#     serializer_class = CategorySerializer
+#     permission_classes = [IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+#     search_fields = ['name', 'code']
+#     ordering_fields = ['name', 'code']
+#     ordering = ['name']
+#     pagination_class = None  # No pagination for master data)
+
+# class ProductViewSet(viewsets.ReadOnlyModelViewSet):
+#     queryset = Product.objects.filter(is_active=True)
+#     serializer_class = ProductSerializer
+#     permission_classes = [IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+#     filterset_fields = ['is_active']
+#     search_fields = ['name', 'code']
+#     ordering_fields = ['name', 'code']
+#     ordering = ['name']
+#     pagination_class = None  # No pagination for master data
+
+# class RouteViewSet(viewsets.ReadOnlyModelViewSet):
+#     queryset = Route.objects.all()
+#     serializer_class = RouteSerializer
+#     permission_classes = [IsAuthenticated]
+#     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+#     search_fields = ['name']
+#     ordering_fields = ['name']
+#     ordering = ['name']
+#     pagination_class = None  # No pagination for master data
+
+class SellerViewSet(viewsets.ModelViewSet):
     queryset = Seller.objects.all()
     serializer_class = SellerSerializer
     permission_classes = [IsAuthenticated]
@@ -127,9 +169,15 @@ class SellerViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['store_name', 'owner_name']
     ordering_fields = ['store_name', 'route__name']
     ordering = ['store_name']
-    pagination_class = None  # No pagination for master data
+    pagination_class = None
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
@@ -137,9 +185,15 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['name', 'code']
     ordering_fields = ['name', 'code']
     ordering = ['name']
-    pagination_class = None  # No pagination for master data)
+    pagination_class = None
 
-class ProductViewSet(viewsets.ReadOnlyModelViewSet):
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.filter(is_active=True)
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
@@ -148,9 +202,15 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['name', 'code']
     ordering_fields = ['name', 'code']
     ordering = ['name']
-    pagination_class = None  # No pagination for master data
+    pagination_class = None
 
-class RouteViewSet(viewsets.ReadOnlyModelViewSet):
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+class RouteViewSet(viewsets.ModelViewSet):
     queryset = Route.objects.all()
     serializer_class = RouteSerializer
     permission_classes = [IsAuthenticated]
@@ -158,18 +218,29 @@ class RouteViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['name']
     ordering_fields = ['name']
     ordering = ['name']
-    pagination_class = None  # No pagination for master data
+    pagination_class = None
 
-class PricePlanViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = PricePlan.objects.filter(is_active=True)
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+class PricePlanViewSet(viewsets.ModelViewSet):
+    queryset = PricePlan.objects.all()
     serializer_class = PricePlanSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['is_general', 'seller', 'is_active']
     search_fields = ['name']
-    ordering_fields = ['valid_from', 'valid_to', 'name']
-    ordering = ['-valid_from']
-    pagination_class = None  # No pagination for master data
+    ordering_fields = ['name']
+    ordering = ['name']
+    pagination_class = None
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
 
 class ProductPriceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ProductPrice.objects.all()
