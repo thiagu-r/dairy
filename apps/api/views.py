@@ -7,6 +7,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.authtoken.views import ObtainAuthToken
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.pagination import PageNumberPagination
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -169,7 +170,7 @@ class SellerViewSet(viewsets.ModelViewSet):
     search_fields = ['store_name', 'owner_name']
     ordering_fields = ['store_name', 'route__name']
     ordering = ['store_name']
-    pagination_class = None
+    pagination_class = PageNumberPagination
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
