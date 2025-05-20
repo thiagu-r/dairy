@@ -159,10 +159,11 @@ class RouteSerializer(serializers.ModelSerializer):
 # Order Serializers
 class SalesOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
+    total_amount = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
 
     class Meta:
         model = SalesOrderItem
-        fields = ('id', 'product', 'product_name', 'quantity', 'unit_price', 'total_price')
+        fields = ('id', 'product', 'product_name', 'quantity', 'unit_price', 'total_amount')
 
 class SalesOrderSerializer(serializers.ModelSerializer):
     items = SalesOrderItemSerializer(many=True)
