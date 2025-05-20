@@ -322,7 +322,7 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
                 sales_order = SalesOrder.objects.filter(
                     seller=seller,
                     route=route,
-                    order_date__lte=delivery_date
+                    delivery_date__lte=delivery_date
                 ).order_by('-delivery_date').first()
 
                 if sales_order:
@@ -333,7 +333,6 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
                     sales_order = SalesOrder.objects.create(
                         seller=seller,
                         route=route,
-                        order_date=delivery_date,
                         delivery_date=delivery_date,
                         status='completed',
                         created_by=validated_data.get('created_by'),
