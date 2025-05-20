@@ -167,10 +167,11 @@ class SalesOrderItemSerializer(serializers.ModelSerializer):
 class SalesOrderSerializer(serializers.ModelSerializer):
     items = SalesOrderItemSerializer(many=True)
     seller_name = serializers.ReadOnlyField(source='seller.store_name')
+    total_amount = serializers.DecimalField(source='total_amount', max_digits=15, decimal_places=2, read_only=True)
 
     class Meta:
         model = SalesOrder
-        fields = ('id', 'order_number', 'seller', 'seller_name', 'delivery_date', 'total_price', 'status', 'items')
+        fields = ('id', 'order_number', 'seller', 'seller_name', 'delivery_date', 'total_amount', 'status', 'items')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items', [])
