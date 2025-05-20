@@ -21,13 +21,19 @@ class SellerFilter(django_filters.FilterSet):
 class SalesOrderFilter(django_filters.FilterSet):
     seller = django_filters.NumberFilter(field_name='seller__id')
     route = django_filters.NumberFilter(field_name='seller__route__id')
+    route_name = django_filters.CharFilter(field_name='seller__route__name', lookup_expr='icontains')
+    seller_store = django_filters.CharFilter(field_name='seller__store_name', lookup_expr='icontains')
+    delivery_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='exact')
     start_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='gte')
     end_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='lte')
     status = django_filters.CharFilter(field_name='status')
     
     class Meta:
         model = SalesOrder
-        fields = ['seller', 'route', 'start_date', 'end_date', 'status']
+        fields = [
+            'seller', 'route', 'route_name', 'seller_store',
+            'delivery_date', 'start_date', 'end_date', 'status'
+        ]
 
 class PurchaseOrderFilter(django_filters.FilterSet):
     start_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='gte')

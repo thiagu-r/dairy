@@ -288,8 +288,8 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = SalesOrderFilter
-    search_fields = ['order_number', 'seller__store_name']
-    ordering_fields = ['delivery_date', 'seller__store_name']
+    search_fields = ['order_number', 'seller__store_name', 'seller__route__name']
+    ordering_fields = ['delivery_date', 'seller__store_name', 'seller__route__name']
     ordering = ['-delivery_date']
 
     @transaction.atomic
