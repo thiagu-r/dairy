@@ -85,7 +85,7 @@ from .filters import (
 from django.views.decorators.csrf import csrf_exempt
 from apps.products.utils import process_price_plan_excel
 from django.utils.decorators import method_decorator
-from apps.authentication.models import CustomUser
+from apps.authentication.models import CustomUser, Role
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
@@ -1956,3 +1956,13 @@ class UserViewSet(viewsets.ModelViewSet):
     ordering_fields = ['username', 'email', 'first_name', 'last_name', 'role']
     ordering = ['username']
     pagination_class = PageNumberPagination
+
+class UserRoleListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        roles = [
+            {"value": role.value, "label": role.label}
+            for role in Role
+        ]
+        return Response(roles)

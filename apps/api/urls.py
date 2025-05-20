@@ -49,6 +49,9 @@ urlpatterns = [
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('auth/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
 
+    # User roles endpoint
+    path('users/roles/', views.UserRoleListView.as_view(), name='user-roles'),
+
     # Sync endpoints
     path('sync/', views.SyncView.as_view(), name='sync'),
     path('sync/status/', views.SyncStatusView.as_view(), name='sync-status'),
