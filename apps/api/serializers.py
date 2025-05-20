@@ -323,7 +323,7 @@ class DeliveryOrderSerializer(serializers.ModelSerializer):
                     seller=seller,
                     route=route,
                     order_date__lte=delivery_date
-                ).order_by('-order_date').first()
+                ).order_by('-delivery_date').first()
 
                 if sales_order:
                     validated_data['sales_order'] = sales_order
