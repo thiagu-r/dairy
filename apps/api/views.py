@@ -85,6 +85,7 @@ from .filters import (
 from django.views.decorators.csrf import csrf_exempt
 from apps.products.utils import process_price_plan_excel
 from django.utils.decorators import method_decorator
+from apps.authentication.models import CustomUser
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
@@ -1945,3 +1946,13 @@ class CreateLoadingOrderAPIView(APIView):
                 'success': False,
                 'error': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['username', 'email', 'first_name', 'last_name', 'role']
+    ordering_fields = ['username', 'email', 'first_name', 'last_name', 'role']
+    ordering = ['username']
+    pagination_class = PageNumberPagination

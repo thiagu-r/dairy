@@ -31,6 +31,7 @@ router.register(r'orders/return', views.ReturnedOrderViewSet)
 router.register(r'orders/broken', views.BrokenOrderViewSet)
 router.register(r'orders/public_sale', views.PublicSaleViewSet)
 # router.register(r'orders/payment', views.PaymentViewSet)
+router.register(r'users', views.UserViewSet)
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
