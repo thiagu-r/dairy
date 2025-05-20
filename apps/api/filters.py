@@ -30,8 +30,8 @@ class SalesOrderFilter(django_filters.FilterSet):
         fields = ['seller', 'route', 'start_date', 'end_date', 'status']
 
 class PurchaseOrderFilter(django_filters.FilterSet):
-    start_date = django_filters.DateFilter(field_name='order_date', lookup_expr='gte')
-    end_date = django_filters.DateFilter(field_name='order_date', lookup_expr='lte')
+    start_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='gte')
+    end_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='lte')
     status = django_filters.CharFilter(field_name='status')
     delivery_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='exact')
     route__name = django_filters.CharFilter(field_name='route__name', lookup_expr='icontains')
