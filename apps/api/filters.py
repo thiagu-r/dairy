@@ -21,8 +21,8 @@ class SellerFilter(django_filters.FilterSet):
 class SalesOrderFilter(django_filters.FilterSet):
     seller = django_filters.NumberFilter(field_name='seller__id')
     route = django_filters.NumberFilter(field_name='seller__route__id')
-    start_date = django_filters.DateFilter(field_name='order_date', lookup_expr='gte')
-    end_date = django_filters.DateFilter(field_name='order_date', lookup_expr='lte')
+    start_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='gte')
+    end_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='lte')
     status = django_filters.CharFilter(field_name='status')
     
     class Meta:
