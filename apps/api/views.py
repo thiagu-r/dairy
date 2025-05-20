@@ -8,6 +8,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -82,6 +83,7 @@ from .filters import (
 
 # Authentication Views
 from django.views.decorators.csrf import csrf_exempt
+from apps.products.utils import process_price_plan_excel
 from django.utils.decorators import method_decorator
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -122,7 +124,7 @@ class LogoutView(APIView):
 # class SellerViewSet(viewsets.ReadOnlyModelViewSet):
 #     queryset = Seller.objects.all()
 #     serializer_class = SellerSerializer
-#     permission_classes = [IsAuthenticated]
+#     permission_classes = [IsAuthenticated]from .utils import process_price_plan_excel
 #     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
 #     filterset_class = SellerFilter
 #     search_fields = ['store_name', 'owner_name']
@@ -236,9 +238,35 @@ class PricePlanViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name']
     ordering = ['name']
     pagination_class = None
+    parser_classes = (MultiPartParser, FormParser)  # Allow file uploads
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        price_plan = serializer.save(created_by=request.user)
+
+        # Process the Excel file
+        excel_file = request.FILES.get('excel_file')
+        if excel_file:
+            price_plan.excel_file = excel_file
+            price_plan.save()
+            success = process_price_plan_excel(price_plan)
+            if not success:
+                price_plan.delete()
+                return Response(
+                    {"success": False, "error": "Failed to process Excel file. Please check the format and try again."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(
+            self.get_serializer(price_plan).data,
+            status=status.HTTP_201_CREATED,
+            headers=headers
+        )
 
     def perform_update(self, serializer):
         serializer.save(updated_by=self.request.user)
