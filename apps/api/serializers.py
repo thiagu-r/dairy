@@ -167,7 +167,7 @@ class SalesOrderItemSerializer(serializers.ModelSerializer):
 class SalesOrderSerializer(serializers.ModelSerializer):
     items = SalesOrderItemSerializer(many=True)
     seller_name = serializers.ReadOnlyField(source='seller.store_name')
-    total_amount = serializers.DecimalField(source='total_amount', max_digits=15, decimal_places=2, read_only=True)
+    total_amount = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
 
     class Meta:
         model = SalesOrder
