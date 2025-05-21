@@ -59,6 +59,8 @@ class LoadingOrderFilter(django_filters.FilterSet):
 class DeliveryOrderFilter(django_filters.FilterSet):
     seller = django_filters.NumberFilter(field_name='seller__id')
     route = django_filters.NumberFilter(field_name='route__id')
+    route_name = django_filters.CharFilter(field_name='route__name', lookup_expr='icontains')
+    seller_store = django_filters.CharFilter(field_name='seller__store_name', lookup_expr='icontains')
     start_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='gte')
     end_date = django_filters.DateFilter(field_name='delivery_date', lookup_expr='lte')
     status = django_filters.CharFilter(field_name='status')

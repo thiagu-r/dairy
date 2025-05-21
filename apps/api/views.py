@@ -292,6 +292,12 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
     ordering_fields = ['delivery_date', 'seller__store_name', 'seller__route__name']
     ordering = ['-delivery_date']
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         # Use the default create method, which will call our custom serializer's create method
@@ -308,8 +314,8 @@ class PurchaseOrderViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = PurchaseOrderFilter
-    search_fields = ['order_number','delivery_date', 'route__name']
-    ordering_fields = ['delivery_date']
+    search_fields = ['order_number', 'route__name']
+    ordering_fields = ['delivery_date', 'order_number', 'route__name']
     ordering = ['-delivery_date']
 
 class LoadingOrderViewSet(viewsets.ReadOnlyModelViewSet):
