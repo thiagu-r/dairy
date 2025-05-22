@@ -820,11 +820,14 @@ class SyncView(APIView):
         if 'broken_orders' in processed_data:
             for order in processed_data['broken_orders']:
                 # Fix time formats
-                order['loading_order'] = loading_order
+                order['loading_order'] = loading_order.id
                 order['report_date'] = delivery_date
-                order['route'] = route
+                order['route'] = route.id
                 order['created_by'] = user.id
                 order['updated_by'] = user.id
+
+                for item in order['items']:
+                    item['product'] = item['product_id']
 
         if 'return_orders' in processed_data:
             for order in processed_data['return_orders']:
