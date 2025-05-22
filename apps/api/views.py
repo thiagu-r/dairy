@@ -719,6 +719,7 @@ class SyncView(APIView):
         try:
             route = Route.objects.get(id=route_id)
             processed_data['route'] = route
+            processed_data['delivery_date'] = delivery_date
         except Exception as e:
             print('No route provided in the request data.', e)
 
@@ -814,12 +815,23 @@ class SyncView(APIView):
                 # Fix time formats
                 if 'sale_time' in sale and sale['sale_time']:
                     sale['sale_time'] = self.fix_time_format(sale['sale_time'])
+                
 
         if 'broken_orders' in processed_data:
             for order in processed_data['broken_orders']:
                 # Fix time formats
                 order['loading_order'] = loading_order
                 order['report_date'] = delivery_date
+                order['route'] = route
+                order['created_by'] = user.id
+                order['updated_by'] = user.id
+
+        if 'return_orders' in processed_data:
+            for order in processed_data['return_orders']:
+                # Fix time formats
+                # order['loading_order'] = loading_order
+                order['return_date'] = delivery_date
+                order['reason'] = 'unsold product'
                 order['route'] = route
                 order['created_by'] = user.id
                 order['updated_by'] = user.id
@@ -1199,7 +1211,7 @@ class SyncView(APIView):
         for section in other_sections:
             if section in data_to_process:
                 section_serializer = None
-                if section == 'returned_orders':
+                if section == 'return_orders':
                     returned_orders = ReturnedOrder.objects.filter(route=data_to_process['route'], return_date=data_to_process['delivery_date'])
                     returned_orders.delete()                    
                     section_serializer = ReturnedOrderSerializer(data=data_to_process[section], many=True)
