@@ -718,6 +718,7 @@ class SyncView(APIView):
 
         try:
             route = Route.objects.get(id=route_id)
+            processed_data['route'] = route
         except Exception as e:
             print('No route provided in the request data.', e)
 
