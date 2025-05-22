@@ -18,6 +18,8 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import datetime
 
+from decimal import Decimal
+
 from apps.seller.models import Seller, Route
 from apps.products.models import Product, PricePlan, ProductPrice, Category
 from apps.sales.models import SalesOrder
@@ -984,11 +986,11 @@ class SyncView(APIView):
                                                         # For quantity fields, convert to string with 2 decimal places
                                                         if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity']:
                                                             # Always convert to string to avoid type issues
-                                                            if value is None or value == '':
-                                                                setattr(existing_item, key, '0.00')
-                                                            else:
-                                                                # Simple string conversion
-                                                                setattr(existing_item, key, str(value))
+                                                            try:
+                                                                setattr(existing_item, key, Decimal(value or '0.00'))
+                                                            except (ValueError, TypeError):
+                                                                print(f"Invalid decimal value for {key}: {value}")
+                                                                setattr(existing_item, key, Decimal('0.00'))
                                                         else:
                                                             # For non-quantity fields, set directly
                                                             setattr(existing_item, key, value)
@@ -1017,11 +1019,11 @@ class SyncView(APIView):
                                                             # For quantity fields, convert to string with 2 decimal places
                                                             if key in ['ordered_quantity', 'extra_quantity', 'delivered_quantity']:
                                                                 # Always convert to string to avoid type issues
-                                                                if value is None or value == '':
-                                                                    setattr(new_item, key, '0.00')
-                                                                else:
-                                                                    # Simple string conversion
-                                                                    setattr(new_item, key, str(value))
+                                                                try:
+                                                                    setattr(existing_item, key, Decimal(value or '0.00'))
+                                                                except (ValueError, TypeError):
+                                                                    print(f"Invalid decimal value for {key}: {value}")
+                                                                    setattr(existing_item, key, Decimal('0.00'))
                                                             else:
                                                                 # For non-quantity fields, set directly
                                                                 setattr(new_item, key, value)
