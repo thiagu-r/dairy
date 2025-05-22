@@ -716,6 +716,11 @@ class SyncView(APIView):
         except Exception as e:
             print('No loading order provided in the request data.', e)
 
+        try:
+            route = Route.objects.get(id=route_id)
+        except Exception as e:
+            print('No route provided in the request data.', e)
+
         # Process delivery orders
         if 'delivery_orders' in processed_data:
             # First, check for duplicate delivery orders (same route, seller, delivery_date)
@@ -808,6 +813,15 @@ class SyncView(APIView):
                 # Fix time formats
                 if 'sale_time' in sale and sale['sale_time']:
                     sale['sale_time'] = self.fix_time_format(sale['sale_time'])
+
+        if 'broken_orders' in processed_data:
+            for order in processed_data['broken_orders']:
+                # Fix time formats
+                order['loading_order'] = loading_order
+                order['report_date'] = delivery_date
+                order['route'] = route
+                order['created_by'] = user.id
+                order['updated_by'] = user.id
 
         # Process expenses
         if 'expenses' in processed_data:
@@ -1189,7 +1203,7 @@ class SyncView(APIView):
                     returned_orders.delete()                    
                     section_serializer = ReturnedOrderSerializer(data=data_to_process[section], many=True)
                 elif section == 'broken_orders':
-                    broken_orders = BrokenOrder.objects.filter(route=data_to_process['route'], broken_date=data_to_process['delivery_date'])
+                    broken_orders = BrokenOrder.objects.filter(route=data_to_process['route'], report_date=data_to_process['delivery_date'])
                     broken_orders.delete()
                     section_serializer = BrokenOrderSerializer(data=data_to_process[section], many=True)
                 elif section == 'public_sales':
