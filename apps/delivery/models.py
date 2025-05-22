@@ -725,12 +725,26 @@ class DeliveryOrderItem(models.Model):
         if not self.unit_price:
             self.unit_price = self.get_cached_price()
 
-        # Calculate total price - only if delivered_quantity > 0
-        if self.delivered_quantity > 0:
-            self.total_price = self.delivered_quantity * self.unit_price
-        else:
-            self.total_price = Decimal('0.00')
+        try:
+            unit_price = Decimal(self.unit_price)
+        except (ValueError, TypeError):
+            print(f"Invalid decimal value for unit_price: {self.unit_price}")
+            self.unit_price = Decimal('0.00')
+        
+        try:
+            delivered_quantity = Decimal(self.delivered_quantity)
+        except (ValueError, TypeError):
+            print(f"Invalid decimal value for delivered_quantity: {self.delivered_quantity}")
+            delivered_quantity = Decimal('0.00')
+        
+        
 
+        # # Calculate total price - only if delivered_quantity > 0
+        # if self.delivered_quantity > 0:
+        #     self.total_price = self.delivered_quantity * self.unit_price
+        # else:
+        #     self.total_price = Decimal('0.00')
+        self.total_price = delivered_quantity * unit_price if delivered_quantity > 0 else Decimal('0.00')
         super().save(*args, **kwargs)
 
     def get_cached_price(self):

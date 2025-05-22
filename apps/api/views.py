@@ -991,6 +991,19 @@ class SyncView(APIView):
                                                             except (ValueError, TypeError):
                                                                 print(f"Invalid decimal value for {key}: {value}")
                                                                 setattr(existing_item, key, Decimal('0.00'))
+                                                        
+                                                        elif key == 'unit_price':
+                                                            try:
+                                                                setattr(existing_item, key, Decimal(value or '0.00'))
+                                                            except (ValueError, TypeError):
+                                                                print(f"Invalid decimal value for {key}: {value}")
+                                                                setattr(existing_item, key, Decimal('0.00'))
+                                                        elif key == 'total_price':
+                                                            try:
+                                                                setattr(existing_item, key, Decimal(value or '0.00'))
+                                                            except (ValueError, TypeError):
+                                                                print(f"Invalid decimal value for {key}: {value}")
+                                                                setattr(existing_item, key, Decimal('0.00'))
                                                         else:
                                                             # For non-quantity fields, set directly
                                                             setattr(existing_item, key, value)
@@ -1024,9 +1037,21 @@ class SyncView(APIView):
                                                                 except (ValueError, TypeError):
                                                                     print(f"Invalid decimal value for {key}: {value}")
                                                                     setattr(existing_item, key, Decimal('0.00'))
-                                                            else:
-                                                                # For non-quantity fields, set directly
-                                                                setattr(new_item, key, value)
+                                                            elif key == 'unit_price':
+                                                                try:
+                                                                    setattr(existing_item, key, Decimal(value or '0.00'))
+                                                                except (ValueError, TypeError):
+                                                                    print(f"Invalid decimal value for {key}: {value}")
+                                                                    setattr(existing_item, key, Decimal('0.00'))
+                                                            elif key == 'total_price':
+                                                                try:
+                                                                    setattr(existing_item, key, Decimal(value or '0.00'))
+                                                                except (ValueError, TypeError):
+                                                                    print(f"Invalid decimal value for {key}: {value}")
+                                                                    setattr(existing_item, key, Decimal('0.00'))
+                                                                else:
+                                                                    # For non-quantity fields, set directly
+                                                                    setattr(new_item, key, value)
                                                         except Exception as e:
                                                             print(f"Error setting {key}: {e}, skipping")
                                                             continue
