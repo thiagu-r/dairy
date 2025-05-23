@@ -397,7 +397,7 @@ class ReturnedOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnedOrder
-        fields = ('id', 'order_number', 'route', 'route_name', 'return_date', 'status', 'notes', 'items', 'sync_status')
+        fields = ('id', 'order_number', 'route', 'route_name', 'return_date','return_time', 'reason', 'notes', 'items', 'sync_status')
 
     def create(self, validated_data):
         items_data = validated_data.pop('items')
