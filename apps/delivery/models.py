@@ -1134,6 +1134,13 @@ class DeliveryExpense(models.Model):
         on_delete=models.PROTECT,
         related_name='expenses'
     )
+    route = models.ForeignKey(
+        Route,
+        on_delete=models.PROTECT,
+        related_name='daily_expenses',
+        null=True,
+        blank=True
+    )
     expense_date = models.DateField()
     expense_type = models.CharField(
         max_length=20,
