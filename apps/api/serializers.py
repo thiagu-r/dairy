@@ -20,7 +20,10 @@ from apps.delivery.models import (
     PublicSaleItem,
     DeliveryExpense,
     CashDenomination,
-    DeliveryTeam
+    DeliveryTeam,
+    Distributor,
+    DeliveryTeamMember,
+    DailyDeliveryTeam
     # Payment
 )
 # Authentication Serializers
@@ -755,8 +758,34 @@ class SyncDataV2Serializer(serializers.Serializer):
 
         return validated_data
 
+class DistributorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Distributor
+        fields = ('id', 'name', 'code', 'contact_person', 'mobile', 'address', 'is_internal', 'is_active')
 
 class DeliveryTeamSerializer(serializers.ModelSerializer):
+    route_name = serializers.ReadOnlyField(source='route.name')
+    distributor_name = serializers.ReadOnlyField(source='distributor.name')
+
     class Meta:
         model = DeliveryTeam
-        fields = ('id', 'name', 'distributor', 'route')
+        fields = ('id', 'name', 'distributor', 'route', 'route_name', 'distributor_name')
+
+class DeliveryTeamMemberSerializer(serializers.ModelSerializer):
+    user_name = serializers.ReadOnlyField(source='user.get_full_name')
+    delivery_team_name = serializers.ReadOnlyField(source='delivery_team.name')
+
+    class Meta:
+        model = DeliveryTeamMember
+        fields = ('id', 'user', 'delivery_team','user_name', 'delivery_team_name', 'role', 'is_active')
+
+class DailyDeliveryTeamSerializer(serializers.ModelSerializer):
+    delivery_team_name = serializers.ReadOnlyField(source='delivery_team.name')
+    route_name = serializers.ReadOnlyField(source='route.name')
+    driver_name = serializers.ReadOnlyField(source='driver.user.get_full_name')
+    supervisor_name = serializers.ReadOnlyField(source='supervisor.user.get_full_name')
+    delivery_man_name = serializers.ReadOnlyField(source='delivery_man.user.get_full_name')
+
+    class Meta:
+        model = DailyDeliveryTeam
+        fields = ('id', 'delivery_team', 'delivery_team_name', 'delivery_date', 'route', 'route_name', 'driver', 'driver_name', 'supervisor', 'supervisor_name', 'delivery_man', 'delivery_man_name')

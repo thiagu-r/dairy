@@ -32,7 +32,10 @@ router.register(r'orders/broken', views.BrokenOrderViewSet)
 router.register(r'orders/public_sale', views.PublicSaleViewSet)
 # router.register(r'orders/payment', views.PaymentViewSet)
 router.register(r'users', views.UserViewSet),
-router.register(r'delivery-teams', views.DeliveryTeamViewSet)
+router.register(r'delivery-teams', views.DeliveryTeamViewSet),
+router.register(r'distributors', views.DistributorViewSet),
+router.register(r'delivery-team-members', views.DeliveryTeamMemberViewSet),
+router.register(r'daily-delivery-teams', views.DailyDeliveryTeamViewSet),
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,

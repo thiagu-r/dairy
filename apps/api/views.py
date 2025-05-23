@@ -38,7 +38,10 @@ from apps.delivery.models import (
     PublicSaleItem,
     DeliveryExpense,
     CashDenomination,
-    DeliveryTeam
+    DeliveryTeam,
+    Distributor,
+    DeliveryTeamMember,
+    DailyDeliveryTeam
     # Payment
 )
 
@@ -69,7 +72,10 @@ from .serializers import (
     SyncDataSerializer,
     SyncStatusSerializer,
     CategorySerializer,
-    DeliveryTeamSerializer
+    DeliveryTeamSerializer,
+    DistributorSerializer,
+    DeliveryTeamMemberSerializer,
+    DailyDeliveryTeamSerializer
 )
 
 from .filters import (
@@ -2059,4 +2065,34 @@ class DeliveryTeamViewSet(viewsets.ModelViewSet):
     search_fields = ['name']
     ordering_fields = ['name']
     ordering = ['name']
+    pagination_class = None
+
+class DistributorViewSet(viewsets.ModelViewSet):
+    queryset = Distributor.objects.all()
+    serializer_class = DistributorSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['name']
+    ordering = ['name']
+    pagination_class = None
+
+class DeliveryTeamMemberViewSet(viewsets.ModelViewSet):
+    queryset = DeliveryTeamMember.objects.all()
+    serializer_class = DeliveryTeamMemberSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['user__username', 'user__first_name', 'user__last_name']
+    ordering_fields = ['user__username', 'user__first_name', 'user__last_name']
+    ordering = ['user__username']
+    pagination_class = None
+
+class DailyDeliveryTeamViewSet(viewsets.ModelViewSet):
+    queryset = DailyDeliveryTeam.objects.all()
+    serializer_class = DailyDeliveryTeamSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['delivery_team__name', 'route__name', 'driver__user__username', 'supervisor__user__username', 'delivery_man__user__username']
+    ordering_fields = ['delivery_date', 'delivery_team__name', 'route__name', 'driver__user__username', 'supervisor__user__username', 'delivery_man__user__username']
+    ordering = ['-delivery_date']
     pagination_class = None
