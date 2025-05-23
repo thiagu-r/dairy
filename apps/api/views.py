@@ -1210,7 +1210,7 @@ class SyncView(APIView):
             return Response({'status': 'error', 'message': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # For other sections, use the serializer as before
-        other_sections = ['returned_orders', 'broken_orders', 'public_sales', 'expenses', 'denominations']
+        other_sections = ['return_orders', 'broken_orders', 'public_sales', 'expenses', 'denominations']
         print('Public sales: ', data_to_process.get('public_sales', []))
         for section in other_sections:
             if section in data_to_process:
@@ -1529,6 +1529,7 @@ class SyncView(APIView):
                 # Find the delivery team for the route
                 route_id = expense_data.get('route', None)
                 expense_date = data_to_process.get('delivery_date', None)
+                print('Expense date: ', expense_date)
 
                 # If we don't have a date, use the first delivery order's date
                 if not expense_date and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
