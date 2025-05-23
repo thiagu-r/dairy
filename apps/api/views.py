@@ -1254,7 +1254,7 @@ class SyncView(APIView):
         # Process returned orders - check both 'returned_orders' and 'return_orders' keys
         return_orders_key = 'returned_orders' if 'returned_orders' in serializer.validated_data else 'return_orders' if 'return_orders' in serializer.validated_data else None
 
-        if return_orders_key:
+        if 'return_orders' in serializer.validated_data:
             for order_data in serializer.validated_data[return_orders_key]:
                 # Ensure route is a primary key
                 if 'route' in order_data and not isinstance(order_data['route'], int):
@@ -1528,7 +1528,7 @@ class SyncView(APIView):
             for expense_data in serializer.validated_data['expenses']:
                 # Find the delivery team for the route
                 route_id = expense_data.get('route', None)
-                expense_date = expense_data.get('date', None)
+                expense_date = data_to_process.get('delivery_date', None)
 
                 # If we don't have a date, use the first delivery order's date
                 if not expense_date and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
@@ -1545,21 +1545,28 @@ class SyncView(APIView):
 
                 # Find the delivery team for this route
                 delivery_team = None
-                if route_id:
-                    # Try to find a loading order for this route and date
-                    loading_order = LoadingOrder.objects.filter(route_id=route_id, delivery_date=expense_date).first()
-                    if loading_order and loading_order.purchase_order and loading_order.purchase_order.delivery_team:
-                        delivery_team = loading_order.purchase_order.delivery_team.id
-                    else:
-                        # Fallback: find any delivery team assigned to this route
-                        delivery_team_obj = DeliveryTeam.objects.filter(routes__id=route_id).first()
-                        if delivery_team_obj:
-                            delivery_team = delivery_team_obj.id
-                        else:
-                            # Last resort: use the first delivery team
-                            first_team = DeliveryTeam.objects.first()
-                            if first_team:
-                                delivery_team = first_team.id
+                loading_order_number = data_to_process['loading_order']['order_number']
+                try:
+                    loading_order = LoadingOrder.objects.get(id=int(loading_order_number))
+                    delivery_team = loading_order.purchase_order.delivery_team.id
+                    print(f"Using delivery team {delivery_team} from loading order {loading_order_number}")
+                except Exception as e:
+                    print(f"Error getting delivery team from loading order: {e}")
+                # if route_id:
+                #     # Try to find a loading order for this route and date
+                #     loading_order = LoadingOrder.objects.filter(route_id=route_id, delivery_date=expense_date).first()
+                #     if loading_order and loading_order.purchase_order and loading_order.purchase_order.delivery_team:
+                #         delivery_team = loading_order.purchase_order.delivery_team.id
+                #     else:
+                #         # Fallback: find any delivery team assigned to this route
+                #         delivery_team_obj = DeliveryTeam.objects.filter(routes__id=route_id).first()
+                #         if delivery_team_obj:
+                #             delivery_team = delivery_team_obj.id
+                #         else:
+                #             # Last resort: use the first delivery team
+                #             first_team = DeliveryTeam.objects.first()
+                #             if first_team:
+                #                 delivery_team = first_team.id
 
                 # Map expense fields to match the model
                 mapped_expense_data = {

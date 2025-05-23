@@ -1126,7 +1126,8 @@ class DeliveryExpense(models.Model):
         ('food', 'Food/Snacks'),
         ('vehicle', 'Vehicle Repair/Maintenance'),
         ('fuel', 'Fuel'),
-        ('other', 'Other Expenses')
+        ('other', 'Other Expenses'),
+        ('allowance', 'Daily Allowance')
     )
 
     delivery_team = models.ForeignKey(
