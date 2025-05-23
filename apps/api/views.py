@@ -1800,7 +1800,7 @@ class SyncView(APIView):
             request.user.profile.last_sync = timezone.now()
             request.user.profile.save()
 
-            return Response({'status': 'success', 'message': 'Data synchronized successfully'}, status=status.HTTP_200_OK)
+        return Response({'status': 'success', 'message': 'Data synchronized successfully'}, status=status.HTTP_200_OK)
 
 
 
