@@ -418,7 +418,7 @@ class BrokenOrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = BrokenOrderItem
-        fields = ('id', 'product', 'product_name', 'quantity', 'broken_quantity', 'reason')
+        fields = ('id', 'product', 'product_name', 'quantity', 'broken_quantity')
 
 class BrokenOrderSerializer(serializers.ModelSerializer):
     items = BrokenOrderItemSerializer(many=True)
