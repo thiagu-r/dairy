@@ -1231,7 +1231,7 @@ class SyncView(APIView):
                     expenses.delete()
                     section_serializer = DeliveryExpenseSerializer(data=data_to_process[section], many=True)
                 elif section == 'denominations':
-                    denominations = CashDenomination.objects.fitler(route=data_to_process['route'], delivery_date=data_to_process['delivery_date'])
+                    denominations = CashDenomination.objects.filter(route=data_to_process['route'], delivery_date=data_to_process['delivery_date'])
                     denominations.delete()
                     section_serializer = CashDenominationSerializer(data=data_to_process[section], many=True)
 
