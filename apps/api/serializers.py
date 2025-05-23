@@ -388,7 +388,7 @@ class ReturnedOrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ReturnedOrderItem
-        fields = ('id', 'product', 'product_name', 'quantity', 'reason')
+        fields = ('id', 'product', 'product_name', 'quantity')
 
 class ReturnedOrderSerializer(serializers.ModelSerializer):
     items = ReturnedOrderItemSerializer(many=True)
