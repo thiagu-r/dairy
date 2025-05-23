@@ -68,7 +68,8 @@ from .serializers import (
     # PaymentSerializer,
     SyncDataSerializer,
     SyncStatusSerializer,
-    CategorySerializer
+    CategorySerializer,
+    DeliveryTeamSerializer
 )
 
 from .filters import (
@@ -1211,8 +1212,8 @@ class SyncView(APIView):
 
         # For other sections, use the serializer as before
         other_sections = ['return_orders', 'broken_orders', 'public_sales', 'expenses', 'denominations']
-        print('Public sales: ', data_to_process.get('public_sales', []))
-        print('Return orders: ', data_to_process.get('return_orders', []))
+        # print('Public sales: ', data_to_process.get('public_sales', []))
+        # print('Return orders: ', data_to_process.get('return_orders', []))
         for section in other_sections:
             if section in data_to_process:
                 section_serializer = None
@@ -2048,3 +2049,14 @@ class UserRoleListView(APIView):
             for role in Role
         ]
         return Response(roles)
+
+
+class DeliveryTeamViewSet(viewsets.ModelViewSet):
+    queryset = DeliveryTeam.objects.all()
+    serializer_class = DeliveryTeamSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name']
+    ordering_fields = ['name']
+    ordering = ['name']
+    pagination_class = None

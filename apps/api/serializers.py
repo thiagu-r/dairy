@@ -754,3 +754,9 @@ class SyncDataV2Serializer(serializers.Serializer):
                 CashDenomination.objects.create(**denom_data)
 
         return validated_data
+
+
+class DeliveryTeamSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryTeam
+        fields = ('id', 'name', 'distributor', 'route')
