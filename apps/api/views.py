@@ -1211,6 +1211,7 @@ class SyncView(APIView):
 
         # For other sections, use the serializer as before
         other_sections = ['returned_orders', 'broken_orders', 'public_sales', 'expenses', 'denominations']
+        print('Public sales: ', data_to_process.get('public_sales', []))
         for section in other_sections:
             if section in data_to_process:
                 section_serializer = None
