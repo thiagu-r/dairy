@@ -2077,6 +2077,12 @@ class DistributorViewSet(viewsets.ModelViewSet):
     ordering = ['name']
     pagination_class = None
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
 class DeliveryTeamMemberViewSet(viewsets.ModelViewSet):
     queryset = DeliveryTeamMember.objects.all()
     serializer_class = DeliveryTeamMemberSerializer
@@ -2096,3 +2102,9 @@ class DailyDeliveryTeamViewSet(viewsets.ModelViewSet):
     ordering_fields = ['delivery_date', 'delivery_team__name', 'route__name', 'driver__user__username', 'supervisor__user__username', 'delivery_man__user__username']
     ordering = ['-delivery_date']
     pagination_class = None
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
