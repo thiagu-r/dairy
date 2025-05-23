@@ -412,7 +412,7 @@ class BrokenOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
     product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
     # Make reason optional for mobile app sync
-    reason = serializers.CharField(required=False, allow_blank=True, default='')
+    # reason = serializers.CharField(required=False, allow_blank=True, default='')
     # Rename broken_quantity to quantity if needed
     broken_quantity = serializers.DecimalField(max_digits=10, decimal_places=3, required=False, source='quantity')
 
