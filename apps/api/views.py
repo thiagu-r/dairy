@@ -1531,7 +1531,16 @@ class SyncView(APIView):
 
                 # If we don't have a date, use the first delivery order's date
                 if not expense_date and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
-                    expense_date = serializer.validated_data['delivery_orders'][0].get('delivery_date')
+                    try:
+                        expense_date = serializer.validated_data['delivery_orders'][0].get('delivery_date')
+                    except Exception as e:
+                        print(f"Error getting delivery date from delivery order: {e}")
+                        try:
+                            expense_date = serializer.validated_data['delivery_orders'][0].delivery_date    
+                        except Exception as e:
+                            print(f"Error getting delivery date from delivery order: {e}")
+                            expense_date = serializer.validated_data['expenses'][0].get('expense_date', None)
+                    
 
                 # Find the delivery team for this route
                 delivery_team = None
