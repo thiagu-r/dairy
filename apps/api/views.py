@@ -835,7 +835,7 @@ class SyncView(APIView):
                 # order['loading_order'] = loading_order
                 order['return_date'] = delivery_date
                 order['reason'] = 'unsold product'
-                order['route'] = route
+                order['route'] = route_id
                 order['created_by'] = user.id
                 order['updated_by'] = user.id
 
