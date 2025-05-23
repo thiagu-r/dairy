@@ -1311,6 +1311,7 @@ class PublicSale(models.Model):
         ('cash', 'Cash'),
         ('credit', 'Credit'),
         ('bank_transfer', 'Bank Transfer'),
+        ('online', 'Online')
     )
 
     # Basic information
