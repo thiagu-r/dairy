@@ -505,7 +505,7 @@ class DeliveryExpenseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = DeliveryExpense
-        fields = ('id', 'delivery_team', 'delivery_team_name', 'expense_date', 'expense_type',
+        fields = ('id', 'delivery_team', 'route','delivery_team_name', 'expense_date', 'expense_type',
                   'amount', 'notes', 'created_by', 'sync_status', 'local_id')
 
     def create(self, validated_data):
