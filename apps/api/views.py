@@ -965,6 +965,7 @@ class SyncView(APIView):
             for expense in processed_data['expenses']:
                 # Always set route as PK and expense_date as ISO string
                 expense['route'] = int(route_id) if route_id else None
+                print('Route in expense: ', expense['route'])
                 if isinstance(delivery_date, date):
                     expense['expense_date'] = delivery_date.isoformat()
                 else:
@@ -982,6 +983,7 @@ class SyncView(APIView):
 
         # Process denominations
         if 'denominations' in processed_data and isinstance(processed_data['denominations'], list):
+            print('Denominations:', processed_data['denominations'])
             # If it's a list of lists, flatten it
             if processed_data['denominations'] and isinstance(processed_data['denominations'][0], list):
                 flattened = []
@@ -991,10 +993,11 @@ class SyncView(APIView):
                     else:
                         flattened.append(group)
                 processed_data['denominations'] = flattened
-
+                print('Flattened denominations:', processed_data['denominations'])
             for denomination in processed_data['denominations']:
                 # Always set route as PK and delivery_date as ISO string
                 denomination['route'] = int(route_id) if route_id else None
+                print('route in denomination: ', denomination['route'])
                 if isinstance(delivery_date, date):
                     denomination['delivery_date'] = delivery_date.isoformat()
                 else:
@@ -1656,25 +1659,31 @@ class SyncView(APIView):
                 # Ensure route is a PK
                 if 'route' in expense_data and hasattr(expense_data['route'], 'pk'):
                     expense_data['route'] = expense_data['route'].pk
+                elif 'route' in expense_data and expense_data['route'] is not None:
+                    expense_data['route'] = int(expense_data['route'])
+                else:
+                    expense_data['route'] = int(route_id) if route_id else None
                 # Ensure expense_date is a string
                 if 'expense_date' in expense_data and isinstance(expense_data['expense_date'], date):
                     expense_data['expense_date'] = expense_data['expense_date'].isoformat()
+                elif 'expense_date' not in expense_data:
+                    expense_data['expense_date'] = delivery_date if isinstance(delivery_date, str) else delivery_date.isoformat()
                 # Find the delivery team for the route
-                route_id = expense_data.get('route', None)
-                expense_date = data_to_process.get('delivery_date', None)
-                print('Expense date: ', expense_date)
+                route_id_exp = expense_data.get('route', None)
+                expense_date_val = expense_data.get('expense_date', None)
+                print('Expense date: ', expense_date_val)
 
                 # If we don't have a date, use the first delivery order's date
-                if not expense_date and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
+                if not expense_date_val and 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
                     try:
-                        expense_date = serializer.validated_data['delivery_orders'][0].get('delivery_date')
+                        expense_date_val = serializer.validated_data['delivery_orders'][0].get('delivery_date')
                     except Exception as e:
                         print(f"Error getting delivery date from delivery order: {e}")
                         try:
-                            expense_date = serializer.validated_data['delivery_orders'][0].delivery_date    
+                            expense_date_val = serializer.validated_data['delivery_orders'][0].delivery_date    
                         except Exception as e:
                             print(f"Error getting delivery date from delivery order: {e}")
-                            expense_date = serializer.validated_data['expenses'][0].get('expense_date', None)
+                            expense_date_val = serializer.validated_data['expenses'][0].get('expense_date', None)
                     
 
                 # Find the delivery team for this route
@@ -1686,14 +1695,14 @@ class SyncView(APIView):
                     print(f"Using delivery team {delivery_team} from loading order {loading_order_number}")
                 except Exception as e:
                     print(f"Error getting delivery team from loading order: {e}")
-                if route_id:
+                if route_id_exp:
                     # Try to find a loading order for this route and date
-                    loading_order = LoadingOrder.objects.filter(route_id=route_id, delivery_date=expense_date).first()
+                    loading_order = LoadingOrder.objects.filter(route_id=route_id_exp, delivery_date=expense_date_val).first()
                     if loading_order and loading_order.purchase_order and loading_order.purchase_order.delivery_team:
                         delivery_team = loading_order.purchase_order.delivery_team.id
                     else:
                         # Fallback: find any delivery team assigned to this route
-                        delivery_team_obj = DeliveryTeam.objects.filter(routes__id=route_id).first()
+                        delivery_team_obj = DeliveryTeam.objects.filter(routes__id=route_id_exp).first()
                         if delivery_team_obj:
                             delivery_team = delivery_team_obj.id
                         else:
@@ -1705,8 +1714,8 @@ class SyncView(APIView):
                 # Map expense fields to match the model
                 mapped_expense_data = {
                     'delivery_team': delivery_team,
-                    'expense_date': expense_date,
-                    'route': route_id,
+                    'expense_date': expense_date_val,
+                    'route': route_id_exp,
                     'expense_type': 'other',  # Default to 'other' and map if possible
                     'amount': expense_data.get('amount', None),
                     'notes': expense_data.get('description', None),
@@ -1786,10 +1795,48 @@ class SyncView(APIView):
                 # Ensure route is a PK
                 if 'route' in denomination_data and hasattr(denomination_data['route'], 'pk'):
                     denomination_data['route'] = denomination_data['route'].pk
+                elif 'route' in denomination_data and denomination_data['route'] is not None:
+                    denomination_data['route'] = int(denomination_data['route'])
+                else:
+                    denomination_data['route'] = int(route_id) if route_id else None
                 # Ensure delivery_date is a string
                 if 'delivery_date' in denomination_data and isinstance(denomination_data['delivery_date'], date):
                     denomination_data['delivery_date'] = denomination_data['delivery_date'].isoformat()
-                # ... rest of your logic ...
+                elif 'delivery_date' not in denomination_data:
+                    denomination_data['delivery_date'] = delivery_date if isinstance(delivery_date, str) else delivery_date.isoformat()
+                # Ensure delivery_order is a PK if present
+                if 'delivery_order' in denomination_data and hasattr(denomination_data['delivery_order'], 'pk'):
+                    denomination_data['delivery_order'] = denomination_data['delivery_order'].pk
+
+                # Try to find existing denomination by local_id
+                existing_denomination = None
+                if 'local_id' in denomination_data and denomination_data['local_id']:
+                    existing_denomination = CashDenomination.objects.filter(local_id=denomination_data['local_id']).first()
+                    if existing_denomination:
+                        print(f"Found existing denomination by local_id: {existing_denomination.id}")
+
+                if existing_denomination:
+                    # Update existing denomination
+                    denomination_serializer = CashDenominationSerializer(existing_denomination, data=denomination_data, partial=True)
+                    if denomination_serializer.is_valid():
+                        denomination_serializer.save(sync_status='synced')
+                        print(f"Successfully updated denomination: {existing_denomination.id}")
+                    else:
+                        print(f"Validation errors updating denomination: {denomination_serializer.errors}")
+                        print(f"Data received: {denomination_data}")
+                        continue
+                else:
+                    # Create new denomination
+                    denomination_serializer = CashDenominationSerializer(data=denomination_data)
+                    if denomination_serializer.is_valid():
+                        denomination_serializer.save(sync_status='synced')
+                        print(f"Successfully created denomination")
+                    else:
+                        print(f"Validation errors creating denomination: {denomination_serializer.errors}")
+                        print(f"Data received: {denomination_data}")
+                        continue
+        else:
+            print("Denominations not provided in the request data.")
 
         # Process payments
         # Commented out until Payment model is implemented
