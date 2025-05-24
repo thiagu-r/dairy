@@ -335,8 +335,63 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
-        # Use the default create method, which will call our custom serializer's create method
-        return super().create(request, *args, **kwargs)
+        data = request.data
+        items_data = data.get('items', [])
+        
+        # Validate required fields
+        required_fields = ['route', 'delivery_team', 'delivery_date']
+        for field in required_fields:
+            if not data.get(field):
+                return Response({'success': False, 'error': f'Missing required field: {field}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check for existing order
+        existing_order = PurchaseOrder.objects.filter(
+            delivery_team_id=data['delivery_team'],
+            route_id=data['route'],
+            delivery_date=data['delivery_date']
+        ).first()
+        if existing_order:
+            return Response({'success': False, 'error': 'Purchase order already exists for this team, route and date'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create purchase order
+        purchase_order = PurchaseOrder.objects.create(
+            delivery_team_id=data['delivery_team'],
+            route_id=data['route'],
+            delivery_date=data['delivery_date'],
+            status='draft',
+            notes=data.get('notes', ''),
+            created_by=request.user,
+            updated_by=request.user
+        )
+
+        # Validate and create items
+        if not items_data:
+            return Response({'success': False, 'error': 'No items to process'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from decimal import Decimal
+        for item in items_data:
+            try:
+                sales_qty = Decimal(item['sales_quantity'])
+                extra_qty = Decimal(item['extra_quantity'])
+                remaining_qty = Decimal(item['remaining_quantity'])
+                product_id = int(item['product_id'])
+            except (KeyError, ValueError) as e:
+                return Response({'success': False, 'error': f'Invalid item data: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if (sales_qty + extra_qty - remaining_qty) < sales_qty:
+                return Response({'success': False, 'error': f'Total quantity must be greater than or equal to sales quantity for product_id {product_id}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            PurchaseOrderItem.objects.create(
+                purchase_order=purchase_order,
+                product_id=product_id,
+                sales_order_quantity=sales_qty,
+                extra_quantity=extra_qty,
+                remaining_quantity=remaining_qty
+            )
+
+        # Serialize and return the created order with items
+        serializer = self.get_serializer(purchase_order)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
     def update(self, request, *args, **kwargs):
