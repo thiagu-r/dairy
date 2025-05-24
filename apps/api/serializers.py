@@ -235,7 +235,7 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PurchaseOrder
-        fields = ('id', 'order_number','route', 'delivery_date', 'notes', 'status', 'items')
+        fields = ('id', 'order_number','route','delivery_team', 'delivery_date', 'notes', 'status', 'items')
 
 class LoadingOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.ReadOnlyField(source='product.name')
