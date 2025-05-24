@@ -2222,3 +2222,59 @@ class DailyDeliveryTeamViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(updated_by=self.request.user)
+
+class DeliveryReportAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        route_id = request.query_params.get('route')
+        delivery_date = request.query_params.get('delivery_date')
+
+        if not route_id or not delivery_date:
+            return Response({'error': 'route and delivery_date are required'}, status=400)
+
+        # 1. LoadingOrder(s)
+        loading_orders = LoadingOrder.objects.filter(route_id=route_id, loading_date=delivery_date)
+        loading_orders_data = LoadingOrderSerializer(loading_orders, many=True).data
+
+        # 2. DeliveryOrder(s)
+        delivery_orders = DeliveryOrder.objects.filter(route_id=route_id, delivery_date=delivery_date)
+        delivery_orders_data = DeliveryOrderSerializer(delivery_orders, many=True).data
+
+        # 3. ReturnedOrder(s)
+        returned_orders = ReturnedOrder.objects.filter(route_id=route_id, return_date=delivery_date)
+        returned_orders_data = ReturnedOrderSerializer(returned_orders, many=True).data
+
+        # 4. CashDenomination(s)
+        cash_denominations = CashDenomination.objects.filter(route_id=route_id, delivery_date=delivery_date)
+        cash_denominations_data = CashDenominationSerializer(cash_denominations, many=True).data
+
+        # 5. DeliveryExpense(s)
+        delivery_expenses = DeliveryExpense.objects.filter(route_id=route_id, expense_date=delivery_date)
+        delivery_expenses_data = DeliveryExpenseSerializer(delivery_expenses, many=True).data
+
+        # 6. PublicSale(s)
+        public_sales = PublicSale.objects.filter(route_id=route_id, sale_date=delivery_date)
+        public_sales_data = PublicSaleSerializer(public_sales, many=True).data
+
+        # 7. BrokenOrder(s)
+        broken_orders = BrokenOrder.objects.filter(route_id=route_id, report_date=delivery_date)
+        broken_orders_data = BrokenOrderSerializer(broken_orders, many=True).data
+
+        # Route details (optional, for context)
+        from apps.seller.models import Route
+        route_obj = Route.objects.filter(id=route_id).first()
+        from .serializers import RouteSerializer
+        route_data = RouteSerializer(route_obj).data if route_obj else None
+
+        return Response({
+            'route': route_data,
+            'delivery_date': delivery_date,
+            'loading_orders': loading_orders_data,
+            'delivery_orders': delivery_orders_data,
+            'returned_orders': returned_orders_data,
+            'cash_denominations': cash_denominations_data,
+            'delivery_expenses': delivery_expenses_data,
+            'public_sales': public_sales_data,
+            'broken_orders': broken_orders_data,
+        })

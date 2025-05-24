@@ -76,4 +76,6 @@ urlpatterns = [
     path('loading-orders/check-purchase-order/', views.CheckPurchaseOrderAPIView.as_view(), name='check-purchase-order-api'),
     path('loading-orders/check-loading-order/', views.CheckLoadingOrderAPIView.as_view(), name='check-loading-order-api'),
     path('loading-orders/create/', views.CreateLoadingOrderAPIView.as_view(), name='loading-order-create-api'),
+
+    path('delivery-reports/', views.DeliveryReportAPIView.as_view(), name='delivery-report'),
 ]
