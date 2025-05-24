@@ -963,18 +963,18 @@ class SyncView(APIView):
         # Process expenses
         if 'expenses' in processed_data:
             for expense in processed_data['expenses']:
+                # Always set route and expense_date from context
+                expense['route'] = route_id
+                expense['expense_date'] = delivery_date
                 # Map expense type
                 if 'expense_type' in expense:
                     expense_type = expense['expense_type'].lower() if expense['expense_type'] else ''
                     if expense_type == 'maintenance':
                         expense['expense_type'] = 'vehicle'
-                if 'expense_date' not in expense:
-                    expense['expense_date'] = delivery_date
                 if 'created_by' not in expense:
                     expense['created_by'] = user.id
                 if 'delivery_team' not in expense:
                     loading_order = LoadingOrder.objects.filter(route_id=route_id, loading_date=delivery_date).first()
-                    print('delivery team: ', loading_order.purchase_order.delivery_team.id)
                     expense['delivery_team'] = loading_order.purchase_order.delivery_team.id if loading_order else None
 
         # Process denominations
@@ -989,23 +989,22 @@ class SyncView(APIView):
                         flattened.append(group)
                 processed_data['denominations'] = flattened
 
-            # Make sure each denomination has a delivery_order
-            if 'delivery_orders' in processed_data and processed_data['delivery_orders']:
-                # Find the first delivery order with an ID or local_id
-                delivery_order_ref = None
-                for order in processed_data['delivery_orders']:
-                    if 'id' in order or 'local_id' in order:
-                        delivery_order_ref = order
-                        break
-
-                # Set delivery_order for denominations that don't have one
-                if delivery_order_ref:
-                    for denomination in processed_data['denominations']:
+            for denomination in processed_data['denominations']:
+                # Always set route and delivery_date from context
+                denomination['route'] = route_id
+                denomination['delivery_date'] = delivery_date
+                # Make sure each denomination has a delivery_order (existing logic follows)
+                if 'delivery_orders' in processed_data and processed_data['delivery_orders']:
+                    delivery_order_ref = None
+                    for order in processed_data['delivery_orders']:
+                        if 'id' in order or 'local_id' in order:
+                            delivery_order_ref = order
+                            break
+                    if delivery_order_ref:
                         if 'delivery_order' not in denomination or not denomination['delivery_order']:
                             if 'id' in delivery_order_ref:
                                 denomination['delivery_order'] = delivery_order_ref['id']
                             elif 'local_id' in delivery_order_ref:
-                                # We'll use the local_id to find the delivery order later
                                 denomination['delivery_order_local_id'] = delivery_order_ref['local_id']
 
         return processed_data
@@ -1675,26 +1674,27 @@ class SyncView(APIView):
                     print(f"Using delivery team {delivery_team} from loading order {loading_order_number}")
                 except Exception as e:
                     print(f"Error getting delivery team from loading order: {e}")
-                # if route_id:
-                #     # Try to find a loading order for this route and date
-                #     loading_order = LoadingOrder.objects.filter(route_id=route_id, delivery_date=expense_date).first()
-                #     if loading_order and loading_order.purchase_order and loading_order.purchase_order.delivery_team:
-                #         delivery_team = loading_order.purchase_order.delivery_team.id
-                #     else:
-                #         # Fallback: find any delivery team assigned to this route
-                #         delivery_team_obj = DeliveryTeam.objects.filter(routes__id=route_id).first()
-                #         if delivery_team_obj:
-                #             delivery_team = delivery_team_obj.id
-                #         else:
-                #             # Last resort: use the first delivery team
-                #             first_team = DeliveryTeam.objects.first()
-                #             if first_team:
-                #                 delivery_team = first_team.id
+                if route_id:
+                    # Try to find a loading order for this route and date
+                    loading_order = LoadingOrder.objects.filter(route_id=route_id, delivery_date=expense_date).first()
+                    if loading_order and loading_order.purchase_order and loading_order.purchase_order.delivery_team:
+                        delivery_team = loading_order.purchase_order.delivery_team.id
+                    else:
+                        # Fallback: find any delivery team assigned to this route
+                        delivery_team_obj = DeliveryTeam.objects.filter(routes__id=route_id).first()
+                        if delivery_team_obj:
+                            delivery_team = delivery_team_obj.id
+                        else:
+                            # Last resort: use the first delivery team
+                            first_team = DeliveryTeam.objects.first()
+                            if first_team:
+                                delivery_team = first_team.id
 
                 # Map expense fields to match the model
                 mapped_expense_data = {
                     'delivery_team': delivery_team,
                     'expense_date': expense_date,
+                    'route': route_id,
                     'expense_type': 'other',  # Default to 'other' and map if possible
                     'amount': expense_data.get('amount', None),
                     'notes': expense_data.get('description', None),
