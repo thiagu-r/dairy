@@ -1672,7 +1672,12 @@ class SyncView(APIView):
                 elif 'route' in expense_data and expense_data['route'] is not None:
                     expense_data['route'] = int(expense_data['route'])
                 else:
-                    expense_data['route'] = int(route_id) if route_id else None
+                    try:
+                        expense_data['route'] = int(route_id) if route_id else None
+                    except Exception as e:
+                        print(f"Error setting route for expense: {e}")
+                        expense_data['route'] = data_to_process['route_id']
+                    
                 # Ensure expense_date is a string
                 if 'expense_date' in expense_data and isinstance(expense_data['expense_date'], date):
                     expense_data['expense_date'] = expense_data['expense_date'].isoformat()
