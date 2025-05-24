@@ -358,7 +358,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 # Update existing item
                 po_item = existing_items[item_id]
                 po_item.product_id = int(item['product'])
-                po_item.sales_order_quantity = Decimal(item['sales_quantity'])
+                po_item.sales_order_quantity = Decimal(item['sales_order_quantity'])
                 po_item.extra_quantity = Decimal(item['extra_quantity'])
                 po_item.remaining_quantity = Decimal(item['remaining_quantity'])
                 po_item.save()
@@ -368,7 +368,7 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 PurchaseOrderItem.objects.create(
                     purchase_order=instance,
                     product_id=int(item['product']),
-                    sales_order_quantity=Decimal(item['sales_quantity']),
+                    sales_order_quantity=Decimal(item['sales_order_quantity']),
                     extra_quantity=Decimal(item['extra_quantity']),
                     remaining_quantity=Decimal(item['remaining_quantity'])
                 )
