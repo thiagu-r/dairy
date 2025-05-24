@@ -330,14 +330,62 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user, updated_by=self.request.user)
 
-    def perform_update(self, serializer):
-        serializer.save(updated_by=self.request.user)
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data = request.data
+
+        # Update order fields
+        for field in ['route', 'delivery_team', 'delivery_date', 'notes']:
+            if field in data:
+                if field in ['route', 'delivery_team']:
+                    setattr(instance, f"{field}_id", data[field])
+                else:
+                    setattr(instance, field, data[field])
+        instance.updated_by = request.user
+        instance.save()
+
+        # Handle items
+        items_data = data.get('items', [])
+        existing_items = {item.id: item for item in instance.items.all()}
+        sent_item_ids = set()
+
+        from decimal import Decimal
+
+        for item in items_data:
+            item_id = item.get('id')
+            if item_id and item_id in existing_items:
+                # Update existing item
+                po_item = existing_items[item_id]
+                po_item.product_id = int(item['product_id'])
+                po_item.sales_order_quantity = Decimal(item['sales_quantity'])
+                po_item.extra_quantity = Decimal(item['extra_quantity'])
+                po_item.remaining_quantity = Decimal(item['remaining_quantity'])
+                po_item.save()
+                sent_item_ids.add(item_id)
+            else:
+                # Create new item
+                PurchaseOrderItem.objects.create(
+                    purchase_order=instance,
+                    product_id=int(item['product_id']),
+                    sales_order_quantity=Decimal(item['sales_quantity']),
+                    extra_quantity=Decimal(item['extra_quantity']),
+                    remaining_quantity=Decimal(item['remaining_quantity'])
+                )
+
+        # Delete items not in the new payload
+        for item_id, item in existing_items.items():
+            if item_id not in sent_item_ids:
+                item.delete()
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.get('items', [])
-        
+
         # Validate required fields
         required_fields = ['route', 'delivery_team', 'delivery_date']
         for field in required_fields:
@@ -392,11 +440,6 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
         # Serialize and return the created order with items
         serializer = self.get_serializer(purchase_order)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    @transaction.atomic
-    def update(self, request, *args, **kwargs):
-        # Use the default update method, which will call our custom serializer's update method
-        return super().update(request, *args, **kwargs)
 
 class LoadingOrderViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoadingOrder.objects.all()
