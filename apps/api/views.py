@@ -16,7 +16,7 @@ from django.http import JsonResponse
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, date
 
 from decimal import Decimal
 
@@ -963,9 +963,12 @@ class SyncView(APIView):
         # Process expenses
         if 'expenses' in processed_data:
             for expense in processed_data['expenses']:
-                # Always set route and expense_date from context
-                expense['route'] = route_id
-                expense['expense_date'] = delivery_date
+                # Always set route as PK and expense_date as ISO string
+                expense['route'] = int(route_id) if route_id else None
+                if isinstance(delivery_date, date):
+                    expense['expense_date'] = delivery_date.isoformat()
+                else:
+                    expense['expense_date'] = delivery_date
                 # Map expense type
                 if 'expense_type' in expense:
                     expense_type = expense['expense_type'].lower() if expense['expense_type'] else ''
@@ -990,9 +993,12 @@ class SyncView(APIView):
                 processed_data['denominations'] = flattened
 
             for denomination in processed_data['denominations']:
-                # Always set route and delivery_date from context
-                denomination['route'] = route_id
-                denomination['delivery_date'] = delivery_date
+                # Always set route as PK and delivery_date as ISO string
+                denomination['route'] = int(route_id) if route_id else None
+                if isinstance(delivery_date, date):
+                    denomination['delivery_date'] = delivery_date.isoformat()
+                else:
+                    denomination['delivery_date'] = delivery_date
                 # Make sure each denomination has a delivery_order (existing logic follows)
                 if 'delivery_orders' in processed_data and processed_data['delivery_orders']:
                     delivery_order_ref = None
