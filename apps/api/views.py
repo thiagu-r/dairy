@@ -1680,6 +1680,8 @@ class SyncView(APIView):
                     except Exception as e:
                         print(f"Error setting route for expense: {e}")
                         expense_data['route'] = data_to_process['route_id']
+                        print('added route_id')
+                        print('route id:' , data_to_process['route_id'])
                     
                 # Ensure expense_date is a string
                 if 'expense_date' in expense_data and isinstance(expense_data['expense_date'], date):
