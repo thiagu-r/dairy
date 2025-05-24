@@ -1653,6 +1653,12 @@ class SyncView(APIView):
         # Process expenses
         if 'expenses' in serializer.validated_data:
             for expense_data in serializer.validated_data['expenses']:
+                # Ensure route is a PK
+                if 'route' in expense_data and hasattr(expense_data['route'], 'pk'):
+                    expense_data['route'] = expense_data['route'].pk
+                # Ensure expense_date is a string
+                if 'expense_date' in expense_data and isinstance(expense_data['expense_date'], date):
+                    expense_data['expense_date'] = expense_data['expense_date'].isoformat()
                 # Find the delivery team for the route
                 route_id = expense_data.get('route', None)
                 expense_date = data_to_process.get('delivery_date', None)
@@ -1776,152 +1782,14 @@ class SyncView(APIView):
 
         # Process denominations
         if 'denominations' in serializer.validated_data:
-            # The denominations data is a list of lists, where each inner list contains denomination objects for a delivery order
-            denominations_data = serializer.validated_data['denominations']
-            print(f"Processing denominations: {denominations_data}")
-
-            # If we have a list of lists, flatten it
-            if isinstance(denominations_data, list) and all(isinstance(item, list) for item in denominations_data):
-                # Flatten the list of lists
-                flattened_denominations = []
-                for denomination_group in denominations_data:
-                    flattened_denominations.extend(denomination_group)
-                denominations_data = flattened_denominations
-
-            # Store successfully processed delivery orders for later use
-            processed_delivery_orders = []
-            if 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
-                for order in serializer.validated_data['delivery_orders']:
-                    if hasattr(order, 'id'):
-                        processed_delivery_orders.append(order)
-
-            # Process each denomination
-            for denomination_data in denominations_data:
-                # Try to find the delivery order from the local_id
-                delivery_order_id = None
-
-                # First, check if delivery_order is already set
-                if 'delivery_order' in denomination_data and denomination_data['delivery_order']:
-                    # Check if delivery_order is an object or an ID
-                    if isinstance(denomination_data['delivery_order'], DeliveryOrder):
-                        # It's a DeliveryOrder object, get its ID
-                        delivery_order = denomination_data['delivery_order']
-                        delivery_order_id = delivery_order.id
-                        # Replace the object with the ID
-                        denomination_data['delivery_order'] = delivery_order_id
-                        print(f"Using provided delivery_order object: {delivery_order_id}")
-                    else:
-                        # It's an ID (or should be), verify it exists
-                        try:
-                            delivery_order = DeliveryOrder.objects.get(id=denomination_data['delivery_order'])
-                            delivery_order_id = delivery_order.id
-                            print(f"Using provided delivery_order ID: {delivery_order_id}")
-                        except (DeliveryOrder.DoesNotExist, ValueError, TypeError):
-                            print(f"Provided delivery_order {denomination_data['delivery_order']} does not exist or is invalid")
-                            # Set to None to avoid validation errors
-                            denomination_data['delivery_order'] = None
-
-                # Check if we have a delivery_order_local_id
-                if not delivery_order_id and 'delivery_order_local_id' in denomination_data:
-                    # Find the delivery order with this local_id
-                    matching_order = DeliveryOrder.objects.filter(local_id=denomination_data['delivery_order_local_id']).first()
-                    if matching_order:
-                        delivery_order_id = matching_order.id
-                        print(f"Found delivery order from delivery_order_local_id: {delivery_order_id}")
-                        # Remove the temporary field
-                        del denomination_data['delivery_order_local_id']
-
-                # Try to extract from denomination local_id
-                if not delivery_order_id and 'local_id' in denomination_data:
-                    # Extract delivery order ID from local_id (format: mobile-den-{timestamp}-{denomination})
-                    local_id_parts = denomination_data.get('local_id', '').split('-')
-                    if len(local_id_parts) >= 3:
-                        timestamp = local_id_parts[2]
-                        # Find delivery order with matching local_id timestamp
-                        matching_orders = DeliveryOrder.objects.filter(local_id__contains=timestamp)
-                        if matching_orders.exists():
-                            delivery_order_id = matching_orders.first().id
-                            print(f"Found delivery order from local_id timestamp: {delivery_order_id}")
-
-                # If we couldn't find a matching delivery order, use the first one from the processed delivery orders
-                if not delivery_order_id and processed_delivery_orders:
-                    delivery_order_id = processed_delivery_orders[0].id
-                    print(f"Using first processed delivery order: {delivery_order_id}")
-
-                # If we still don't have a delivery order, try to find one in the database
-                if not delivery_order_id:
-                    # Try to find any delivery order for the current date
-                    today = timezone.now().date()
-                    recent_order = DeliveryOrder.objects.filter(delivery_date=today).order_by('-created_at').first()
-                    if recent_order:
-                        delivery_order_id = recent_order.id
-                        print(f"Using recent delivery order: {delivery_order_id}")
-                    else:
-                        # Last resort: use any delivery order
-                        first_order = DeliveryOrder.objects.order_by('-created_at').first()
-                        if first_order:
-                            delivery_order_id = first_order.id
-                            print(f"Using first available delivery order: {delivery_order_id}")
-                        else:
-                            print("No delivery orders found for denominations")
-                            # Set to None and add route and delivery_date instead
-                            denomination_data['delivery_order'] = None
-                            # Try to get route and date from the first delivery order in the payload
-                            if 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
-                                first_order_data = serializer.validated_data['delivery_orders'][0]
-                                if 'route' in first_order_data:
-                                    denomination_data['route'] = first_order_data['route']
-                                if 'delivery_date' in first_order_data:
-                                    denomination_data['delivery_date'] = first_order_data['delivery_date']
-                            continue
-
-                # Add delivery_order to the data if we found one
-                if delivery_order_id:
-                    denomination_data['delivery_order'] = delivery_order_id
-                else:
-                    # Set to None to avoid validation errors
-                    denomination_data['delivery_order'] = None
-                    # Try to get route and date from the first delivery order in the payload
-                    if 'delivery_orders' in serializer.validated_data and serializer.validated_data['delivery_orders']:
-                        first_order_data = serializer.validated_data['delivery_orders'][0]
-                        if 'route' in first_order_data:
-                            denomination_data['route'] = first_order_data['route']
-                        if 'delivery_date' in first_order_data:
-                            denomination_data['delivery_date'] = first_order_data['delivery_date']
-
-                print(f"Processing denomination: {denomination_data}")
-
-                # Check if this denomination already exists by local_id
-                existing_denomination = None
-                if 'local_id' in denomination_data and denomination_data['local_id']:
-                    existing_denomination = CashDenomination.objects.filter(local_id=denomination_data['local_id']).first()
-                    if existing_denomination:
-                        print(f"Found existing denomination by local_id: {existing_denomination.id}")
-
-                if existing_denomination:
-                    # Update existing denomination
-                    denomination_serializer = CashDenominationSerializer(existing_denomination, data=denomination_data, partial=True)
-                    if denomination_serializer.is_valid():
-                        denomination_serializer.save(sync_status='synced')
-                        print(f"Successfully updated denomination: {existing_denomination.id}")
-                    else:
-                        print(f"Validation errors updating denomination: {denomination_serializer.errors}")
-                        print(f"Data received: {denomination_data}")
-                        # Continue processing other denominations instead of failing the whole request
-                        continue
-                else:
-                    # Create new denomination
-                    denomination_serializer = CashDenominationSerializer(data=denomination_data)
-                    if denomination_serializer.is_valid():
-                        denomination_serializer.save(sync_status='synced')
-                        print(f"Successfully created denomination")
-                    else:
-                        print(f"Validation errors creating denomination: {denomination_serializer.errors}")
-                        print(f"Data received: {denomination_data}")
-                        # Continue processing other denominations instead of failing the whole request
-                        continue
-        else:
-            print("Denominations not provided in the request data.")
+            for denomination_data in serializer.validated_data['denominations']:
+                # Ensure route is a PK
+                if 'route' in denomination_data and hasattr(denomination_data['route'], 'pk'):
+                    denomination_data['route'] = denomination_data['route'].pk
+                # Ensure delivery_date is a string
+                if 'delivery_date' in denomination_data and isinstance(denomination_data['delivery_date'], date):
+                    denomination_data['delivery_date'] = denomination_data['delivery_date'].isoformat()
+                # ... rest of your logic ...
 
         # Process payments
         # Commented out until Payment model is implemented
