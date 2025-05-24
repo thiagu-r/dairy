@@ -1742,6 +1742,7 @@ class SyncView(APIView):
                     'local_id': expense_data.get('local_id', None),
                     'sync_status': 'synced'
                 }
+                print(f"mapped_expense_data: {mapped_expense_data}")
 
                 print(f"Before expense type mapping: {expense_data.get('expense_type')}")
                 # Map expense type
