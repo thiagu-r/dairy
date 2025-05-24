@@ -317,7 +317,7 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         # Use the default update method, which will call our custom serializer's update method
         return super().update(request, *args, **kwargs)
 
-class PurchaseOrderViewSet(viewsets.ReadOnlyModelViewSet):
+class PurchaseOrderViewSet(viewsets.ModelViewSet):
     queryset = PurchaseOrder.objects.all()
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
@@ -326,6 +326,22 @@ class PurchaseOrderViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['order_number', 'route__name']
     ordering_fields = ['delivery_date', 'order_number', 'route__name']
     ordering = ['-delivery_date']
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        # Use the default create method, which will call our custom serializer's create method
+        return super().create(request, *args, **kwargs)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        # Use the default update method, which will call our custom serializer's update method
+        return super().update(request, *args, **kwargs)
 
 class LoadingOrderViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = LoadingOrder.objects.all()
