@@ -819,6 +819,8 @@ class SyncView(APIView):
                 delivery_order = processed_data['delivery_orders'][0]
                 delivery_date = delivery_order.get('delivery_date')
                 route_id = delivery_order.get('route')
+                processed_data['route_id'] = route_id
+                processed_data['delivery_date'] = delivery_date
         except Exception as e:
             print('No delivery orders provided in the request data.', e)
 
@@ -1665,6 +1667,7 @@ class SyncView(APIView):
 
         # Process expenses
         if 'expenses' in serializer.validated_data:
+            print('Expenses: ', serializer.validated_data['expenses'])
             for expense_data in serializer.validated_data['expenses']:
                 # Ensure route is a PK
                 if 'route' in expense_data and hasattr(expense_data['route'], 'pk'):
