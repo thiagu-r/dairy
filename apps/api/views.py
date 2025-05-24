@@ -1715,7 +1715,7 @@ class SyncView(APIView):
                     print(f"Error getting delivery team from loading order: {e}")
                 if route_id_exp:
                     # Try to find a loading order for this route and date
-                    loading_order = LoadingOrder.objects.filter(route_id=route_id_exp, delivery_date=expense_date_val).first()
+                    loading_order = LoadingOrder.objects.filter(route_id=route_id_exp, loading_date=expense_date_val).first()
                     if loading_order and loading_order.purchase_order and loading_order.purchase_order.delivery_team:
                         delivery_team = loading_order.purchase_order.delivery_team.id
                     else:
