@@ -849,7 +849,7 @@ class BrokenOrder(models.Model):
         ]
 
     def __str__(self):
-        return f"BO {self.order_number} - {self.loading_order.purchase_order.delivery_team.name}"
+        return f"BO {self.order_number} - {self.route.name} - {self.report_date}"
 
     def save(self, *args, **kwargs):
         if not self.order_number:
@@ -960,7 +960,7 @@ class ReturnedOrder(models.Model):
         ]
 
     def __str__(self):
-        return f"RO {self.order_number} - {self.loading_order.purchase_order.delivery_team.name}"
+        return f"RO {self.order_number} - {self.route.name} - {self.return_date}"
 
     def save(self, *args, **kwargs):
         if not self.order_number:
