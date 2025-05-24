@@ -1032,6 +1032,16 @@ class SyncView(APIView):
             # Pre-process the data to fix time formats and other issues before validation
             data_to_process = self.preprocess_data(data_to_process, user)
             print('Preprocessed data:', data_to_process)
+            route_id = None
+            delivery_date = None
+            if 'route' in data_to_process:
+                route_id = data_to_process['route']
+            elif 'route_id' in data_to_process:
+                route_id = data_to_process['route_id']
+            if 'delivery_date' in data_to_process:
+                delivery_date = data_to_process['delivery_date']
+            if not delivery_date and 'delivery_orders' in data_to_process and data_to_process['delivery_orders']:
+                delivery_date = data_to_process['delivery_orders'][0].get('delivery_date')
 
             # Instead of validating all data at once, we'll validate each section separately
             # This way, if one section fails validation, we can still process the others
