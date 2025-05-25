@@ -499,6 +499,21 @@ class PublicSaleSerializer(serializers.ModelSerializer):
 
         return public_sale
 
+    def update(self, instance, validated_data):
+        items_data = validated_data.pop('items', None)
+        # Update PublicSale fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if items_data is not None:
+            # Remove all existing items
+            instance.items.all().delete()
+            # Create new items
+            for item_data in items_data:
+                PublicSaleItem.objects.create(public_sale=instance, **item_data)
+        return instance
+
 class DeliveryExpenseSerializer(serializers.ModelSerializer):
     delivery_team_name = serializers.ReadOnlyField(source='delivery_team.name')
     delivery_team = serializers.PrimaryKeyRelatedField(queryset=DeliveryTeam.objects.all())
