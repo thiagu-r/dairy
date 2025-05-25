@@ -1560,12 +1560,18 @@ class SyncView(APIView):
                         print(f"Set local_id from id: {order_data['local_id']}")
 
                     # Generate a unique order number if not provided
-                    if 'order_number' in order_data or order_data['order_number']:
+                    if not 'order_number' in order_data or not order_data['order_number']:
                         # Generate a unique order number
                         today = datetime.now().strftime('%Y%m%d')
-                        count = BrokenOrder.objects.filter(order_number__contains=f"BO-{today}").count() + 1
-                        order_data['order_number'] = f"BO-{today}-{count:04d}"
-                        print(f"Generated order number: {order_data['order_number']}")
+                        base_order_number = f"BO-{today}"
+                        count = 1
+                        while True:
+                            generated_order_number = f"{base_order_number}-{count:04d}"
+                            if not BrokenOrder.objects.filter(order_number=generated_order_number).exists():
+                                break
+                            count += 1
+                        order_data['order_number'] = generated_order_number
+                        print(f"Generated unique order number for new broken order: {order_data['order_number']}")
 
                     broken_serializer = BrokenOrderSerializer(data=order_data)
                     if broken_serializer.is_valid():
