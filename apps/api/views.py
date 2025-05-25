@@ -19,6 +19,8 @@ from django.utils import timezone
 from datetime import datetime, date
 
 from decimal import Decimal
+import random
+from django.db import IntegrityError
 
 from apps.seller.models import Seller, Route
 from apps.products.models import Product, PricePlan, ProductPrice, Category
@@ -1562,34 +1564,20 @@ class SyncView(APIView):
                     # Always generate a unique order_number for new BrokenOrder records, ignoring any value from the payload
                     today = datetime.now().strftime('%Y%m%d')
                     base_order_number = f"BO-{today}"
-                    count = 1
-                    while True:
-                        generated_order_number = f"{base_order_number}-{count:04d}"
-                        if not BrokenOrder.objects.filter(order_number=generated_order_number).exists():
-                            break
-                        count += 1
+                    random_suffix = random.randint(1000, 9999)
+                    generated_order_number = f"{base_order_number}-{random_suffix}"
                     order_data['order_number'] = generated_order_number
-                    print(f"Generated unique order number for new broken order (payload value ignored): {order_data['order_number']}")
-
+                    print(f"Trying order number: {order_data['order_number']}")
                     broken_serializer = BrokenOrderSerializer(data=order_data)
                     if broken_serializer.is_valid():
-                        # Set created_by and updated_by to the request user
                         try:
                             new_broken_order = broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
                             print(f"Successfully created broken order: {new_broken_order.id}, report_date: {new_broken_order.report_date}")
                             print("BrokenOrder count after creation:", BrokenOrder.objects.filter(report_date=new_broken_order.report_date).count())
-                        except Exception as e:
-                            print(f"Error creating broken order: {e}")
-                            # Try with partial=True as a fallback
-                            try:
-                                broken_serializer = BrokenOrderSerializer(data=order_data, partial=True)
-                                if broken_serializer.is_valid():
-                                    broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
-                                    print(f"Successfully created broken order with partial=True")
-                                else:
-                                    print(f"Validation errors creating broken order with partial=True: {broken_serializer.errors}")
-                            except Exception as e2:
-                                print(f"Error creating broken order with partial=True: {e2}")
+                            break
+                        except IntegrityError as e:
+                            print(f"IntegrityError on attempt {attempt+1}: {e}")
+                            continue  # Try again with a new random number
                     else:
                         print(f"Validation errors creating broken order: {broken_serializer.errors}")
                         print(f"Data received: {order_data}")
