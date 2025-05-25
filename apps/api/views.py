@@ -1577,8 +1577,9 @@ class SyncView(APIView):
                     if broken_serializer.is_valid():
                         # Set created_by and updated_by to the request user
                         try:
-                            broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
-                            print(f"Successfully created broken order")
+                            new_broken_order = broken_serializer.save(sync_status='synced', updated_by=request.user, created_by=request.user)
+                            print(f"Successfully created broken order: {new_broken_order.id}, report_date: {new_broken_order.report_date}")
+                            print("BrokenOrder count after creation:", BrokenOrder.objects.filter(report_date=new_broken_order.report_date).count())
                         except Exception as e:
                             print(f"Error creating broken order: {e}")
                             # Try with partial=True as a fallback
@@ -1881,7 +1882,12 @@ class SyncView(APIView):
 
         return Response({'status': 'success', 'message': 'Data synchronized successfully'}, status=status.HTTP_200_OK)
 
-
+        # Add logging at the end of the post method
+        try:
+            # Use delivery_date from earlier in the method if available
+            print("BrokenOrder count at end of POST:", BrokenOrder.objects.filter(report_date=delivery_date).count())
+        except Exception as e:
+            print(f"Error logging BrokenOrder count at end of POST: {e}")
 
 @method_decorator(csrf_exempt, name='dispatch')
 class SyncStatusView(APIView):
