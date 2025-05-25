@@ -1560,7 +1560,7 @@ class SyncView(APIView):
                         print(f"Set local_id from id: {order_data['local_id']}")
 
                     # Generate a unique order number if not provided
-                    if not 'order_number' in order_data or not order_data['order_number']:
+                    if 'order_number' in order_data or order_data['order_number']:
                         # Generate a unique order number
                         today = datetime.now().strftime('%Y%m%d')
                         count = BrokenOrder.objects.filter(order_number__contains=f"BO-{today}").count() + 1
