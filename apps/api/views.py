@@ -12,6 +12,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.db import models
 
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
