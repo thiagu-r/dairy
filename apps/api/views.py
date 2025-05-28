@@ -77,7 +77,13 @@ from .serializers import (
     DeliveryTeamSerializer,
     DistributorSerializer,
     DeliveryTeamMemberSerializer,
-    DailyDeliveryTeamSerializer
+    DailyDeliveryTeamSerializer,
+    AdminSnapshotSerializer,
+    OrderStatusHeatmapSerializer,
+    BalanceAgingReportSerializer,
+    ProductMovementChartSerializer,
+    TopSellersSerializer,
+    RoutePerformanceSerializer
 )
 
 from .filters import (
@@ -2218,3 +2224,289 @@ class DeliveryReportAPIView(APIView):
             'public_sales': public_sales_data,
             'broken_orders': broken_orders_data,
         })
+
+@method_decorator(csrf_exempt, name='dispatch')
+class AdminSnapshotAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        today = timezone.now().date()
+        total_orders = DeliveryOrder.objects.filter(delivery_date=today).count()
+        delivered_orders = DeliveryOrder.objects.filter(delivery_date=today, status='completed').count()
+        pending_orders = DeliveryOrder.objects.filter(delivery_date=today, status='pending').count()
+        total_sales = PublicSale.objects.filter(sale_date=today).aggregate(total=models.Sum('total_price'))['total'] or 0
+
+        data = {
+            'total_orders': total_orders,
+            'delivered_orders': delivered_orders,
+            'pending_orders': pending_orders,
+            'total_sales': total_sales,
+        }
+        serializer = AdminSnapshotSerializer(data)
+        return Response(serializer.data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class OrderStatusHeatmapAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Get date from query params, default to today
+        date_str = request.query_params.get('date')
+        if date_str:
+            try:
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except Exception:
+                return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+        else:
+            date_obj = timezone.now().date()
+
+        # Get all possible statuses from the model
+        statuses = [s[0] for s in DeliveryOrder.ORDER_STATUS]
+
+        # Query all orders for the date
+        orders = DeliveryOrder.objects.filter(delivery_date=date_obj)
+
+        # Group by route and status
+        from collections import defaultdict
+        route_status_counts = defaultdict(lambda: {status: 0 for status in statuses})
+        route_names = {}
+        for order in orders.select_related('route'):
+            route_id = order.route_id
+            route_name = order.route.name if order.route else str(route_id)
+            route_names[route_id] = route_name
+            route_status_counts[route_id][order.status] += 1
+
+        # Build heatmap list
+        heatmap = []
+        for route_id, status_counts in route_status_counts.items():
+            entry = {'route': route_names[route_id]}
+            entry.update(status_counts)
+            heatmap.append(entry)
+
+        data = {
+            'date': date_obj,
+            'statuses': statuses,
+            'heatmap': heatmap,
+        }
+        serializer = OrderStatusHeatmapSerializer(data)
+        return Response(serializer.data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class BalanceAgingReportAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'week')
+        today = timezone.now().date()
+
+        # Only consider orders with overdue balances (total_balance > 0 and delivery_date < today)
+        overdue_orders = DeliveryOrder.objects.filter(total_balance__gt=0, delivery_date__lt=today)
+
+        from collections import defaultdict
+        from django.db.models.functions import TruncWeek, TruncMonth
+        from django.db.models import Sum
+
+        sellers = {}
+        if period == 'month':
+            # Group by seller and month
+            orders = overdue_orders.annotate(period=TruncMonth('delivery_date'))
+        else:
+            # Default: group by seller and week
+            orders = overdue_orders.annotate(period=TruncWeek('delivery_date'))
+
+        # Aggregate balances by seller and period
+        seller_period_balances = defaultdict(lambda: defaultdict(lambda: 0))
+        seller_names = {}
+        for order in orders.select_related('seller'):
+            seller_id = order.seller_id
+            seller_name = order.seller.store_name if order.seller else str(seller_id)
+            seller_names[seller_id] = seller_name
+            period_label = order.period.strftime('%Y-%m') if period == 'month' else order.period.strftime('%Y-%W')
+            seller_period_balances[seller_id][period_label] += float(order.total_balance)
+
+        # Build sellers list
+        sellers_list = []
+        for seller_id, periods in seller_period_balances.items():
+            total_balance = sum(periods.values())
+            sellers_list.append({
+                'seller_id': seller_id,
+                'seller_name': seller_names[seller_id],
+                'total_balance': total_balance,
+                'overdue_breakdown': periods
+            })
+
+        data = {
+            'period': period,
+            'sellers': sellers_list,
+        }
+        serializer = BalanceAgingReportSerializer(data)
+        return Response(serializer.data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ProductMovementChartAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'week')
+
+        from collections import defaultdict
+        from django.db.models.functions import TruncWeek, TruncMonth
+        from django.db.models import Sum, F
+
+        # Join DeliveryOrderItem with DeliveryOrder for delivery_date
+        if period == 'month':
+            items = DeliveryOrderItem.objects.select_related('product', 'delivery_order').annotate(period=TruncMonth('delivery_order__delivery_date'))
+        else:
+            items = DeliveryOrderItem.objects.select_related('product', 'delivery_order').annotate(period=TruncWeek('delivery_order__delivery_date'))
+
+        # Aggregate by product and period
+        product_period_qty = defaultdict(lambda: defaultdict(lambda: 0))
+        product_period_value = defaultdict(lambda: defaultdict(lambda: 0))
+        product_names = {}
+        for item in items:
+            product_id = item.product_id
+            product_name = item.product.name if item.product else str(product_id)
+            product_names[product_id] = product_name
+            period_label = item.period.strftime('%Y-%m') if period == 'month' else item.period.strftime('%Y-%W')
+            product_period_qty[product_id][period_label] += float(item.delivered_quantity)
+            product_period_value[product_id][period_label] += float(item.total_price)
+
+        # Build products list
+        products_list = []
+        for product_id in product_period_qty:
+            total_quantity = sum(product_period_qty[product_id].values())
+            total_value = sum(product_period_value[product_id].values())
+            products_list.append({
+                'product_id': product_id,
+                'product_name': product_names[product_id],
+                'total_quantity': total_quantity,
+                'total_value': total_value,
+                'movement_breakdown': {
+                    'quantity': product_period_qty[product_id],
+                    'value': product_period_value[product_id],
+                }
+            })
+
+        data = {
+            'period': period,
+            'products': products_list,
+        }
+        serializer = ProductMovementChartSerializer(data)
+        return Response(serializer.data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class TopSellersAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'week')
+
+        from collections import defaultdict
+        from django.db.models.functions import TruncWeek, TruncMonth
+        from django.db.models import Sum, F
+
+        # Join DeliveryOrderItem with DeliveryOrder for delivery_date and seller
+        if period == 'month':
+            items = DeliveryOrderItem.objects.select_related('delivery_order', 'product').annotate(period=TruncMonth('delivery_order__delivery_date'))
+        else:
+            items = DeliveryOrderItem.objects.select_related('delivery_order', 'product').annotate(period=TruncWeek('delivery_order__delivery_date'))
+
+        # Aggregate by seller and period
+        seller_period_qty = defaultdict(lambda: defaultdict(lambda: 0))
+        seller_period_value = defaultdict(lambda: defaultdict(lambda: 0))
+        seller_names = {}
+        for item in items:
+            delivery_order = item.delivery_order
+            if not delivery_order or not delivery_order.seller:
+                continue
+            seller_id = delivery_order.seller_id
+            seller_name = delivery_order.seller.store_name
+            seller_names[seller_id] = seller_name
+            period_label = item.period.strftime('%Y-%m') if period == 'month' else item.period.strftime('%Y-%W')
+            seller_period_qty[seller_id][period_label] += float(item.delivered_quantity)
+            seller_period_value[seller_id][period_label] += float(item.total_price)
+
+        # Build sellers list
+        sellers_list = []
+        for seller_id in seller_period_qty:
+            total_quantity = sum(seller_period_qty[seller_id].values())
+            total_value = sum(seller_period_value[seller_id].values())
+            sellers_list.append({
+                'seller_id': seller_id,
+                'seller_name': seller_names[seller_id],
+                'total_quantity': total_quantity,
+                'total_value': total_value,
+                'delivery_breakdown': {
+                    'quantity': seller_period_qty[seller_id],
+                    'value': seller_period_value[seller_id],
+                }
+            })
+
+        # Sort by total_quantity descending
+        sellers_list.sort(key=lambda x: x['total_quantity'], reverse=True)
+
+        data = {
+            'period': period,
+            'sellers': sellers_list,
+        }
+        serializer = TopSellersSerializer(data)
+        return Response(serializer.data)
+
+@method_decorator(csrf_exempt, name='dispatch')
+class RoutePerformanceAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get('period', 'week')
+
+        from collections import defaultdict
+        from django.db.models.functions import TruncWeek, TruncMonth
+        from django.db.models import Sum, Count, Q
+
+        # Annotate DeliveryOrder with period
+        if period == 'month':
+            orders = DeliveryOrder.objects.select_related('route').annotate(period=TruncMonth('delivery_date'))
+        else:
+            orders = DeliveryOrder.objects.select_related('route').annotate(period=TruncWeek('delivery_date'))
+
+        # Aggregate by route and period
+        route_period_stats = defaultdict(lambda: defaultdict(lambda: {'total_deliveries': 0, 'on_time_deliveries': 0, 'total_delivered_quantity': 0}))
+        route_names = {}
+        for order in orders:
+            route_id = order.route_id
+            route_name = order.route.name if order.route else str(route_id)
+            route_names[route_id] = route_name
+            period_label = order.period.strftime('%Y-%m') if period == 'month' else order.period.strftime('%Y-%W')
+            route_period_stats[route_id][period_label]['total_deliveries'] += 1
+            if order.actual_delivery_date and order.actual_delivery_date == order.delivery_date:
+                route_period_stats[route_id][period_label]['on_time_deliveries'] += 1
+            # Sum delivered_quantity from items
+            delivered_qty = order.items.aggregate(total=Sum('delivered_quantity'))['total'] or 0
+            route_period_stats[route_id][period_label]['total_delivered_quantity'] += float(delivered_qty)
+
+        # Build routes list
+        routes_list = []
+        for route_id in route_period_stats:
+            total_deliveries = sum(stats['total_deliveries'] for stats in route_period_stats[route_id].values())
+            on_time_deliveries = sum(stats['on_time_deliveries'] for stats in route_period_stats[route_id].values())
+            total_delivered_quantity = sum(stats['total_delivered_quantity'] for stats in route_period_stats[route_id].values())
+            on_time_percent = (on_time_deliveries / total_deliveries * 100) if total_deliveries else 0
+            routes_list.append({
+                'route_id': route_id,
+                'route_name': route_names[route_id],
+                'total_deliveries': total_deliveries,
+                'on_time_deliveries': on_time_deliveries,
+                'on_time_percent': round(on_time_percent, 2),
+                'total_delivered_quantity': total_delivered_quantity,
+                'performance_breakdown': route_period_stats[route_id],
+            })
+
+        # Sort by total_deliveries descending
+        routes_list.sort(key=lambda x: x['total_deliveries'], reverse=True)
+
+        data = {
+            'period': period,
+            'routes': routes_list,
+        }
+        serializer = RoutePerformanceSerializer(data)
+        return Response(serializer.data)

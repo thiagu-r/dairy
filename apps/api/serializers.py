@@ -559,6 +559,33 @@ class PendingCountSerializer(serializers.Serializer):
     payments = serializers.IntegerField()
     total = serializers.IntegerField()
 
+class AdminSnapshotSerializer(serializers.Serializer):
+    total_orders = serializers.IntegerField()
+    delivered_orders = serializers.IntegerField()
+    pending_orders = serializers.IntegerField()
+    total_sales = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+class OrderStatusHeatmapSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    statuses = serializers.ListField(child=serializers.CharField())
+    heatmap = serializers.ListField(child=serializers.DictField())
+
+class BalanceAgingReportSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    sellers = serializers.ListField(child=serializers.DictField())
+
+class ProductMovementChartSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    products = serializers.ListField(child=serializers.DictField())
+
+class TopSellersSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    sellers = serializers.ListField(child=serializers.DictField())
+
+class RoutePerformanceSerializer(serializers.Serializer):
+    period = serializers.CharField()
+    routes = serializers.ListField(child=serializers.DictField())
+
 class SyncStatusSerializer(serializers.Serializer):
     last_sync = serializers.DateTimeField()
     pending_count = PendingCountSerializer()

@@ -43,6 +43,8 @@ from rest_framework_simplejwt.views import (
     TokenVerifyView,
 )
 
+from .views import AdminSnapshotAPIView, OrderStatusHeatmapAPIView, BalanceAgingReportAPIView, ProductMovementChartAPIView, TopSellersAPIView, RoutePerformanceAPIView
+
 urlpatterns = [
     # Authentication endpoints
     path('auth/login/', views.LoginView.as_view(), name='login'),
@@ -69,6 +71,12 @@ urlpatterns = [
     path('sync/denominations/', CashDenominationSyncView.as_view(), name='sync-denominations'),
 
     # Router URLs
+    path('admin/snapshot/', AdminSnapshotAPIView.as_view(), name='admin-snapshot'),
+    path('admin/order-status-heatmap/', OrderStatusHeatmapAPIView.as_view(), name='admin-order-status-heatmap'),
+    path('admin/balance-aging/', BalanceAgingReportAPIView.as_view(), name='admin-balance-aging'),
+    path('admin/product-movement/', ProductMovementChartAPIView.as_view(), name='admin-product-movement'),
+    path('admin/top-sellers/', TopSellersAPIView.as_view(), name='admin-top-sellers'),
+    path('admin/route-performance/', RoutePerformanceAPIView.as_view(), name='admin-route-performance'),
     path('', include(router.urls)),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
