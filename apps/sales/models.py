@@ -189,6 +189,20 @@ class SalesOrder(models.Model):
             # Recalculate delivery order totals
             delivery_order.recalculate_totals()
 
+            # Ensure every active product has a DeliveryOrderItem (with 0 quantity if not in the order)
+            all_products = Product.objects.filter(is_active=True)
+            delivery_order_product_ids = set(DeliveryOrderItem.objects.filter(delivery_order=delivery_order).values_list('product_id', flat=True))
+            for product in all_products:
+                if product.id not in delivery_order_product_ids:
+                    DeliveryOrderItem.objects.create(
+                        delivery_order=delivery_order,
+                        product=product,
+                        ordered_quantity=Decimal('0.000'),
+                        delivered_quantity=Decimal('0.000'),
+                        unit_price=get_product_price(product, self.seller, self.delivery_date) or Decimal('0.00'),
+                        total_price=Decimal('0.00')
+                    )
+
             return delivery_order
         except DeliveryOrder.DoesNotExist:
             return None

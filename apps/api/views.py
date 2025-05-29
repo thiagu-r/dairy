@@ -194,10 +194,12 @@ class SellerViewSet(viewsets.ModelViewSet):
     pagination_class = PageNumberPagination
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user, updated_by=self.request.user)
+        instance.update_delivery_order_items()
 
     def perform_update(self, serializer):
-        serializer.save(updated_by=self.request.user)
+        instance = serializer.save(updated_by=self.request.user)
+        instance.update_delivery_order_items()
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
