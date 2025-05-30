@@ -44,7 +44,8 @@ from apps.delivery.models import (
     DeliveryTeam,
     Distributor,
     DeliveryTeamMember,
-    DailyDeliveryTeam
+    DailyDeliveryTeam,
+    DeliveryLocation
     # Payment
 )
 
@@ -84,7 +85,8 @@ from .serializers import (
     BalanceAgingReportSerializer,
     ProductMovementChartSerializer,
     TopSellersSerializer,
-    RoutePerformanceSerializer
+    RoutePerformanceSerializer,
+    DeliveryLocationSerializer
 )
 
 from .filters import (
@@ -2513,3 +2515,23 @@ class RoutePerformanceAPIView(APIView):
         }
         serializer = RoutePerformanceSerializer(data)
         return Response(serializer.data)
+
+class DeliveryLocationViewSet(viewsets.ModelViewSet):
+    queryset = DeliveryLocation.objects.all()
+    serializer_class = DeliveryLocationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['seller', 'route', 'delivery_order']
+    search_fields = []
+    ordering_fields = ['timestamp', 'seller', 'route']
+    ordering = ['-timestamp']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        date = self.request.query_params.get('date')
+        if date:
+            queryset = queryset.filter(timestamp__date=date)
+        delivery_order_date = self.request.query_params.get('delivery_order_date')
+        if delivery_order_date:
+            queryset = queryset.filter(delivery_order__delivery_date=delivery_order_date)
+        return queryset

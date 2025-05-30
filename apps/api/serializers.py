@@ -23,7 +23,8 @@ from apps.delivery.models import (
     DeliveryTeam,
     Distributor,
     DeliveryTeamMember,
-    DailyDeliveryTeam
+    DailyDeliveryTeam,
+    DeliveryLocation
     # Payment
 )
 # Authentication Serializers
@@ -539,6 +540,19 @@ class CashDenominationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         denomination = CashDenomination.objects.create(**validated_data)
         return denomination
+
+class DeliveryLocationSerializer(serializers.ModelSerializer):
+    seller_name = serializers.ReadOnlyField(source='seller.store_name')
+    route_name = serializers.ReadOnlyField(source='route.name')
+    delivery_order_number = serializers.ReadOnlyField(source='delivery_order.order_number')
+    created_by_name = serializers.ReadOnlyField(source='created_by.get_full_name')
+
+    class Meta:
+        model = DeliveryLocation
+        fields = (
+            'id', 'seller', 'seller_name', 'route', 'route_name', 'delivery_order', 'delivery_order_number',
+            'latitude', 'longitude', 'timestamp', 'created_by', 'created_by_name', 'local_id', 'created_at', 'updated_at'
+        )
 
 # Sync Serializers
 class SyncDataSerializer(serializers.Serializer):

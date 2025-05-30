@@ -36,6 +36,7 @@ router.register(r'delivery-teams', views.DeliveryTeamViewSet),
 router.register(r'distributors', views.DistributorViewSet),
 router.register(r'delivery-team-members', views.DeliveryTeamMemberViewSet),
 router.register(r'daily-delivery-teams', views.DailyDeliveryTeamViewSet),
+router.register(r'delivery-locations', views.DeliveryLocationViewSet),
 
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
